@@ -147,7 +147,7 @@ class TestResponseModels:
             "datasetId": "gtex_v8",
             "gencodeId": "ENSG00000012048.20",
             "geneSymbol": "BRCA1",
-            "unit": "TPM"
+            "unit": "TPM",
         }
 
         expression = MedianGeneExpression(**expression_data)

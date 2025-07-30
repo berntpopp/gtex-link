@@ -6,7 +6,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from gtex_link.exceptions import GTExAPIError
-from gtex_link.models import ServiceInfo, Organization
+from gtex_link.models import Organization, ServiceInfo
 
 
 class TestHealthEndpoints:
@@ -34,7 +34,7 @@ class TestHealthEndpoints:
             description="High-performance API for GTEx Portal data",
             contact_url="https://gtexportal.org/contact",
             documentation_url="https://gtexportal.org/api/v2/docs",
-            environment="production"
+            environment="production",
         )
         mock_service_dep.return_value = mock_service
 

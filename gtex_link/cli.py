@@ -217,7 +217,7 @@ async def run_server(
 
 
 def main() -> None:
-    """Main CLI entry point."""
+    """Execute CLI commands and handle arguments."""
     parser = create_parser()
     args = parser.parse_args()
 

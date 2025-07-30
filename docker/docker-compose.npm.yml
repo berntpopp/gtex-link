@@ -1,0 +1,61 @@
+# NPM (Nginx Proxy Manager) production deployment
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.npm.yml up -d
+
+services:
+  gtex-link:
+    # Production environment optimized for NPM
+    environment:
+      GTEX_LINK_LOG_LEVEL: INFO
+      GTEX_LINK_LOG_FORMAT: json
+      GTEX_LINK_RELOAD: "false"
+      GTEX_LINK_CACHE_SIZE: 2000
+      GTEX_LINK_CACHE_TTL: 7200
+      GTEX_LINK_API_RATE_LIMIT_PER_SECOND: 5.0
+      
+      # NPM-specific environment variables (loaded from .env.npm)
+      GTEX_LINK_PUBLIC_DOMAIN: "${GTEX_LINK_PUBLIC_DOMAIN}"
+      GTEX_LINK_PUBLIC_URL: "${GTEX_LINK_PUBLIC_URL}"
+      GTEX_LINK_CORS_ORIGINS: "${GTEX_LINK_CORS_ORIGINS}"
+    
+    # Remove port mapping - NPM handles external access
+    ports: []
+    
+    # Connect to NPM's shared network
+    networks:
+      - npm_shared
+      - default
+    
+    # Production command
+    command: ["gtex-link", "server", "--host", "0.0.0.0", "--port", "8000"]
+    
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    # Production health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    # Production logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+        labels: "service=gtex-link,environment=production,proxy=npm"
+
+# NPM shared network configuration
+networks:
+  npm_shared:
+    external: true
+    name: "${NPM_SHARED_NETWORK_NAME:-npm_default}"

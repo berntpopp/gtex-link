@@ -109,7 +109,7 @@ class Exon(BaseModel):
 
 class SampleSummary(BaseModel):
     """Sample summary statistics."""
-    
+
     total_count: int = Field(alias="totalCount")
     female: dict[str, int | float]
     male: dict[str, int | float]

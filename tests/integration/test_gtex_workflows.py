@@ -2,6 +2,7 @@
 
 import pytest
 
+from gtex_link.exceptions import GTExAPIError, ValidationError
 from gtex_link.models import (
     Chromosome,
     DatasetId,
@@ -575,7 +576,7 @@ class TestErrorHandlingIntegrationWorkflows:
             try:
                 result = await service.search_genes(query=gene)
                 successful_searches.append((gene, result))
-            except Exception as e:
+            except (GTExAPIError, ValidationError, ValueError) as e:
                 failed_searches.append((gene, str(e)))
 
         # Continue with successful genes for expression analysis

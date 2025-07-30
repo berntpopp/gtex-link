@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from gtex_link.exceptions import GTExAPIError
+
 from .dependencies import LoggerDep, ServiceDep
 
 router = APIRouter(prefix="/api/health", tags=["Health"])
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/api/health", tags=["Health"])
     response_model=dict[str, str],
 )
 async def health_check() -> dict[str, str]:
-    """Basic health check endpoint."""
+    """Check service health status."""
     return {"status": "healthy", "service": "gtex-link"}
 
 

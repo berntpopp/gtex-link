@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 
 from gtex_link.exceptions import GTExAPIError, ValidationError
 from gtex_link.models import (
-    DatasetId,
     EqtlGeneRequest,
     PaginatedEqtlGeneResponse,
     PaginatedSGeneResponse,
@@ -15,8 +14,8 @@ from gtex_link.models import (
     SGeneRequest,
     SingleTissueEqtlRequest,
     SingleTissueSqtlRequest,
-    TissueSiteDetailId,
 )
+
 from .dependencies import LoggerDep, ServiceDep
 
 router = APIRouter(prefix="/api/association", tags=["Association"])
@@ -32,60 +31,10 @@ router = APIRouter(prefix="/api/association", tags=["Association"])
 async def get_single_tissue_eqtl(
     service: ServiceDep,
     logger: LoggerDep,
-    gencode_id: list[str] | None = Query(
-        None,
-        alias="gencodeId",
-        description="List of Gencode IDs",
-    ),
-    gene_symbol: list[str] | None = Query(
-        None,
-        alias="geneSymbol",
-        description="List of gene symbols",
-    ),
-    variant_id: list[str] | None = Query(
-        None,
-        alias="variantId",
-        description="List of variant IDs",
-    ),
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Query(
-        None,
-        alias="tissueSiteDetailId",
-        description="List of tissue site detail IDs",
-    ),
-    dataset_id: DatasetId = Query(
-        DatasetId.GTEX_V8,
-        alias="datasetId",
-        description="Dataset identifier",
-    ),
-    pvalue_threshold: float | None = Query(
-        None,
-        alias="pValueThreshold",
-        gt=0,
-        le=1,
-        description="P-value threshold for filtering results",
-    ),
-    page: int = Query(0, ge=0, description="Page number (0-based)"),
-    page_size: int = Query(
-        250,
-        ge=1,
-        le=1000,
-        alias="itemsPerPage",
-        description="Number of items per page",
-    ),
+    request: SingleTissueEqtlRequest = Depends(),
 ) -> PaginatedSingleTissueEqtlResponse:
     """Get single tissue eQTL data."""
     try:
-        request = SingleTissueEqtlRequest(
-            gencode_id=gencode_id,
-            gene_symbol=gene_symbol,
-            variant_id=variant_id,
-            tissue_site_detail_id=tissue_site_detail_id,
-            dataset_id=dataset_id,
-            pvalue_threshold=pvalue_threshold,
-            page=page,
-            items_per_page=page_size,
-        )
-
         logger.info("Get single tissue eQTL request", **request.model_dump(exclude_none=True))
 
         result = await service.get_single_tissue_eqtl(request)
@@ -117,54 +66,10 @@ async def get_single_tissue_eqtl(
 async def get_single_tissue_sqtl(
     service: ServiceDep,
     logger: LoggerDep,
-    phenotype_id: list[str] | None = Query(
-        None,
-        alias="phenotypeId",
-        description="List of phenotype IDs",
-    ),
-    variant_id: list[str] | None = Query(
-        None,
-        alias="variantId",
-        description="List of variant IDs",
-    ),
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Query(
-        None,
-        alias="tissueSiteDetailId",
-        description="List of tissue site detail IDs",
-    ),
-    dataset_id: DatasetId = Query(
-        DatasetId.GTEX_V8,
-        alias="datasetId",
-        description="Dataset identifier",
-    ),
-    pvalue_threshold: float | None = Query(
-        None,
-        alias="pValueThreshold",
-        gt=0,
-        le=1,
-        description="P-value threshold for filtering results",
-    ),
-    page: int = Query(0, ge=0, description="Page number (0-based)"),
-    page_size: int = Query(
-        250,
-        ge=1,
-        le=1000,
-        alias="itemsPerPage",
-        description="Number of items per page",
-    ),
+    request: SingleTissueSqtlRequest = Depends(),
 ) -> PaginatedSingleTissueSqtlResponse:
     """Get single tissue sQTL data."""
     try:
-        request = SingleTissueSqtlRequest(
-            phenotype_id=phenotype_id,
-            variant_id=variant_id,
-            tissue_site_detail_id=tissue_site_detail_id,
-            dataset_id=dataset_id,
-            pvalue_threshold=pvalue_threshold,
-            page=page,
-            items_per_page=page_size,
-        )
-
         logger.info("Get single tissue sQTL request", **request.model_dump(exclude_none=True))
 
         result = await service.get_single_tissue_sqtl(request)
@@ -196,46 +101,10 @@ async def get_single_tissue_sqtl(
 async def get_egenes(
     service: ServiceDep,
     logger: LoggerDep,
-    gencode_id: list[str] | None = Query(
-        None,
-        alias="gencodeId",
-        description="List of Gencode IDs",
-    ),
-    gene_symbol: list[str] | None = Query(
-        None,
-        alias="geneSymbol",
-        description="List of gene symbols",
-    ),
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Query(
-        None,
-        alias="tissueSiteDetailId",
-        description="List of tissue site detail IDs",
-    ),
-    dataset_id: DatasetId = Query(
-        DatasetId.GTEX_V8,
-        alias="datasetId",
-        description="Dataset identifier",
-    ),
-    page: int = Query(0, ge=0, description="Page number (0-based)"),
-    page_size: int = Query(
-        250,
-        ge=1,
-        le=1000,
-        alias="itemsPerPage",
-        description="Number of items per page",
-    ),
+    request: EqtlGeneRequest = Depends(),
 ) -> PaginatedEqtlGeneResponse:
     """Get eGenes data."""
     try:
-        request = EqtlGeneRequest(
-            gencode_id=gencode_id,
-            gene_symbol=gene_symbol,
-            tissue_site_detail_id=tissue_site_detail_id,
-            dataset_id=dataset_id,
-            page=page,
-            items_per_page=page_size,
-        )
-
         logger.info("Get eGenes request", **request.model_dump(exclude_none=True))
 
         result = await service.get_egenes(request)
@@ -265,46 +134,10 @@ async def get_egenes(
 async def get_sgenes(
     service: ServiceDep,
     logger: LoggerDep,
-    gencode_id: list[str] | None = Query(
-        None,
-        alias="gencodeId",
-        description="List of Gencode IDs",
-    ),
-    gene_symbol: list[str] | None = Query(
-        None,
-        alias="geneSymbol",
-        description="List of gene symbols",
-    ),
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Query(
-        None,
-        alias="tissueSiteDetailId",
-        description="List of tissue site detail IDs",
-    ),
-    dataset_id: DatasetId = Query(
-        DatasetId.GTEX_V8,
-        alias="datasetId",
-        description="Dataset identifier",
-    ),
-    page: int = Query(0, ge=0, description="Page number (0-based)"),
-    page_size: int = Query(
-        250,
-        ge=1,
-        le=1000,
-        alias="itemsPerPage",
-        description="Number of items per page",
-    ),
+    request: SGeneRequest = Depends(),
 ) -> PaginatedSGeneResponse:
     """Get sGenes data."""
     try:
-        request = SGeneRequest(
-            gencode_id=gencode_id,
-            gene_symbol=gene_symbol,
-            tissue_site_detail_id=tissue_site_detail_id,
-            dataset_id=dataset_id,
-            page=page,
-            items_per_page=page_size,
-        )
-
         logger.info("Get sGenes request", **request.model_dump(exclude_none=True))
 
         result = await service.get_sgenes(request)

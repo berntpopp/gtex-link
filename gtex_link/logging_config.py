@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
-from pathlib import Path
 import sys
 from typing import TYPE_CHECKING, Any
 
@@ -85,7 +84,7 @@ def configure_structlog() -> None:
     shared_processors = [
         structlog.stdlib.filter_by_level,
         structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level, 
+        structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),

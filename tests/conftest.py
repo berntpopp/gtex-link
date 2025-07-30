@@ -339,7 +339,7 @@ def genomic_region(request):
 # Error simulation fixtures
 @pytest.fixture
 def api_error_responses():
-    """Common API error responses for testing."""
+    """Provide common API error responses for testing."""
     return {
         "rate_limit": {
             "status_code": 429,

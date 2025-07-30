@@ -7,7 +7,7 @@ from gtex_link.app import mcp_app
 
 
 async def main() -> None:
-    """Main entry point for MCP server."""
+    """Run the MCP server."""
     # Set environment variable to ensure stdio mode
     os.environ["TRANSPORT"] = "stdio"
 

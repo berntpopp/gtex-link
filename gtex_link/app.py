@@ -52,7 +52,7 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(reference_router)
-    app.include_router(expression_router) 
+    app.include_router(expression_router)
     app.include_router(association_router)
     app.include_router(health_router)
 
@@ -78,10 +78,22 @@ def create_mcp_app() -> FastMCP:
     """Create FastMCP server from FastAPI app."""
     app = create_app()
 
-    # MCP tool name mappings for GTEx functions
+    # MCP tool name mappings for GTEx functions (user-friendly names)
+    mcp_custom_names = {
+        "search_genes": "search_gtex_genes",
+        "get_genes": "get_gene_information", 
+        "get_transcripts": "get_transcript_information",
+        "get_median_gene_expression": "get_median_expression_levels",
+        "get_gene_expression": "get_individual_expression_data",
+        "get_top_expressed_genes": "get_top_expressed_genes_by_tissue",
+        "get_single_tissue_eqtl": "get_expression_qtl_associations",
+        "get_single_tissue_sqtl": "get_splicing_qtl_associations",
+        "get_egenes": "get_expression_qtl_genes",
+        "get_sgenes": "get_splicing_qtl_genes",
+    }
 
     # Route mappings for MCP tools (exclude utility endpoints)
-    [
+    mcp_route_maps = [
         # Exclude health and monitoring endpoints
         RouteMap(pattern=r"^/api/health.*$", mcp_type=MCPType.EXCLUDE),
         # Exclude root and docs endpoints
@@ -91,12 +103,23 @@ def create_mcp_app() -> FastMCP:
         RouteMap(pattern=r"^/redoc$", mcp_type=MCPType.EXCLUDE),
     ]
 
-    # Create FastMCP instance with basic configuration
-    return FastMCP(app)
+    # Create FastMCP instance with proper configuration
+    return FastMCP.from_fastapi(
+        app=app,
+        name="gtex-link",
+        mcp_names=mcp_custom_names,
+        route_maps=mcp_route_maps,
+    )
 
 
-# Create default app instance
+# Create application instances
 app = create_app()
 
-# Create MCP app instance
-mcp_app = create_mcp_app()
+# Create MCP app conditionally to avoid schema generation issues
+try:
+    mcp_app = create_mcp_app()
+except Exception as e:
+    import warnings
+
+    warnings.warn(f"MCP app creation failed: {e}", UserWarning)
+    mcp_app = None

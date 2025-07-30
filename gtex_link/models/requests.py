@@ -44,7 +44,11 @@ class GeneSearchRequest(BaseRequest):
 class GeneRequest(BaseRequest):
     """Request for gene endpoint."""
 
-    gencode_id: list[str] | None = Field(None, alias="geneId", description="List of gene IDs (gene symbols, versioned or unversioned GENCODE IDs)")
+    gencode_id: list[str] | None = Field(
+        None,
+        alias="geneId",
+        description="List of gene IDs (gene symbols, versioned or unversioned GENCODE IDs)",
+    )
     gene_symbol: list[str] | None = Field(
         None, alias="geneSymbol", description="List of gene symbols"
     )

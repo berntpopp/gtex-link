@@ -13,8 +13,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app user
-RUN groupadd -r gtex && useradd --no-log-init -r -g gtex gtex
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Set work directory
 WORKDIR /app
@@ -22,8 +23,8 @@ WORKDIR /app
 # Copy requirements
 COPY pyproject.toml ./
 
-# Install Python dependencies
-RUN pip install -e .
+# Install Python dependencies in virtual environment
+RUN pip install --upgrade pip && pip install -e .
 
 # Production stage
 FROM python:3.11-slim as production
@@ -32,7 +33,8 @@ FROM python:3.11-slim as production
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     GTEX_LINK_HOST=0.0.0.0 \
-    GTEX_LINK_PORT=8000
+    GTEX_LINK_PORT=8000 \
+    PATH="/opt/venv/bin:$PATH"
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -45,9 +47,8 @@ RUN groupadd -r gtex && useradd --no-log-init -r -g gtex gtex
 # Set work directory
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
 
 # Copy application code
 COPY --chown=gtex:gtex . .

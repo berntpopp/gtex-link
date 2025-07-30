@@ -185,3 +185,23 @@ cython_debug/
 CLAUDE.md
 PLAN.md
 TODO.md
+
+# Debug and temporary files
+debug_*.py
+test_*_fixes.py
+*_debug.py
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini

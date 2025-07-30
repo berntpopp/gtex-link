@@ -70,6 +70,96 @@ class GTExService:
         # Initialize centralized cache manager
         self.cache = create_service_cache_decorator(logger)
 
+        # Apply caching decorators to all data-fetching methods
+        self._setup_cached_methods()
+
+    def _setup_cached_methods(self) -> None:
+        """Apply caching decorators to all data-fetching methods."""
+        # Apply decorators using cache config TTL and size
+        default_maxsize = self.cache_config.size
+        default_ttl = self.cache_config.ttl
+
+        # Service info (rarely changes)
+        self.get_service_info = self.cache.cached(maxsize=1, ttl=1800, key_pattern="service_info")(
+            self._get_service_info_impl
+        )
+
+        # Reference endpoints
+        self.search_genes = self.cache.cached(
+            maxsize=min(500, default_maxsize), ttl=default_ttl, key_pattern="gene_search"
+        )(self._search_genes_impl)
+
+        self.get_genes = self.cache.cached(
+            maxsize=min(1000, default_maxsize), ttl=default_ttl * 2, key_pattern="genes"
+        )(self._get_genes_impl)
+
+        self.get_transcripts = self.cache.cached(
+            maxsize=min(500, default_maxsize), ttl=default_ttl * 2, key_pattern="transcripts"
+        )(self._get_transcripts_impl)
+
+        self.get_exons = self.cache.cached(
+            maxsize=min(300, default_maxsize), ttl=default_ttl * 2, key_pattern="exons"
+        )(self._get_exons_impl)
+
+        # Expression endpoints
+        self.get_median_gene_expression = self.cache.cached(
+            maxsize=min(800, default_maxsize), ttl=default_ttl, key_pattern="median_expression"
+        )(self._get_median_gene_expression_impl)
+
+        self.get_gene_expression = self.cache.cached(
+            maxsize=min(600, default_maxsize), ttl=default_ttl, key_pattern="gene_expression"
+        )(self._get_gene_expression_impl)
+
+        self.get_top_expressed_genes = self.cache.cached(
+            maxsize=min(400, default_maxsize), ttl=default_ttl, key_pattern="top_genes"
+        )(self._get_top_expressed_genes_impl)
+
+        # Association endpoints
+        self.get_single_tissue_eqtl = self.cache.cached(
+            maxsize=min(600, default_maxsize), ttl=default_ttl, key_pattern="eqtl"
+        )(self._get_single_tissue_eqtl_impl)
+
+        self.get_single_tissue_sqtl = self.cache.cached(
+            maxsize=min(600, default_maxsize), ttl=default_ttl, key_pattern="sqtl"
+        )(self._get_single_tissue_sqtl_impl)
+
+        self.get_egenes = self.cache.cached(
+            maxsize=min(500, default_maxsize), ttl=default_ttl, key_pattern="egenes"
+        )(self._get_egenes_impl)
+
+        self.get_sgenes = self.cache.cached(
+            maxsize=min(500, default_maxsize), ttl=default_ttl, key_pattern="sgenes"
+        )(self._get_sgenes_impl)
+
+        self.get_independent_eqtl = self.cache.cached(
+            maxsize=min(400, default_maxsize), ttl=default_ttl, key_pattern="independent_eqtl"
+        )(self._get_independent_eqtl_impl)
+
+        self.get_metasoft = self.cache.cached(
+            maxsize=min(300, default_maxsize), ttl=default_ttl, key_pattern="metasoft"
+        )(self._get_metasoft_impl)
+
+        # Dataset endpoints
+        self.get_tissue_site_details = self.cache.cached(
+            maxsize=min(200, default_maxsize), ttl=default_ttl * 2, key_pattern="tissues"
+        )(self._get_tissue_site_details_impl)
+
+        self.get_subjects = self.cache.cached(
+            maxsize=min(400, default_maxsize), ttl=default_ttl * 2, key_pattern="subjects"
+        )(self._get_subjects_impl)
+
+        self.get_samples = self.cache.cached(
+            maxsize=min(600, default_maxsize), ttl=default_ttl * 2, key_pattern="samples"
+        )(self._get_samples_impl)
+
+        self.get_variants = self.cache.cached(
+            maxsize=min(800, default_maxsize), ttl=default_ttl, key_pattern="variants"
+        )(self._get_variants_impl)
+
+        self.get_variants_by_location = self.cache.cached(
+            maxsize=min(600, default_maxsize), ttl=default_ttl, key_pattern="variants_location"
+        )(self._get_variants_by_location_impl)
+
     def _generate_cache_key(self, operation: str, **kwargs: Any) -> str:
         """Generate cache key for operation.
 
@@ -90,22 +180,22 @@ class GTExService:
         """Get comprehensive cache statistics."""
         return self.cache.cache_stats
 
-    # Service info endpoint
-    async def get_service_info(self) -> ServiceInfo:
-        """Get GTEx Portal service information with caching."""
+    # Service info endpoint (implementation method called by cached version)
+    async def _get_service_info_impl(self) -> ServiceInfo:
+        """Get GTEx Portal service information."""
         self.logger.info("Fetching GTEx service information") if self.logger else None
         raw_data = await self.client.get_service_info()
         return ServiceInfo(**raw_data)
 
-    # Reference endpoints
-    async def search_genes(
+    # Reference endpoints (implementation methods called by cached versions)
+    async def _search_genes_impl(
         self,
         query: str,
         dataset_id: str = "gtex_v8",
         page: int = 0,
         page_size: int = 250,
     ) -> PaginatedGeneResponse:
-        """Search for genes with caching."""
+        """Search for genes in GTEx database."""
         (
             self.logger.info("Searching genes", query=query, dataset_id=dataset_id)
             if self.logger
@@ -125,165 +215,167 @@ class GTExService:
         )
         return PaginatedGeneResponse(**raw_data)
 
-    async def get_genes(self, params: GeneRequest) -> PaginatedGeneResponse:
-        """Get gene information with caching."""
+    async def _get_genes_impl(self, params: GeneRequest) -> PaginatedGeneResponse:
+        """Get gene information."""
         self.logger.info("Fetching genes", **params.model_dump()) if self.logger else None
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_genes(api_params)
         return PaginatedGeneResponse(**raw_data)
 
-    async def get_transcripts(self, params: TranscriptRequest) -> PaginatedTranscriptResponse:
-        """Get transcript information with caching."""
+    async def _get_transcripts_impl(self, params: TranscriptRequest) -> PaginatedTranscriptResponse:
+        """Get transcript information."""
         self.logger.info("Fetching transcripts", **params.model_dump()) if self.logger else None
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_transcripts(api_params)
         return PaginatedTranscriptResponse(**raw_data)
 
-    async def get_exons(self, params: dict[str, Any]) -> PaginatedExonResponse:
-        """Get exon information with caching."""
+    async def _get_exons_impl(self, params: dict[str, Any]) -> PaginatedExonResponse:
+        """Get exon information."""
         self.logger.info("Fetching exons", **params) if self.logger else None
         raw_data = await self.client.get_exons(params)
         return PaginatedExonResponse(**raw_data)
 
-    # Expression endpoints
+    # Expression endpoints (implementation methods called by cached versions)
 
-    async def get_median_gene_expression(
+    async def _get_median_gene_expression_impl(
         self, params: MedianGeneExpressionRequest
     ) -> PaginatedMedianGeneExpressionResponse:
-        """Get median gene expression data with caching."""
+        """Get median gene expression data."""
         (
             self.logger.info("Fetching median gene expression", **params.model_dump())
             if self.logger
             else None
         )
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_median_gene_expression(api_params)
         return PaginatedMedianGeneExpressionResponse(**raw_data)
 
-    async def get_gene_expression(
+    async def _get_gene_expression_impl(
         self, params: GeneExpressionRequest
     ) -> PaginatedGeneExpressionResponse:
-        """Get gene expression data with caching."""
+        """Get gene expression data."""
         self.logger.info("Fetching gene expression", **params.model_dump()) if self.logger else None
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_gene_expression(api_params)
         return PaginatedGeneExpressionResponse(**raw_data)
 
-    async def get_top_expressed_genes(
+    async def _get_top_expressed_genes_impl(
         self, params: TopExpressedGenesRequest
     ) -> PaginatedTopExpressedGenesResponse:
-        """Get top expressed genes with caching."""
+        """Get top expressed genes."""
         (
             self.logger.info("Fetching top expressed genes", **params.model_dump())
             if self.logger
             else None
         )
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_top_expressed_genes(api_params)
         return PaginatedTopExpressedGenesResponse(**raw_data)
 
-    # Association endpoints
+    # Association endpoints (implementation methods called by cached versions)
 
-    async def get_single_tissue_eqtl(
+    async def _get_single_tissue_eqtl_impl(
         self, params: SingleTissueEqtlRequest
     ) -> PaginatedSingleTissueEqtlResponse:
-        """Get single tissue eQTL data with caching."""
+        """Get single tissue eQTL data."""
         (
             self.logger.info("Fetching single tissue eQTL", **params.model_dump())
             if self.logger
             else None
         )
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_single_tissue_eqtl(api_params)
         return PaginatedSingleTissueEqtlResponse(**raw_data)
 
-    async def get_single_tissue_sqtl(
+    async def _get_single_tissue_sqtl_impl(
         self, params: SingleTissueSqtlRequest
     ) -> PaginatedSingleTissueSqtlResponse:
-        """Get single tissue sQTL data with caching."""
+        """Get single tissue sQTL data."""
         (
             self.logger.info("Fetching single tissue sQTL", **params.model_dump())
             if self.logger
             else None
         )
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_single_tissue_sqtl(api_params)
         return PaginatedSingleTissueSqtlResponse(**raw_data)
 
-    async def get_egenes(self, params: EqtlGeneRequest) -> PaginatedEqtlGeneResponse:
-        """Get eGene data with caching."""
+    async def _get_egenes_impl(self, params: EqtlGeneRequest) -> PaginatedEqtlGeneResponse:
+        """Get eGene data."""
         self.logger.info("Fetching eGenes", **params.model_dump()) if self.logger else None
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_egenes(api_params)
         return PaginatedEqtlGeneResponse(**raw_data)
 
-    async def get_sgenes(self, params: SGeneRequest) -> PaginatedSGeneResponse:
-        """Get sGene data with caching."""
+    async def _get_sgenes_impl(self, params: SGeneRequest) -> PaginatedSGeneResponse:
+        """Get sGene data."""
         self.logger.info("Fetching sGenes", **params.model_dump()) if self.logger else None
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_sgenes(api_params)
         return PaginatedSGeneResponse(**raw_data)
 
-    async def get_independent_eqtl(
+    async def _get_independent_eqtl_impl(
         self, params: dict[str, Any]
     ) -> PaginatedIndependentEqtlResponse:
-        """Get independent eQTL data with caching."""
+        """Get independent eQTL data."""
         self.logger.info("Fetching independent eQTL", **params) if self.logger else None
         raw_data = await self.client.get_independent_eqtl(params)
         return PaginatedIndependentEqtlResponse(**raw_data)
 
-    async def get_metasoft(self, params: dict[str, Any]) -> PaginatedMetaSoftResponse:
-        """Get MetaSoft analysis data with caching."""
+    async def _get_metasoft_impl(self, params: dict[str, Any]) -> PaginatedMetaSoftResponse:
+        """Get MetaSoft analysis data."""
         self.logger.info("Fetching MetaSoft data", **params) if self.logger else None
         raw_data = await self.client.get_metasoft(params)
         return PaginatedMetaSoftResponse(**raw_data)
 
-    # Dataset endpoints
+    # Dataset endpoints (implementation methods called by cached versions)
 
-    async def get_tissue_site_details(
+    async def _get_tissue_site_details_impl(
         self, params: TissueSiteDetailRequest
     ) -> PaginatedTissueSiteDetailResponse:
-        """Get tissue site details with caching."""
+        """Get tissue site details."""
         (
             self.logger.info("Fetching tissue site details", **params.model_dump())
             if self.logger
             else None
         )
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_tissue_site_details(api_params)
         return PaginatedTissueSiteDetailResponse(**raw_data)
 
-    async def get_subjects(self, params: SubjectRequest) -> PaginatedSubjectResponse:
-        """Get subject information with caching."""
+    async def _get_subjects_impl(self, params: SubjectRequest) -> PaginatedSubjectResponse:
+        """Get subject information."""
         self.logger.info("Fetching subjects", **params.model_dump()) if self.logger else None
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_subjects(api_params)
         return PaginatedSubjectResponse(**raw_data)
 
-    async def get_samples(self, params: DatasetSampleRequest) -> PaginatedDatasetSampleResponse:
-        """Get sample information with caching."""
+    async def _get_samples_impl(
+        self, params: DatasetSampleRequest
+    ) -> PaginatedDatasetSampleResponse:
+        """Get sample information."""
         self.logger.info("Fetching samples", **params.model_dump()) if self.logger else None
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_samples(api_params)
         return PaginatedDatasetSampleResponse(**raw_data)
 
-    async def get_variants(self, params: VariantRequest) -> PaginatedVariantResponse:
-        """Get variant information with caching."""
+    async def _get_variants_impl(self, params: VariantRequest) -> PaginatedVariantResponse:
+        """Get variant information."""
         self.logger.info("Fetching variants", **params.model_dump()) if self.logger else None
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_variants(api_params)
         return PaginatedVariantResponse(**raw_data)
 
-    async def get_variants_by_location(
+    async def _get_variants_by_location_impl(
         self, params: VariantByLocationRequest
     ) -> PaginatedVariantResponse:
-        """Get variants by genomic location with caching."""
+        """Get variants by genomic location."""
         (
             self.logger.info("Fetching variants by location", **params.model_dump())
             if self.logger
             else None
         )
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode='json')
+        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_variants_by_location(api_params)
         return PaginatedVariantResponse(**raw_data)
 
