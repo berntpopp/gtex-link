@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .gtex import (
     Chromosome,
@@ -21,7 +21,17 @@ from .gtex import (
 T = TypeVar("T")
 
 
-class PaginationInfo(BaseModel):
+class BaseResponse(BaseModel):
+    """Base response model with common configuration."""
+
+    model_config = ConfigDict(
+        validate_assignment=True,
+        use_enum_values=True,
+        populate_by_name=True,
+    )
+
+
+class PaginationInfo(BaseResponse):
     """Pagination information."""
 
     number_of_pages: int = Field(alias="numberOfPages")
@@ -30,21 +40,21 @@ class PaginationInfo(BaseModel):
     total_number_of_items: int = Field(alias="totalNumberOfItems")
 
 
-class PaginatedResponse(BaseModel, Generic[T]):
+class PaginatedResponse(BaseResponse, Generic[T]):
     """Generic paginated response wrapper."""
 
     data: list[T]
     paging_info: PaginationInfo
 
 
-class Organization(BaseModel):
+class Organization(BaseResponse):
     """Information about the organization providing this service."""
 
     name: str
     url: str
 
 
-class ServiceInfo(BaseModel):
+class ServiceInfo(BaseResponse):
     """Service information response."""
 
     id: str
@@ -57,7 +67,32 @@ class ServiceInfo(BaseModel):
     environment: str | None = None
 
 
-class Gene(BaseModel):
+class ErrorResponse(BaseResponse):
+    """Response model for API errors."""
+
+    error: str = Field(
+        ...,
+        description="Error type",
+        json_schema_extra={"example": "ValidationError"},
+    )
+    message: str = Field(
+        ...,
+        description="Error message",
+        json_schema_extra={"example": "Invalid gene identifier"},
+    )
+    status_code: int | None = Field(
+        None,
+        description="HTTP status code",
+        json_schema_extra={"example": 400},
+    )
+    details: dict[str, Any] | None = Field(
+        None,
+        description="Additional error details",
+        json_schema_extra={"example": {"field": "gencodeId", "value": ""}},
+    )
+
+
+class Gene(BaseResponse):
     """Gene information."""
 
     chromosome: Chromosome
@@ -77,7 +112,7 @@ class Gene(BaseModel):
     tss: int
 
 
-class Transcript(BaseModel):
+class Transcript(BaseResponse):
     """Transcript information."""
 
     start: int
@@ -93,7 +128,7 @@ class Transcript(BaseModel):
     strand: str
 
 
-class Exon(BaseModel):
+class Exon(BaseResponse):
     """Exon information."""
 
     chromosome: Chromosome
@@ -107,7 +142,7 @@ class Exon(BaseModel):
     transcript_id: str = Field(alias="transcriptId")
 
 
-class SampleSummary(BaseModel):
+class SampleSummary(BaseResponse):
     """Sample summary statistics."""
 
     total_count: int = Field(alias="totalCount")
@@ -115,7 +150,7 @@ class SampleSummary(BaseModel):
     male: dict[str, int | float]
 
 
-class TissueSiteDetail(BaseModel):
+class TissueSiteDetail(BaseResponse):
     """Tissue site detail information."""
 
     tissue_site_detail_id: str = Field(alias="tissueSiteDetailId")
@@ -138,7 +173,7 @@ class TissueSiteDetail(BaseModel):
     ontology_iri: str = Field(alias="ontologyIri")
 
 
-class Subject(BaseModel):
+class Subject(BaseResponse):
     """Subject information."""
 
     age_bracket: str = Field(alias="ageBracket")
@@ -149,7 +184,7 @@ class Subject(BaseModel):
     subject_id: str = Field(alias="subjectId")
 
 
-class DatasetSample(BaseModel):
+class DatasetSample(BaseResponse):
     """Dataset sample information."""
 
     dataset_id: DatasetId = Field(alias="datasetId")
@@ -165,7 +200,7 @@ class DatasetSample(BaseModel):
     tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
 
 
-class Variant(BaseModel):
+class Variant(BaseResponse):
     """Variant information."""
 
     allele_frequency: float | None = Field(alias="alleleFrequency")
@@ -178,7 +213,7 @@ class Variant(BaseModel):
     variant_id: str = Field(alias="variantId")
 
 
-class MedianGeneExpression(BaseModel):
+class MedianGeneExpression(BaseResponse):
     """Median gene expression data."""
 
     median: float
@@ -190,7 +225,7 @@ class MedianGeneExpression(BaseModel):
     unit: str
 
 
-class GeneExpression(BaseModel):
+class GeneExpression(BaseResponse):
     """Gene expression data."""
 
     data: list[float]
@@ -203,7 +238,7 @@ class GeneExpression(BaseModel):
     subset_group: str | None = Field(None, alias="subsetGroup")
 
 
-class SingleTissueEqtl(BaseModel):
+class SingleTissueEqtl(BaseResponse):
     """Single tissue eQTL data."""
 
     snp_id: str = Field(alias="snpId")
@@ -221,7 +256,7 @@ class SingleTissueEqtl(BaseModel):
     nes: float
 
 
-class SingleTissueSqtl(BaseModel):
+class SingleTissueSqtl(BaseResponse):
     """Single tissue sQTL data."""
 
     beta: float
@@ -235,7 +270,7 @@ class SingleTissueSqtl(BaseModel):
     variant_id: str = Field(alias="variantId")
 
 
-class TopExpressedGenes(BaseModel):
+class TopExpressedGenes(BaseResponse):
     """Top expressed genes data."""
 
     tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
@@ -247,7 +282,7 @@ class TopExpressedGenes(BaseModel):
     unit: str
 
 
-class EqtlGene(BaseModel):
+class EqtlGene(BaseResponse):
     """eQTL gene data."""
 
     gene_symbol: str = Field(alias="geneSymbol")
@@ -258,7 +293,7 @@ class EqtlGene(BaseModel):
     tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
 
 
-class SGene(BaseModel):
+class SGene(BaseResponse):
     """sGene (sQTL gene) data."""
 
     gene_symbol: str = Field(alias="geneSymbol")
@@ -269,7 +304,7 @@ class SGene(BaseModel):
     tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
 
 
-class IndependentEqtl(BaseModel):
+class IndependentEqtl(BaseResponse):
     """Independent eQTL data."""
 
     beta: float
@@ -282,7 +317,7 @@ class IndependentEqtl(BaseModel):
     variant_id: str = Field(alias="variantId")
 
 
-class MetaSoft(BaseModel):
+class MetaSoft(BaseResponse):
     """MetaSoft analysis data."""
 
     gencode_id: str = Field(alias="gencodeId")
@@ -293,7 +328,7 @@ class MetaSoft(BaseModel):
     variant_id: str = Field(alias="variantId")
 
 
-class FineMapping(BaseModel):
+class FineMapping(BaseResponse):
     """Fine mapping data."""
 
     cs_id: str | None = Field(alias="csId")
@@ -308,7 +343,7 @@ class FineMapping(BaseModel):
     variant_id: str = Field(alias="variantId")
 
 
-class SingleNucleusGeneExpressionResult(BaseModel):
+class SingleNucleusGeneExpressionResult(BaseResponse):
     """Single nucleus gene expression result."""
 
     cell_type: str = Field(alias="cellType")
@@ -318,7 +353,7 @@ class SingleNucleusGeneExpressionResult(BaseModel):
     tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
 
 
-class SingleNucleusGeneExpressionSummary(BaseModel):
+class SingleNucleusGeneExpressionSummary(BaseResponse):
     """Single nucleus gene expression summary."""
 
     cell_type: str = Field(alias="cellType")
@@ -357,9 +392,11 @@ PaginatedSingleNucleusGeneExpressionSummaryResponse = PaginatedResponse[
 
 # Rebuild all models to resolve forward references
 for cls in [
+    BaseResponse,
     PaginationInfo,
     PaginatedResponse,
     ServiceInfo,
+    ErrorResponse,
     Gene,
     Transcript,
     Exon,

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from gtex_link.exceptions import GTExAPIError, ValidationError
 from gtex_link.models import (
     DatasetId,
+    ErrorResponse,
     GeneRequest,
     PaginatedGeneResponse,
     PaginatedTranscriptResponse,
@@ -24,6 +25,96 @@ router = APIRouter(prefix="/api/reference", tags=["Reference Data"])
     summary="Search genes",
     description="Search for genes by symbol or other identifiers.",
     operation_id="search_genes",
+    responses={
+        200: {
+            "description": "Genes found successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "data": [
+                            {
+                                "chromosome": "17",
+                                "dataSource": "GENCODE",
+                                "description": "BRCA1 DNA repair associated",
+                                "end": 43097243,
+                                "entrezGeneId": 672,
+                                "gencodeId": "ENSG00000012048.20",
+                                "gencodeVersion": "v26",
+                                "geneStatus": "KNOWN",
+                                "geneSymbol": "BRCA1",
+                                "geneSymbolUpper": "BRCA1",
+                                "geneType": "protein_coding",
+                                "genomeBuild": "GRCh38",
+                                "start": 43044295,
+                                "strand": "-",
+                                "tss": 43097243
+                            }
+                        ],
+                        "paging_info": {
+                            "numberOfPages": 1,
+                            "page": 0,
+                            "maxItemsPerPage": 250,
+                            "totalNumberOfItems": 1
+                        }
+                    }
+                }
+            },
+        },
+        400: {
+            "description": "Invalid search query or parameters",
+            "model": ErrorResponse,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "ValidationError",
+                        "message": "Search query must be between 1 and 50 characters",
+                        "status_code": 400,
+                        "details": {"field": "query", "value": ""}
+                    }
+                }
+            },
+        },
+        422: {
+            "description": "Request validation error",
+            "model": ErrorResponse,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "ValidationError",
+                        "message": "Invalid dataset identifier",
+                        "status_code": 422,
+                        "details": {"field": "datasetId", "value": "invalid_dataset"}
+                    }
+                }
+            },
+        },
+        502: {
+            "description": "GTEx Portal API communication error",
+            "model": ErrorResponse,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "GTExAPIError",
+                        "message": "GTEx Portal API error: Failed to search genes",
+                        "status_code": 502
+                    }
+                }
+            },
+        },
+        500: {
+            "description": "Internal server error",
+            "model": ErrorResponse,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "InternalServerError",
+                        "message": "Internal server error",
+                        "status_code": 500
+                    }
+                }
+            },
+        },
+    },
 )
 async def search_genes(
     service: ServiceDep,
@@ -85,6 +176,27 @@ async def search_genes(
     summary="Get genes",
     description="Get gene information with filtering options.",
     operation_id="get_genes",
+    responses={
+        200: {
+            "description": "Gene information retrieved successfully",
+        },
+        400: {
+            "description": "Invalid request parameters",
+            "model": ErrorResponse,
+        },
+        422: {
+            "description": "Request validation error",
+            "model": ErrorResponse,
+        },
+        502: {
+            "description": "GTEx Portal API communication error",
+            "model": ErrorResponse,
+        },
+        500: {
+            "description": "Internal server error",
+            "model": ErrorResponse,
+        },
+    },
 )
 async def get_genes(
     service: ServiceDep,
@@ -118,6 +230,27 @@ async def get_genes(
     summary="Get transcripts",
     description="Get transcript information with filtering options.",
     operation_id="get_transcripts",
+    responses={
+        200: {
+            "description": "Transcript information retrieved successfully",
+        },
+        400: {
+            "description": "Invalid request parameters",
+            "model": ErrorResponse,
+        },
+        422: {
+            "description": "Request validation error",
+            "model": ErrorResponse,
+        },
+        502: {
+            "description": "GTEx Portal API communication error",
+            "model": ErrorResponse,
+        },
+        500: {
+            "description": "Internal server error",
+            "model": ErrorResponse,
+        },
+    },
 )
 async def get_transcripts(
     service: ServiceDep,

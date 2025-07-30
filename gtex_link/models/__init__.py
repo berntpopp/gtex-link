@@ -5,6 +5,9 @@ from .requests import *  # noqa: F403
 from .responses import *  # noqa: F403
 
 __all__ = [  # noqa: F405
+    # Base models
+    "BaseResponse",
+    "ErrorResponse",
     # Request models
     "BaseRequest",
     # Enums from gtex.py

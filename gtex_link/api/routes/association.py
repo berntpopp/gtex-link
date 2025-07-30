@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from gtex_link.exceptions import GTExAPIError, ValidationError
 from gtex_link.models import (
     EqtlGeneRequest,
+    ErrorResponse,
     PaginatedEqtlGeneResponse,
     PaginatedSGeneResponse,
     PaginatedSingleTissueEqtlResponse,
@@ -27,6 +28,13 @@ router = APIRouter(prefix="/api/association", tags=["Association"])
     summary="Get single tissue eQTL",
     description="Get expression quantitative trait loci (eQTL) data for single tissues.",
     operation_id="get_single_tissue_eqtl",
+    responses={
+        200: {"description": "Single tissue eQTL data retrieved successfully"},
+        400: {"description": "Invalid request parameters", "model": ErrorResponse},
+        422: {"description": "Request validation error", "model": ErrorResponse},
+        502: {"description": "GTEx Portal API communication error", "model": ErrorResponse},
+        500: {"description": "Internal server error", "model": ErrorResponse},
+    },
 )
 async def get_single_tissue_eqtl(
     service: ServiceDep,
@@ -62,6 +70,13 @@ async def get_single_tissue_eqtl(
     summary="Get single tissue sQTL",
     description="Get splicing quantitative trait loci (sQTL) data for single tissues.",
     operation_id="get_single_tissue_sqtl",
+    responses={
+        200: {"description": "Single tissue sQTL data retrieved successfully"},
+        400: {"description": "Invalid request parameters", "model": ErrorResponse},
+        422: {"description": "Request validation error", "model": ErrorResponse},
+        502: {"description": "GTEx Portal API communication error", "model": ErrorResponse},
+        500: {"description": "Internal server error", "model": ErrorResponse},
+    },
 )
 async def get_single_tissue_sqtl(
     service: ServiceDep,
@@ -97,6 +112,13 @@ async def get_single_tissue_sqtl(
     summary="Get eGenes",
     description="Get eGenes (genes with significant eQTLs) data.",
     operation_id="get_egenes",
+    responses={
+        200: {"description": "eGenes data retrieved successfully"},
+        400: {"description": "Invalid request parameters", "model": ErrorResponse},
+        422: {"description": "Request validation error", "model": ErrorResponse},
+        502: {"description": "GTEx Portal API communication error", "model": ErrorResponse},
+        500: {"description": "Internal server error", "model": ErrorResponse},
+    },
 )
 async def get_egenes(
     service: ServiceDep,
@@ -130,6 +152,13 @@ async def get_egenes(
     summary="Get sGenes",
     description="Get sGenes (genes with significant sQTLs) data.",
     operation_id="get_sgenes",
+    responses={
+        200: {"description": "sGenes data retrieved successfully"},
+        400: {"description": "Invalid request parameters", "model": ErrorResponse},
+        422: {"description": "Request validation error", "model": ErrorResponse},
+        502: {"description": "GTEx Portal API communication error", "model": ErrorResponse},
+        500: {"description": "Internal server error", "model": ErrorResponse},
+    },
 )
 async def get_sgenes(
     service: ServiceDep,

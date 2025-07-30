@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from gtex_link.exceptions import GTExAPIError
+from gtex_link.models import ErrorResponse
 
 from .dependencies import LoggerDep, ServiceDep
 
@@ -19,6 +20,10 @@ router = APIRouter(prefix="/api/health", tags=["Health"])
     description="Basic health check endpoint to verify service is running.",
     operation_id="health_check",
     response_model=dict[str, str],
+    responses={
+        200: {"description": "Service is healthy"},
+        500: {"description": "Internal server error", "model": ErrorResponse},
+    },
 )
 async def health_check() -> dict[str, str]:
     """Check service health status."""
@@ -33,6 +38,14 @@ async def health_check() -> dict[str, str]:
     ),
     operation_id="readiness_check",
     response_model=dict[str, Any],
+    responses={
+        200: {"description": "Service is ready to handle requests"},
+        503: {
+            "description": "Service not ready - GTEx Portal API unavailable",
+            "model": ErrorResponse,
+        },
+        500: {"description": "Internal server error", "model": ErrorResponse},
+    },
 )
 async def readiness_check(
     service: ServiceDep,
@@ -80,6 +93,10 @@ async def readiness_check(
     description="Get service performance statistics including cache and API client metrics.",
     operation_id="service_statistics",
     response_model=dict[str, Any],
+    responses={
+        200: {"description": "Service statistics retrieved successfully"},
+        500: {"description": "Failed to retrieve service statistics", "model": ErrorResponse},
+    },
 )
 async def service_stats(
     service: ServiceDep,

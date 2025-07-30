@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from gtex_link.exceptions import GTExAPIError, ValidationError
 from gtex_link.models import (
+    ErrorResponse,
     GeneExpressionRequest,
     MedianGeneExpressionRequest,
     PaginatedGeneExpressionResponse,
@@ -25,6 +26,27 @@ router = APIRouter(prefix="/api/expression", tags=["Expression"])
     summary="Get median gene expression",
     description="Get median gene expression data across tissues.",
     operation_id="get_median_gene_expression",
+    responses={
+        200: {
+            "description": "Median gene expression data retrieved successfully",
+        },
+        400: {
+            "description": "Invalid request parameters",
+            "model": ErrorResponse,
+        },
+        422: {
+            "description": "Request validation error",
+            "model": ErrorResponse,
+        },
+        502: {
+            "description": "GTEx Portal API communication error",
+            "model": ErrorResponse,
+        },
+        500: {
+            "description": "Internal server error",
+            "model": ErrorResponse,
+        },
+    },
 )
 async def get_median_gene_expression(
     service: ServiceDep,
@@ -61,6 +83,27 @@ async def get_median_gene_expression(
     summary="Get gene expression",
     description="Get individual sample gene expression data.",
     operation_id="get_gene_expression",
+    responses={
+        200: {
+            "description": "Gene expression data retrieved successfully",
+        },
+        400: {
+            "description": "Invalid request parameters",
+            "model": ErrorResponse,
+        },
+        422: {
+            "description": "Request validation error",
+            "model": ErrorResponse,
+        },
+        502: {
+            "description": "GTEx Portal API communication error",
+            "model": ErrorResponse,
+        },
+        500: {
+            "description": "Internal server error",
+            "model": ErrorResponse,
+        },
+    },
 )
 async def get_gene_expression(
     service: ServiceDep,
@@ -96,6 +139,27 @@ async def get_gene_expression(
     summary="Get top expressed genes",
     description="Get top expressed genes for a specific tissue.",
     operation_id="get_top_expressed_genes",
+    responses={
+        200: {
+            "description": "Top expressed genes retrieved successfully",
+        },
+        400: {
+            "description": "Invalid request parameters",
+            "model": ErrorResponse,
+        },
+        422: {
+            "description": "Request validation error",
+            "model": ErrorResponse,
+        },
+        502: {
+            "description": "GTEx Portal API communication error",
+            "model": ErrorResponse,
+        },
+        500: {
+            "description": "Internal server error",
+            "model": ErrorResponse,
+        },
+    },
 )
 async def get_top_expressed_genes(
     service: ServiceDep,
