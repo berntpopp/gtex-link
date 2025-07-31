@@ -163,8 +163,6 @@ class TestExpressionRouteErrorHandling:
         # This should still return 200 since sort_by is ignored
         assert response.status_code == 200
 
-
-
     def test_individual_expression_invalid_page_size(self, test_client: TestClient):
         """Test individual expression with invalid page size."""
         response = test_client.get(

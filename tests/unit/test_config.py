@@ -38,7 +38,9 @@ class TestServerSettings:
 
     def test_parse_cors_origins_from_string(self):
         """Test parsing CORS origins from comma-separated string."""
-        settings = ServerSettings(cors_origins="http://localhost:3000, https://example.com,  https://test.com  ")
+        settings = ServerSettings(
+            cors_origins="http://localhost:3000, https://example.com,  https://test.com  "
+        )
         expected = ["http://localhost:3000", "https://example.com", "https://test.com"]
         assert settings.cors_origins == expected
 
@@ -86,7 +88,7 @@ class TestConfigAccessors:
     def test_get_api_config(self):
         """Test get_api_config function returns correct config."""
         from gtex_link.config import get_api_config
-        
+
         api_config = get_api_config()
         assert isinstance(api_config, GTExAPIConfigModel)
         assert api_config.base_url == "https://gtexportal.org/api/v2/"
@@ -94,7 +96,7 @@ class TestConfigAccessors:
     def test_get_cache_config(self):
         """Test get_cache_config function returns correct config."""
         from gtex_link.config import get_cache_config, CacheConfigModel
-        
+
         cache_config = get_cache_config()
         assert isinstance(cache_config, CacheConfigModel)
         assert cache_config.size == 1000

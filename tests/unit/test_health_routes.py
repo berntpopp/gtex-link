@@ -19,21 +19,21 @@ class TestHealthRoutes:
         mock_client = AsyncMock()
         mock_client.get_service_info = AsyncMock(return_value={"version": "2.0"})
         mock_logger = MagicMock()
-        
+
         # Mock settings
-        with patch('gtex_link.api.routes.health.settings') as mock_settings:
+        with patch("gtex_link.api.routes.health.settings") as mock_settings:
             mock_settings.cache.stats_enabled = True
-            
+
             # Call health check
             result = await health_check(mock_client, mock_logger)
-            
+
             # Verify response
             assert result.status == "healthy"
             assert result.gtex_api == "available"
             assert result.cache == "enabled"
             assert result.version == "0.1.0"
             assert result.uptime_seconds > 0
-            
+
             # Verify client was called
             mock_client.get_service_info.assert_called_once()
             mock_logger.info.assert_called_once()
@@ -44,22 +44,23 @@ class TestHealthRoutes:
         # Mock client that fails
         mock_client = AsyncMock()
         import httpx
+
         mock_client.get_service_info = AsyncMock(side_effect=httpx.HTTPError("API down"))
         mock_logger = MagicMock()
-        
+
         # Mock settings
-        with patch('gtex_link.api.routes.health.settings') as mock_settings:
+        with patch("gtex_link.api.routes.health.settings") as mock_settings:
             mock_settings.cache.stats_enabled = False
-            
+
             # Call health check
             result = await health_check(mock_client, mock_logger)
-            
+
             # Verify degraded response
             assert result.status == "degraded"
             assert result.gtex_api == "unavailable"
             assert result.cache == "disabled"
             assert result.version == "0.1.0"
-            
+
             # Verify warning was logged
             mock_logger.warning.assert_called_once()
             mock_logger.info.assert_called_once()
@@ -67,11 +68,11 @@ class TestHealthRoutes:
     @pytest.mark.asyncio
     async def test_version_info(self):
         """Test version info endpoint."""
-        with patch('gtex_link.api.routes.health.settings') as mock_settings:
+        with patch("gtex_link.api.routes.health.settings") as mock_settings:
             mock_settings.api.base_url = "https://gtexportal.org/api/v2/"
-            
+
             result = await version_info()
-            
+
             assert result["version"] == "0.1.0"
             assert result["api_version"] == "v1"
             assert result["gtex_api"] == "https://gtexportal.org/api/v2/"
@@ -87,11 +88,11 @@ class TestHealthRoutes:
     def test_imports_work(self):
         """Test that all imports work correctly."""
         from gtex_link.api.routes import health
-        
+
         # Verify key components exist
-        assert hasattr(health, 'health_check')
-        assert hasattr(health, 'version_info')
-        assert hasattr(health, 'router')
-        assert hasattr(health, '_start_time')
+        assert hasattr(health, "health_check")
+        assert hasattr(health, "version_info")
+        assert hasattr(health, "router")
+        assert hasattr(health, "_start_time")
         assert callable(health.health_check)
         assert callable(health.version_info)

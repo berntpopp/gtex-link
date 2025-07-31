@@ -339,87 +339,99 @@ class TestGTExServiceMissingCoverage:
     ):
         """Test _get_exons_impl method with logger."""
         service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
-        
+
         # Mock response for exons - use proper structure
         mock_response = {
-            "data": [{
-                "exonId": "ENSE00001185414.10",
-                "chromosome": "chr17",
-                "start": 43070928,
-                "end": 43071238,
-                "exonNumber": 1,
-                "gencodeVersion": "v26",
-                "genomeBuild": "GRCh38",
-                "strand": "-",
-                "transcriptId": "ENST00000357654.9"
-            }],
-            "pagingInfo": {"numberOfPages": 1, "page": 0, "maxItemsPerPage": 250, "totalNumberOfItems": 1}
+            "data": [
+                {
+                    "exonId": "ENSE00001185414.10",
+                    "chromosome": "chr17",
+                    "start": 43070928,
+                    "end": 43071238,
+                    "exonNumber": 1,
+                    "gencodeVersion": "v26",
+                    "genomeBuild": "GRCh38",
+                    "strand": "-",
+                    "transcriptId": "ENST00000357654.9",
+                }
+            ],
+            "pagingInfo": {
+                "numberOfPages": 1,
+                "page": 0,
+                "maxItemsPerPage": 250,
+                "totalNumberOfItems": 1,
+            },
         }
         mock_gtex_client.get_exons.return_value = mock_response
-        
+
         # Call the method via the cached version
         params = {"geneId": "ENSG00000012048.20", "page": 0}
         result = await service.get_exons(params)
-        
+
         # Verify logger was called and method executed
         mock_logger.info.assert_called()
         mock_gtex_client.get_exons.assert_called_once_with(params)
         assert result.data[0].exon_id == "ENSE00001185414.10"
 
-    @pytest.mark.asyncio 
+    @pytest.mark.asyncio
     async def test_logger_info_calls_coverage(
         self, mock_gtex_client, test_cache_config, mock_logger
     ):
         """Test that logger.info calls are executed for coverage of missing lines."""
         from gtex_link.models import (
-            GeneExpressionRequest, TissueSiteDetailRequest, SubjectRequest,
-            DatasetSampleRequest, VariantRequest, VariantByLocationRequest, Chromosome
+            GeneExpressionRequest,
+            TissueSiteDetailRequest,
+            SubjectRequest,
+            DatasetSampleRequest,
+            VariantRequest,
+            VariantByLocationRequest,
+            Chromosome,
         )
-        
+
         service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
-        
+
         # Test gene expression logging (line 232)
         try:
             request = GeneExpressionRequest(gencode_id=["ENSG00000012048.20"])
             await service._get_gene_expression_impl(request)
         except Exception:
             pass  # We only care about the logging call
-        
+
         # Test tissue site details logging (lines 259-262)
         try:
             request = TissueSiteDetailRequest()
             await service._get_tissue_site_details_impl(request)
         except Exception:
             pass
-        
-        # Test subjects logging (lines 270)  
+
+        # Test subjects logging (lines 270)
         try:
             request = SubjectRequest()
             await service._get_subjects_impl(request)
         except Exception:
             pass
-            
+
         # Test samples logging (lines 279)
         try:
             request = DatasetSampleRequest()
             await service._get_samples_impl(request)
         except Exception:
             pass
-            
+
         # Test variants logging (lines 286)
         try:
             request = VariantRequest()
             await service._get_variants_impl(request)
         except Exception:
             pass
-            
+
         # Test variants by location logging (lines 295-298)
         try:
             request = VariantByLocationRequest(chromosome=Chromosome.CHR17, start=1000, end=2000)
             await service._get_variants_by_location_impl(request)
         except Exception:
             pass
-        
+
         # Verify logger was called multiple times (covers all the missing logging lines)
         assert mock_logger.info.call_count >= 6
 
@@ -429,24 +441,22 @@ class TestGTExServiceMissingCoverage:
     ):
         """Test tissueSiteDetailId empty string filtering logic."""
         from gtex_link.models import GeneExpressionRequest
-        
+
         service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
-        
+
         # Test the specific logic from lines 234-238
         request = GeneExpressionRequest(
-            gencode_id=["ENSG00000012048.20"],
-            tissue_site_detail_id=""  # Empty string
+            gencode_id=["ENSG00000012048.20"], tissue_site_detail_id=""  # Empty string
         )
-        
+
         # Replicate the exact logic from the service
         api_params = request.model_dump(by_alias=True, exclude_none=True, mode="json")
         if api_params.get("tissueSiteDetailId") == "":
             api_params.pop("tissueSiteDetailId", None)
-        
+
         # Verify the filtering worked
         assert "tissueSiteDetailId" not in api_params
         assert api_params["gencodeId"] == ["ENSG00000012048.20"]
-
 
 
 class TestGTExServiceRealWorldScenarios:

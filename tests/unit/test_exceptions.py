@@ -25,11 +25,7 @@ class TestGTExAPIError:
     def test_init_with_all_parameters(self):
         """Test initialization with all parameters."""
         response_data = {"error": "details", "code": 400}
-        error = GTExAPIError(
-            message="Test error",
-            status_code=400,
-            response_data=response_data
-        )
+        error = GTExAPIError(message="Test error", status_code=400, response_data=response_data)
         assert error.message == "Test error"
         assert error.status_code == 400
         assert error.response_data == response_data
@@ -178,7 +174,7 @@ class TestExceptionIntegration:
             CacheError("test"),
             ServiceUnavailableError("test"),
         ]
-        
+
         for exception in exceptions:
             assert isinstance(exception, GTExAPIError)
             assert isinstance(exception, Exception)
@@ -200,7 +196,7 @@ class TestExceptionIntegration:
             raise RateLimitError("Rate limit exceeded", retry_after=30.0)
         assert exc_info.value.retry_after == 30.0
 
-        # Test ConfigurationError  
+        # Test ConfigurationError
         with pytest.raises(ConfigurationError) as exc_info:
             raise ConfigurationError("Bad config", config_key="api_url")
         assert exc_info.value.config_key == "api_url"
