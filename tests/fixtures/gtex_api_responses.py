@@ -77,34 +77,6 @@ MEDIAN_GENE_EXPRESSION_RESPONSE: dict[str, Any] = {
     "pagingInfo": {"numberOfPages": 1, "page": 0, "maxItemsPerPage": 250, "totalNumberOfItems": 3},
 }
 
-# Real GTEx single tissue eQTL response
-SINGLE_TISSUE_EQTL_RESPONSE: dict[str, Any] = {
-    "data": [
-        {
-            "beta": -0.485326,
-            "gencodeId": "ENSG00000012048.22",
-            "geneSymbol": "BRCA1",
-            "maf": 0.295918,
-            "nes": -0.485326,
-            "pValue": 1.23e-12,
-            "qValue": 2.45e-10,
-            "tissueSiteDetailId": "Breast_Mammary_Tissue",
-            "variantId": "chr17_43051071_T_C_b38",
-        },
-        {
-            "beta": 0.329847,
-            "gencodeId": "ENSG00000012048.22",
-            "geneSymbol": "BRCA1",
-            "maf": 0.142857,
-            "nes": 0.329847,
-            "pValue": 5.67e-8,
-            "qValue": 1.23e-6,
-            "tissueSiteDetailId": "Breast_Mammary_Tissue",
-            "variantId": "chr17_43063873_G_A_b38",
-        },
-    ],
-    "pagingInfo": {"numberOfPages": 1, "page": 0, "maxItemsPerPage": 250, "totalNumberOfItems": 2},
-}
 
 # Real GTEx tissue site details response
 TISSUE_SITE_DETAILS_RESPONSE: dict[str, Any] = {

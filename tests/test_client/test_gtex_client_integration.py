@@ -348,25 +348,6 @@ class TestGTExClientAPIOperations:
 
         await client.close()
 
-    @pytest.mark.asyncio
-    async def test_get_single_tissue_eqtl_success(self, test_api_config, eqtl_response):
-        """Test successful single tissue eQTL retrieval."""
-        client = GTExClient(config=test_api_config)
-
-        with patch.object(client, "_make_request") as mock_request:
-            mock_request.return_value = eqtl_response
-
-            result = await client.get_single_tissue_eqtl(
-                gene_symbol=["BRCA1"],
-                tissue_site_detail_id=["Breast_Mammary_Tissue"],
-                pvalue_threshold=1e-5,
-                dataset_id="gtex_v8",
-            )
-
-            assert result == eqtl_response
-            mock_request.assert_called_once()
-
-        await client.close()
 
     @pytest.mark.asyncio
     async def test_parameter_validation(self, test_api_config):

@@ -21,7 +21,6 @@ from .fixtures.gtex_api_responses import (
     GENE_SEARCH_RESPONSE,
     MEDIAN_GENE_EXPRESSION_RESPONSE,
     SERVICE_INFO_RESPONSE,
-    SINGLE_TISSUE_EQTL_RESPONSE,
     SUBJECT_RESPONSE,
     TEST_GENCODE_IDS,
     TEST_GENE_SYMBOLS,
@@ -130,12 +129,8 @@ def mock_gtex_client(test_api_config: GTExAPIConfigModel) -> MagicMock:
     mock_client.search_genes.return_value = GENE_SEARCH_RESPONSE
     mock_client.get_genes.return_value = GENE_SEARCH_RESPONSE
     mock_client.get_median_gene_expression.return_value = MEDIAN_GENE_EXPRESSION_RESPONSE
-    mock_client.get_single_tissue_eqtl.return_value = SINGLE_TISSUE_EQTL_RESPONSE
     mock_client.get_tissue_site_details.return_value = TISSUE_SITE_DETAILS_RESPONSE
     mock_client.get_top_expressed_genes.return_value = TOP_EXPRESSED_GENES_RESPONSE
-    mock_client.get_variants.return_value = VARIANT_RESPONSE
-    mock_client.get_egenes.return_value = EGENES_RESPONSE
-    mock_client.get_subjects.return_value = SUBJECT_RESPONSE
 
     # Mock stats
     mock_client.stats = {
@@ -207,10 +202,6 @@ def sample_expression_data():
     return MEDIAN_GENE_EXPRESSION_RESPONSE["data"][0]
 
 
-@pytest.fixture
-def sample_eqtl_data():
-    """Sample eQTL data from real GTEx API."""
-    return SINGLE_TISSUE_EQTL_RESPONSE["data"][0]
 
 
 @pytest.fixture
@@ -262,10 +253,6 @@ def median_expression_response():
     return MEDIAN_GENE_EXPRESSION_RESPONSE
 
 
-@pytest.fixture
-def eqtl_response():
-    """Complete eQTL response."""
-    return SINGLE_TISSUE_EQTL_RESPONSE
 
 
 @pytest.fixture

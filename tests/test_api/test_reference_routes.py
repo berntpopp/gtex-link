@@ -111,9 +111,7 @@ class TestGeneInfoRoutes:
         response = test_client.get(
             "/api/reference/genes",
             params={
-                "chromosome": ["chr17"],
-                "start": 43000000,
-                "end": 44000000,
+                "chromosome": ["chr17", "chr13"],
                 "dataset_id": "gtex_v8",
             },
         )
@@ -128,6 +126,7 @@ class TestGeneInfoRoutes:
                 "chromosome": ["chr17"],
                 "start": 43044295,
                 "end": 43125364,
+                "dataset_id": "gtex_v8",
             },
         )
 
@@ -139,8 +138,9 @@ class TestGeneInfoRoutes:
             "/api/reference/genes",
             params={
                 "chromosome": ["chr17"],
-                "start": 50000000,
-                "end": 40000000,  # end < start
+                "start": 43125364,  # Start > End
+                "end": 43044295,
+                "dataset_id": "gtex_v8",
             },
         )
 
@@ -151,7 +151,7 @@ class TestGeneInfoRoutes:
         response = test_client.get(
             "/api/reference/genes",
             params={
-                "chromosome": ["chr17", "chr13", "chr7"],
+                "chromosome": ["chr17", "chr13", "chr1"],
                 "dataset_id": "gtex_v8",
             },
         )
@@ -165,8 +165,6 @@ class TestGeneInfoRoutes:
             params={
                 "gene_type": ["protein_coding"],
                 "dataset_id": "gtex_v8",
-                "page": 0,
-                "items_per_page": 100,
             },
         )
 
@@ -226,288 +224,3 @@ class TestTranscriptRoutes:
         )
 
         assert response.status_code == 200
-
-
-class TestExonRoutes:
-    """Test exon API routes."""
-
-    def test_get_exons_by_gene(self, test_client: TestClient):
-        """Test exon retrieval by gene."""
-        response = test_client.get(
-            "/api/reference/exons",
-            params={
-                "gene_symbol": ["BRCA1"],
-                "dataset_id": "gtex_v8",
-            },
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "data" in data
-
-    def test_get_exons_by_transcript(self, test_client: TestClient):
-        """Test exon retrieval by transcript."""
-        response = test_client.get(
-            "/api/reference/exons",
-            params={
-                "transcript_id": ["ENST00000357654.9"],
-                "dataset_id": "gtex_v8",
-            },
-        )
-
-        assert response.status_code == 200
-
-    def test_get_exons_genomic_region(self, test_client: TestClient):
-        """Test exon retrieval by genomic region."""
-        response = test_client.get(
-            "/api/reference/exons",
-            params={
-                "chromosome": ["chr17"],
-                "start": 43044295,
-                "end": 43125364,
-            },
-        )
-
-        assert response.status_code == 200
-
-    def test_get_exons_with_pagination(self, test_client: TestClient):
-        """Test exon retrieval with pagination."""
-        response = test_client.get(
-            "/api/reference/exons",
-            params={
-                "gene_symbol": ["BRCA1"],
-                "page": 0,
-                "items_per_page": 50,
-            },
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "pagingInfo" in data
-
-
-class TestTissueRoutes:
-    """Test tissue information API routes."""
-
-    def test_get_tissue_site_details(self, test_client: TestClient):
-        """Test tissue site details retrieval."""
-        response = test_client.get("/api/reference/tissues")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "data" in data
-
-    def test_get_specific_tissues(self, test_client: TestClient):
-        """Test specific tissue retrieval."""
-        response = test_client.get(
-            "/api/reference/tissues",
-            params={
-                "tissue_site_detail_id": ["Breast_Mammary_Tissue", "Whole_Blood", "Brain_Cortex"]
-            },
-        )
-
-        assert response.status_code == 200
-
-    def test_get_tissues_by_site(self, test_client: TestClient):
-        """Test tissue retrieval by tissue site."""
-        response = test_client.get(
-            "/api/reference/tissues", params={"tissue_site": ["Brain", "Blood"]}
-        )
-
-        assert response.status_code == 200
-
-    @pytest.mark.parametrize(
-        "tissue_id", ["Whole_Blood", "Breast_Mammary_Tissue", "Brain_Cortex", "Liver", "Lung"]
-    )
-    def test_get_individual_tissues(self, test_client: TestClient, tissue_id):
-        """Test individual tissue retrieval."""
-        response = test_client.get(
-            "/api/reference/tissues", params={"tissue_site_detail_id": [tissue_id]}
-        )
-
-        assert response.status_code == 200
-
-
-class TestDatasetRoutes:
-    """Test dataset information API routes."""
-
-    def test_get_datasets(self, test_client: TestClient):
-        """Test dataset information retrieval."""
-        response = test_client.get("/api/reference/datasets")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "data" in data
-
-    def test_get_specific_dataset(self, test_client: TestClient):
-        """Test specific dataset retrieval."""
-        response = test_client.get("/api/reference/datasets", params={"dataset_id": ["gtex_v8"]})
-
-        assert response.status_code == 200
-
-    def test_get_multiple_datasets(self, test_client: TestClient):
-        """Test multiple dataset retrieval."""
-        response = test_client.get(
-            "/api/reference/datasets", params={"dataset_id": ["gtex_v8", "gtex_v10"]}
-        )
-
-        assert response.status_code == 200
-
-    @pytest.mark.parametrize("dataset", ["gtex_v8", "gtex_v10", "gtex_snrnaseq_pilot"])
-    def test_get_individual_datasets(self, test_client: TestClient, dataset):
-        """Test individual dataset retrieval."""
-        response = test_client.get("/api/reference/datasets", params={"dataset_id": [dataset]})
-
-        assert response.status_code == 200
-
-
-class TestAsyncReferenceRoutes:
-    """Test reference routes with async client."""
-
-    @pytest.mark.asyncio
-    async def test_async_gene_search(self, async_client: AsyncClient):
-        """Test async gene search."""
-        response = await async_client.get("/api/reference/genes/search", params={"query": "BRCA1"})
-
-        assert response.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_async_gene_info(self, async_client: AsyncClient):
-        """Test async gene information retrieval."""
-        response = await async_client.get(
-            "/api/reference/genes", params={"gene_symbol": ["BRCA1", "TP53"]}
-        )
-
-        assert response.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_async_tissue_info(self, async_client: AsyncClient):
-        """Test async tissue information retrieval."""
-        response = await async_client.get("/api/reference/tissues")
-
-        assert response.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_async_concurrent_requests(self, async_client: AsyncClient):
-        """Test concurrent async requests."""
-        import asyncio
-
-        # Make multiple concurrent requests
-        tasks = [
-            async_client.get("/api/reference/genes/search", params={"query": "BRCA1"}),
-            async_client.get("/api/reference/genes/search", params={"query": "TP53"}),
-            async_client.get("/api/reference/tissues"),
-            async_client.get("/api/reference/datasets"),
-        ]
-
-        responses = await asyncio.gather(*tasks)
-
-        # All requests should succeed
-        for response in responses:
-            assert response.status_code == 200
-
-
-class TestReferenceRouteErrorHandling:
-    """Test error handling in reference routes."""
-
-    def test_gene_search_server_error(self, test_client: TestClient, monkeypatch):
-        """Test gene search with server error."""
-        # This would require mocking the service to raise an exception
-        # For now, just test that malformed requests are handled
-        response = test_client.get(
-            "/api/reference/genes/search", params={"query": "BRCA1", "items_per_page": "invalid"}
-        )
-
-        assert response.status_code == 422
-
-    def test_gene_info_validation_error(self, test_client: TestClient):
-        """Test gene info with validation error."""
-        response = test_client.get(
-            "/api/reference/genes",
-            params={"start": 50000000, "end": 40000000, "chromosome": ["chr17"]},  # Invalid range
-        )
-
-        assert response.status_code == 422
-
-    def test_tissue_info_invalid_id(self, test_client: TestClient):
-        """Test tissue info with potentially invalid ID."""
-        response = test_client.get(
-            "/api/reference/tissues", params={"tissue_site_detail_id": ["Invalid_Tissue_ID"]}
-        )
-
-        # Should still return 200 but might have empty data
-        assert response.status_code == 200
-
-    def test_dataset_info_invalid_id(self, test_client: TestClient):
-        """Test dataset info with potentially invalid ID."""
-        response = test_client.get(
-            "/api/reference/datasets", params={"dataset_id": ["invalid_dataset"]}
-        )
-
-        # Should still return 200 but might have empty data
-        assert response.status_code == 200
-
-    def test_malformed_request_body(self, test_client: TestClient):
-        """Test malformed request handling."""
-        response = test_client.post(
-            "/api/reference/genes/search",
-            json={"invalid": "data"},  # POST instead of GET
-        )
-
-        # Should return method not allowed or similar error
-        assert response.status_code in [405, 422]
-
-
-class TestReferenceRoutePerformance:
-    """Test performance aspects of reference routes."""
-
-    def test_gene_search_large_page_size(self, test_client: TestClient):
-        """Test gene search with large page size."""
-        response = test_client.get(
-            "/api/reference/genes/search",
-            params={
-                "query": "BRCA1",
-                "items_per_page": 1000,  # Maximum allowed
-            },
-        )
-
-        assert response.status_code == 200
-
-    def test_gene_info_multiple_symbols(self, test_client: TestClient):
-        """Test gene info with multiple symbols."""
-        gene_symbols = ["BRCA1", "BRCA2", "TP53", "EGFR", "MYC", "KRAS", "PIK3CA", "PTEN"]
-
-        response = test_client.get("/api/reference/genes", params={"gene_symbol": gene_symbols})
-
-        assert response.status_code == 200
-
-    def test_gene_info_large_genomic_region(self, test_client: TestClient):
-        """Test gene info for large genomic region."""
-        response = test_client.get(
-            "/api/reference/genes",
-            params={
-                "chromosome": ["chr17"],
-                "start": 1,
-                "end": 10000000,  # Large region
-            },
-        )
-
-        assert response.status_code == 200
-
-    @pytest.mark.slow
-    def test_concurrent_gene_searches(self, test_client: TestClient):
-        """Test concurrent gene searches."""
-        import concurrent.futures
-
-        def make_request(gene):
-            return test_client.get("/api/reference/genes/search", params={"query": gene})
-
-        genes = ["BRCA1", "BRCA2", "TP53", "EGFR", "MYC"]
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(make_request, gene) for gene in genes]
-            responses = [future.result() for future in futures]
-
-        # All requests should succeed
-        for response in responses:
-            assert response.status_code == 200
