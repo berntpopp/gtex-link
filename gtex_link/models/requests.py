@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 from .gtex import (
     Chromosome,
     DatasetId,
+    GencodeVersion,
+    GenomeBuild,
     SortBy,
     SortDirection,
     TissueSiteDetailId,
@@ -41,46 +43,61 @@ class BaseRequest(BaseModel):
 class GeneSearchRequest(BaseRequest):
     """Request for gene search endpoint."""
 
-    query: str = Field(min_length=1, description="Gene search query")
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
+    gene_id: str = Field(
+        alias="geneId",
+        min_length=1,
+        description="A gene symbol, versioned gencodeId, or unversioned gencodeId",
+        examples=["BRCA1", "ENSG00000012048.20", "ENSG00000012048"],
+    )
+    gencode_version: GencodeVersion | None = Field(
+        None,
+        alias="gencodeVersion",
+        description="GENCODE annotation release",
+        examples=["v26", "v32"],
+    )
+    genome_build: GenomeBuild | None = Field(
+        None, alias="genomeBuild", description="Genome build version", examples=["GRCh38", "GRCh37"]
     )
 
 
 class GeneRequest(BaseRequest):
     """Request for gene endpoint."""
 
-    gencode_id: list[str] | None = Field(
-        None,
+    gene_id: list[str] = Field(
         alias="geneId",
-        description="List of gene IDs (gene symbols, versioned or unversioned GENCODE IDs)",
+        min_length=1,
+        max_length=50,
+        description="List of gene symbols, versioned or unversioned GENCODE IDs",
+        examples=[["BRCA1", "TP53"], ["ENSG00000012048.20", "ENSG00000141510.11"]],
     )
-    gene_symbol: list[str] | None = Field(
-        None, alias="geneSymbol", description="List of gene symbols"
+    gencode_version: GencodeVersion | None = Field(
+        None,
+        alias="gencodeVersion",
+        description="GENCODE annotation release",
+        examples=["v26", "v32"],
     )
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
-    )
-    chromosome: list[Chromosome] | None = Field(None, description="List of chromosomes")
-    start: int | None = Field(None, ge=0, description="Start position")
-    end: int | None = Field(None, ge=0, description="End position")
-    sort_by: SortBy = Field(default=SortBy.GENE_SYMBOL, alias="sortBy", description="Sort field")
-    sort_direction: SortDirection = Field(
-        default=SortDirection.ASC, alias="sortDirection", description="Sort direction"
+    genome_build: GenomeBuild | None = Field(
+        None, alias="genomeBuild", description="Genome build version", examples=["GRCh38", "GRCh37"]
     )
 
 
 class TranscriptRequest(BaseRequest):
     """Request for transcript endpoint."""
 
-    gencode_id: list[str] | None = Field(None, alias="gencodeId", description="List of Gencode IDs")
-    transcript_id: list[str] | None = Field(
-        None, alias="transcriptId", description="List of transcript IDs"
+    gencode_id: str = Field(
+        alias="gencodeId",
+        description="A versioned GENCODE ID of a gene, e.g. ENSG00000065613.9",
+        examples=["ENSG00000012048.20", "ENSG00000141510.11"],
     )
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
+    gencode_version: GencodeVersion | None = Field(
+        None,
+        alias="gencodeVersion",
+        description="GENCODE annotation release",
+        examples=["v26", "v32"],
     )
-    chromosome: list[Chromosome] | None = Field(None, description="List of chromosomes")
+    genome_build: GenomeBuild | None = Field(
+        None, alias="genomeBuild", description="Genome build version", examples=["GRCh38", "GRCh37"]
+    )
 
 
 class MedianGeneExpressionRequest(BaseRequest):

@@ -346,7 +346,8 @@ class GTExClient:
     async def search_genes(
         self,
         query: str,
-        dataset_id: str = "gtex_v8",  # Keep for compatibility but not used
+        gencode_version: str | None = None,
+        genome_build: str | None = None,
         page: int = 0,
         page_size: int = 250,
     ) -> dict[str, Any]:
@@ -357,6 +358,10 @@ class GTExClient:
             "page": page,
             "itemsPerPage": page_size,
         }
+        if gencode_version:
+            params["gencodeVersion"] = gencode_version
+        if genome_build:
+            params["genomeBuild"] = genome_build
         return await self._make_request("GET", endpoint, params=params)
 
     async def get_genes(self, params: dict[str, Any]) -> dict[str, Any]:

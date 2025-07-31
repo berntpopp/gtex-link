@@ -156,13 +156,19 @@ class GTExService:
     async def _search_genes_impl(
         self,
         query: str,
-        dataset_id: str = "gtex_v8",
+        gencode_version: str | None = None,
+        genome_build: str | None = None,
         page: int = 0,
         page_size: int = 250,
     ) -> PaginatedGeneResponse:
         """Search for genes in GTEx database."""
         (
-            self.logger.info("Searching genes", query=query, dataset_id=dataset_id)
+            self.logger.info(
+                "Searching genes",
+                query=query,
+                gencode_version=gencode_version,
+                genome_build=genome_build,
+            )
             if self.logger
             else None
         )
@@ -174,7 +180,8 @@ class GTExService:
 
         raw_data = await self.client.search_genes(
             query=query.strip(),
-            dataset_id=dataset_id,
+            gencode_version=gencode_version,
+            genome_build=genome_build,
             page=page,
             page_size=page_size,
         )
