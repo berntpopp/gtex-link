@@ -272,6 +272,37 @@ class SingleNucleusGeneExpressionSummary(BaseResponse):
     tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
 
 
+class HealthResponse(BaseResponse):
+    """Response model for health check."""
+
+    status: str = Field(
+        ...,
+        description="Overall health status",
+        json_schema_extra={"example": "healthy"},
+    )
+    version: str = Field(
+        ...,
+        description="GTEx-Link version",
+        json_schema_extra={"example": "0.1.0"},
+    )
+    gtex_api: str = Field(
+        ...,
+        description="GTEx Portal API status",
+        json_schema_extra={"example": "available"},
+    )
+    cache: str = Field(
+        ...,
+        description="Cache system status",
+        json_schema_extra={"example": "enabled"},
+    )
+    uptime_seconds: float = Field(
+        ...,
+        ge=0.0,
+        description="Server uptime in seconds",
+        json_schema_extra={"example": 3600.5},
+    )
+
+
 # Type aliases for paginated responses
 PaginatedGeneResponse = PaginatedResponse[Gene]
 PaginatedTranscriptResponse = PaginatedResponse[Transcript]
@@ -309,5 +340,6 @@ for cls in [
     TopExpressedGenes,
     SingleNucleusGeneExpressionResult,
     SingleNucleusGeneExpressionSummary,
+    HealthResponse,
 ]:
     cls.model_rebuild()

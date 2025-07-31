@@ -14,7 +14,10 @@ from gtex_link.models import (
     TranscriptRequest,
 )
 
-from .dependencies import LoggerDep, ServiceDep
+from gtex_link.services.gtex_service import GTExService
+from structlog.typing import FilteringBoundLogger
+
+from .dependencies import LoggerDep, GTExServiceDep
 
 router = APIRouter(prefix="/api/reference", tags=["Reference Data"])
 
@@ -117,8 +120,8 @@ router = APIRouter(prefix="/api/reference", tags=["Reference Data"])
     },
 )
 async def search_genes(
-    service: ServiceDep,
-    logger: LoggerDep,
+    service: GTExService = GTExServiceDep,
+    logger: FilteringBoundLogger = LoggerDep,
     query: str = Query(
         ...,
         min_length=1,
@@ -199,8 +202,8 @@ async def search_genes(
     },
 )
 async def get_genes(
-    service: ServiceDep,
-    logger: LoggerDep,
+    service: GTExService = GTExServiceDep,
+    logger: FilteringBoundLogger = LoggerDep,
     request: GeneRequest = Depends(),
 ) -> PaginatedGeneResponse:
     """Get gene information."""
@@ -253,8 +256,8 @@ async def get_genes(
     },
 )
 async def get_transcripts(
-    service: ServiceDep,
-    logger: LoggerDep,
+    service: GTExService = GTExServiceDep,
+    logger: FilteringBoundLogger = LoggerDep,
     request: TranscriptRequest = Depends(),
 ) -> PaginatedTranscriptResponse:
     """Get transcript information."""

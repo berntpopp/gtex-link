@@ -17,7 +17,10 @@ from gtex_link.models import (
     TopExpressedGenesRequest,
 )
 
-from .dependencies import LoggerDep, ServiceDep
+from gtex_link.services.gtex_service import GTExService
+from structlog.typing import FilteringBoundLogger
+
+from .dependencies import LoggerDep, GTExServiceDep
 
 router = APIRouter(prefix="/api/expression", tags=["Expression"])
 
@@ -51,8 +54,8 @@ router = APIRouter(prefix="/api/expression", tags=["Expression"])
     },
 )
 async def get_median_gene_expression(
-    service: ServiceDep,
-    logger: LoggerDep,
+    service: GTExService = GTExServiceDep,
+    logger: FilteringBoundLogger = LoggerDep,
     gencode_id: list[str] | None = Query(
         None,
         alias="gencodeId",
@@ -184,8 +187,8 @@ async def get_median_gene_expression(
     },
 )
 async def get_gene_expression(
-    service: ServiceDep,
-    logger: LoggerDep,
+    service: GTExService = GTExServiceDep,
+    logger: FilteringBoundLogger = LoggerDep,
     request: GeneExpressionRequest = Depends(),
 ) -> PaginatedGeneExpressionResponse:
     """Get gene expression data."""
@@ -240,8 +243,8 @@ async def get_gene_expression(
     },
 )
 async def get_top_expressed_genes(
-    service: ServiceDep,
-    logger: LoggerDep,
+    service: GTExService = GTExServiceDep,
+    logger: FilteringBoundLogger = LoggerDep,
     tissue_site_detail_id: TissueSiteDetailId = Query(
         alias="tissueSiteDetailId",
         description="Tissue site detail ID",

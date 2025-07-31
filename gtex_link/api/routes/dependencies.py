@@ -1,37 +1,70 @@
-"""Dependency injection for FastAPI routes."""
+"""FastAPI dependencies for GTEx-Link routes.
+
+This module provides dependency injection for common services
+and utilities used across route handlers.
+"""
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import TYPE_CHECKING
 
 from fastapi import Depends
-from structlog.typing import FilteringBoundLogger
 
 from gtex_link.api.client import GTExClient
-from gtex_link.config import get_api_config, get_cache_config
+from gtex_link.config import get_api_config, get_cache_config, settings
 from gtex_link.logging_config import configure_logging
 from gtex_link.services.gtex_service import GTExService
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
-def get_logger() -> FilteringBoundLogger:
-    """Get configured logger instance."""
+    from structlog.typing import FilteringBoundLogger
+
+
+async def get_gtex_client() -> AsyncGenerator[GTExClient, None]:
+    """Dependency to get GTEx client instance.
+
+    Yields:
+        GTEx client with proper lifecycle management
+    """
+    config = get_api_config()
+    logger = configure_logging()
+    client = GTExClient(config=config, logger=logger)
+    try:
+        yield client
+    finally:
+        # GTExClient doesn't need explicit cleanup in current implementation
+        # but this provides the pattern for future enhancements
+        pass
+
+
+def get_logger_dependency() -> FilteringBoundLogger:
+    """Dependency to get logger instance.
+
+    Returns:
+        Structured logger instance
+    """
     return configure_logging()
 
 
-async def get_gtex_client(
-    logger: Annotated[FilteringBoundLogger, Depends(get_logger)],
-) -> GTExClient:
-    """Get GTEx Portal API client instance."""
-    config = get_api_config()
-    client = GTExClient(config=config, logger=logger)
-    return client
+# Type aliases for cleaner route signatures
+GTExClientDep = Depends(get_gtex_client)
+LoggerDep = Depends(get_logger_dependency)
 
 
-def get_gtex_service(
-    client: Annotated[GTExClient, Depends(get_gtex_client)],
-    logger: Annotated[FilteringBoundLogger, Depends(get_logger)],
+async def get_gtex_service(
+    client: GTExClient = GTExClientDep,
+    logger: FilteringBoundLogger = LoggerDep,
 ) -> GTExService:
-    """Get GTEx service instance."""
+    """Dependency to get GTEx service instance.
+
+    Args:
+        client: GTEx client dependency
+        logger: Logger dependency
+
+    Returns:
+        GTEx service instance
+    """
     cache_config = get_cache_config()
     return GTExService(
         client=client,
@@ -40,7 +73,4 @@ def get_gtex_service(
     )
 
 
-# Type aliases for clean dependency injection
-LoggerDep = Annotated[FilteringBoundLogger, Depends(get_logger)]
-ClientDep = Annotated[GTExClient, Depends(get_gtex_client)]
-ServiceDep = Annotated[GTExService, Depends(get_gtex_service)]
+GTExServiceDep = Depends(get_gtex_service)
