@@ -78,3 +78,24 @@ class TestConfigDefaults:
         assert settings.port == 8000
         assert settings.cors_origins == ["http://localhost:3000", "http://127.0.0.1:3000"]
         assert settings.mcp_path == "/mcp"
+
+
+class TestConfigAccessors:
+    """Tests for configuration accessor functions."""
+
+    def test_get_api_config(self):
+        """Test get_api_config function returns correct config."""
+        from gtex_link.config import get_api_config
+        
+        api_config = get_api_config()
+        assert isinstance(api_config, GTExAPIConfigModel)
+        assert api_config.base_url == "https://gtexportal.org/api/v2/"
+
+    def test_get_cache_config(self):
+        """Test get_cache_config function returns correct config."""
+        from gtex_link.config import get_cache_config, CacheConfigModel
+        
+        cache_config = get_cache_config()
+        assert isinstance(cache_config, CacheConfigModel)
+        assert cache_config.size == 1000
+        assert cache_config.ttl == 3600
