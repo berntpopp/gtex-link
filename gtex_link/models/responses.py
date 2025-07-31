@@ -44,7 +44,7 @@ class PaginatedResponse(BaseResponse, Generic[T]):
     """Generic paginated response wrapper."""
 
     data: list[T]
-    paging_info: PaginationInfo
+    paging_info: PaginationInfo = Field(alias="pagingInfo")
 
 
 class Organization(BaseResponse):
@@ -218,11 +218,11 @@ class MedianGeneExpression(BaseResponse):
 
     median: float
     tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
-    ontology_id: str = Field(alias="ontologyId")
-    dataset_id: str = Field(alias="datasetId")
+    data_source: str = Field(alias="dataSource")
     gencode_id: str = Field(alias="gencodeId")
     gene_symbol: str = Field(alias="geneSymbol")
     unit: str
+    num_samples: int | None = Field(None, alias="numSamples")
 
 
 class GeneExpression(BaseResponse):
@@ -238,38 +238,6 @@ class GeneExpression(BaseResponse):
     subset_group: str | None = Field(None, alias="subsetGroup")
 
 
-class SingleTissueEqtl(BaseResponse):
-    """Single tissue eQTL data."""
-
-    snp_id: str = Field(alias="snpId")
-    pos: int
-    snp_id_upper: str = Field(alias="snpIdUpper")
-    variant_id: str = Field(alias="variantId")
-    gene_symbol: str = Field(alias="geneSymbol")
-    p_value: float = Field(alias="pValue")
-    gene_symbol_upper: str = Field(alias="geneSymbolUpper")
-    dataset_id: str = Field(alias="datasetId")
-    tissue_site_detail_id: str = Field(alias="tissueSiteDetailId")
-    ontology_id: str = Field(alias="ontologyId")
-    chromosome: str
-    gencode_id: str = Field(alias="gencodeId")
-    nes: float
-
-
-class SingleTissueSqtl(BaseResponse):
-    """Single tissue sQTL data."""
-
-    beta: float
-    intron_cluster: str = Field(alias="intronCluster")
-    maf: float
-    nes: float
-    phenotype_id: str = Field(alias="phenotypeId")
-    pvalue: float = Field(alias="pValue")
-    qvalue: float = Field(alias="qValue")
-    tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
-    variant_id: str = Field(alias="variantId")
-
-
 class TopExpressedGenes(BaseResponse):
     """Top expressed genes data."""
 
@@ -280,67 +248,6 @@ class TopExpressedGenes(BaseResponse):
     gene_symbol: str = Field(alias="geneSymbol")
     median: float
     unit: str
-
-
-class EqtlGene(BaseResponse):
-    """eQTL gene data."""
-
-    gene_symbol: str = Field(alias="geneSymbol")
-    gencode_id: str = Field(alias="gencodeId")
-    num_significant_variants: int = Field(alias="numSignificantVariants")
-    pvalue_threshold: float = Field(alias="pValueThreshold")
-    qvalue: float = Field(alias="qValue")
-    tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
-
-
-class SGene(BaseResponse):
-    """sGene (sQTL gene) data."""
-
-    gene_symbol: str = Field(alias="geneSymbol")
-    gencode_id: str = Field(alias="gencodeId")
-    num_significant_variants: int = Field(alias="numSignificantVariants")
-    pvalue_threshold: float = Field(alias="pValueThreshold")
-    qvalue: float = Field(alias="qValue")
-    tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
-
-
-class IndependentEqtl(BaseResponse):
-    """Independent eQTL data."""
-
-    beta: float
-    gencode_id: str = Field(alias="gencodeId")
-    gene_symbol: str = Field(alias="geneSymbol")
-    log10_pvalue: float = Field(alias="log10PValue")
-    maf: float
-    pip: float
-    tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
-    variant_id: str = Field(alias="variantId")
-
-
-class MetaSoft(BaseResponse):
-    """MetaSoft analysis data."""
-
-    gencode_id: str = Field(alias="gencodeId")
-    gene_symbol: str = Field(alias="geneSymbol")
-    m_value: float = Field(alias="mValue")
-    pvalue_fe: float = Field(alias="pValueFe")
-    pvalue_re2: float = Field(alias="pValueRe2")
-    variant_id: str = Field(alias="variantId")
-
-
-class FineMapping(BaseResponse):
-    """Fine mapping data."""
-
-    cs_id: str | None = Field(alias="csId")
-    cs_index: int | None = Field(alias="csIndex")
-    cs_log10bf: float | None = Field(alias="csLog10bf")
-    cs_min_r2: float | None = Field(alias="csMinR2")
-    cs_size: int | None = Field(alias="csSize")
-    gencode_id: str = Field(alias="gencodeId")
-    gene_symbol: str = Field(alias="geneSymbol")
-    pip: float
-    tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
-    variant_id: str = Field(alias="variantId")
 
 
 class SingleNucleusGeneExpressionResult(BaseResponse):
@@ -375,14 +282,7 @@ PaginatedDatasetSampleResponse = PaginatedResponse[DatasetSample]
 PaginatedVariantResponse = PaginatedResponse[Variant]
 PaginatedMedianGeneExpressionResponse = PaginatedResponse[MedianGeneExpression]
 PaginatedGeneExpressionResponse = PaginatedResponse[GeneExpression]
-PaginatedSingleTissueEqtlResponse = PaginatedResponse[SingleTissueEqtl]
-PaginatedSingleTissueSqtlResponse = PaginatedResponse[SingleTissueSqtl]
 PaginatedTopExpressedGenesResponse = PaginatedResponse[TopExpressedGenes]
-PaginatedEqtlGeneResponse = PaginatedResponse[EqtlGene]
-PaginatedSGeneResponse = PaginatedResponse[SGene]
-PaginatedIndependentEqtlResponse = PaginatedResponse[IndependentEqtl]
-PaginatedMetaSoftResponse = PaginatedResponse[MetaSoft]
-PaginatedFineMappingResponse = PaginatedResponse[FineMapping]
 PaginatedSingleNucleusGeneExpressionResultResponse = PaginatedResponse[
     SingleNucleusGeneExpressionResult
 ]
@@ -406,14 +306,7 @@ for cls in [
     Variant,
     MedianGeneExpression,
     GeneExpression,
-    SingleTissueEqtl,
-    SingleTissueSqtl,
     TopExpressedGenes,
-    EqtlGene,
-    SGene,
-    IndependentEqtl,
-    MetaSoft,
-    FineMapping,
     SingleNucleusGeneExpressionResult,
     SingleNucleusGeneExpressionSummary,
 ]:

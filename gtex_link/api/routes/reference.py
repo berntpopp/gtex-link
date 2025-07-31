@@ -47,15 +47,15 @@ router = APIRouter(prefix="/api/reference", tags=["Reference Data"])
                                 "genomeBuild": "GRCh38",
                                 "start": 43044295,
                                 "strand": "-",
-                                "tss": 43097243
+                                "tss": 43097243,
                             }
                         ],
                         "paging_info": {
                             "numberOfPages": 1,
                             "page": 0,
                             "maxItemsPerPage": 250,
-                            "totalNumberOfItems": 1
-                        }
+                            "totalNumberOfItems": 1,
+                        },
                     }
                 }
             },
@@ -69,7 +69,7 @@ router = APIRouter(prefix="/api/reference", tags=["Reference Data"])
                         "error": "ValidationError",
                         "message": "Search query must be between 1 and 50 characters",
                         "status_code": 400,
-                        "details": {"field": "query", "value": ""}
+                        "details": {"field": "query", "value": ""},
                     }
                 }
             },
@@ -83,7 +83,7 @@ router = APIRouter(prefix="/api/reference", tags=["Reference Data"])
                         "error": "ValidationError",
                         "message": "Invalid dataset identifier",
                         "status_code": 422,
-                        "details": {"field": "datasetId", "value": "invalid_dataset"}
+                        "details": {"field": "datasetId", "value": "invalid_dataset"},
                     }
                 }
             },
@@ -96,7 +96,7 @@ router = APIRouter(prefix="/api/reference", tags=["Reference Data"])
                     "example": {
                         "error": "GTExAPIError",
                         "message": "GTEx Portal API error: Failed to search genes",
-                        "status_code": 502
+                        "status_code": 502,
                     }
                 }
             },
@@ -109,7 +109,7 @@ router = APIRouter(prefix="/api/reference", tags=["Reference Data"])
                     "example": {
                         "error": "InternalServerError",
                         "message": "Internal server error",
-                        "status_code": 500
+                        "status_code": 500,
                     }
                 }
             },

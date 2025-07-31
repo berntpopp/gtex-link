@@ -130,25 +130,49 @@ class GTExClient:
         self.successful_requests = 0
         self.response_times: list[float] = []
 
-        # Initialize rate limiter
-        self.rate_limiter = TokenBucketRateLimiter(
+        # Initialize rate limiter (private attribute for tests)
+        self._rate_limiter = TokenBucketRateLimiter(
             rate=config.rate_limit_per_second,
             burst=config.burst_size,
         )
 
-        # Initialize HTTP client
-        self.client = httpx.AsyncClient(
-            timeout=httpx.Timeout(config.timeout),
-            headers={
-                "User-Agent": config.user_agent,
-                "Accept": "application/json",
-            },
-            follow_redirects=True,
-        )
+        # Initialize HTTP session (lazy initialization)
+        self._session: httpx.AsyncClient | None = None
+
+    @property
+    def rate_limiter(self) -> TokenBucketRateLimiter:
+        """Get rate limiter (public accessor)."""
+        return self._rate_limiter
+
+    async def _get_session(self) -> httpx.AsyncClient:
+        """Get or create HTTP session (lazy initialization).
+
+        Returns:
+            HTTP client session
+        """
+        if self._session is None:
+            self._session = httpx.AsyncClient(
+                timeout=httpx.Timeout(self.config.timeout),
+                headers={
+                    "User-Agent": self.config.user_agent,
+                    "Accept": "application/json",
+                },
+                follow_redirects=True,
+            )
+        return self._session
+
+    @property
+    def client(self) -> httpx.AsyncClient:
+        """Get HTTP client (backwards compatibility)."""
+        if self._session is None:
+            raise RuntimeError("Session not initialized. Call _get_session() first.")
+        return self._session
 
     async def close(self) -> None:
         """Close HTTP client."""
-        await self.client.aclose()
+        if self._session is not None:
+            await self._session.aclose()
+            self._session = None
 
     async def __aenter__(self) -> Self:
         """Async context manager entry."""
@@ -187,7 +211,7 @@ class GTExClient:
             GTExAPIError: For other API errors
         """
         # Apply rate limiting
-        wait_time = await self.rate_limiter.acquire()
+        wait_time = await self._rate_limiter.acquire()
         if wait_time > 0:
             if self.logger:
                 self.logger.debug("Rate limit applied", wait_time=wait_time)
@@ -196,13 +220,16 @@ class GTExClient:
         # Construct full URL
         url = urljoin(self.config.base_url, endpoint)
 
+        # Get session (lazy initialization)
+        session = await self._get_session()
+
         # Make request with retries
         last_error: Exception | None = None
         start_time = time.time()
 
         for attempt in range(self.config.max_retries + 1):
             try:
-                response = await self.client.request(
+                response = await session.request(
                     method=method,
                     url=url,
                     params=params,
@@ -388,37 +415,6 @@ class GTExClient:
         endpoint = self.config.endpoints["single_nucleus_gene_expression"]
         return await self._make_request("GET", endpoint, params=params)
 
-    # Association endpoints
-    async def get_single_tissue_eqtl(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Get single tissue eQTL data."""
-        endpoint = self.config.endpoints["single_tissue_eqtl"]
-        return await self._make_request("GET", endpoint, params=params)
-
-    async def get_single_tissue_sqtl(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Get single tissue sQTL data."""
-        endpoint = self.config.endpoints["single_tissue_sqtl"]
-        return await self._make_request("GET", endpoint, params=params)
-
-    async def get_independent_eqtl(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Get independent eQTL data."""
-        endpoint = self.config.endpoints["independent_eqtl"]
-        return await self._make_request("GET", endpoint, params=params)
-
-    async def get_egenes(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Get eGene data."""
-        endpoint = self.config.endpoints["egene"]
-        return await self._make_request("GET", endpoint, params=params)
-
-    async def get_sgenes(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Get sGene data."""
-        endpoint = self.config.endpoints["sgene"]
-        return await self._make_request("GET", endpoint, params=params)
-
-    async def get_metasoft(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Get MetaSoft analysis data."""
-        endpoint = self.config.endpoints["metasoft"]
-        return await self._make_request("GET", endpoint, params=params)
-
     # Dataset endpoints
     async def get_tissue_site_details(self, params: dict[str, Any]) -> dict[str, Any]:
         """Get tissue site details."""
@@ -452,8 +448,8 @@ class GTExClient:
             "total_requests": self.total_requests,
             "successful_requests": self.successful_requests,
             "success_rate": self.successful_requests / max(self.total_requests, 1),
-            "current_rate": self.rate_limiter.current_rate(),
-            "current_tokens": self.rate_limiter.current_tokens,
+            "current_rate": self._rate_limiter.current_rate(),
+            "current_tokens": self._rate_limiter.current_tokens,
             "avg_response_time": (
                 sum(self.response_times) / len(self.response_times) if self.response_times else 0.0
             ),

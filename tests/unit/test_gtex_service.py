@@ -9,7 +9,6 @@ from gtex_link.models import (
     PaginatedGeneResponse,
     PaginatedMedianGeneExpressionResponse,
     ServiceInfo,
-    SingleTissueEqtlRequest,
     TissueSiteDetailId,
 )
 from gtex_link.services.gtex_service import GTExService
@@ -151,31 +150,6 @@ class TestGTExServiceCoreOperations:
         assert result.data[0].tissue_site_detail_id == TissueSiteDetailId.BREAST_MAMMARY_TISSUE
 
         mock_gtex_client.get_median_gene_expression.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_single_tissue_eqtl(
-        self, mock_gtex_client, test_cache_config, mock_logger, eqtl_response
-    ):
-        """Test single tissue eQTL retrieval."""
-        service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
-
-        mock_gtex_client.get_single_tissue_eqtl.return_value = eqtl_response
-
-        request = SingleTissueEqtlRequest(
-            gene_symbol=["BRCA1"],
-            tissue_site_detail_id=[TissueSiteDetailId.BREAST_MAMMARY_TISSUE],
-            pvalue_threshold=1e-5,
-            dataset_id=DatasetId.GTEX_V8,
-        )
-
-        result = await service.get_single_tissue_eqtl(request)
-
-        assert len(result.data) == 2
-        assert result.data[0].gene_symbol == "BRCA1"
-        assert result.data[0].pvalue == 1.23e-12
-        assert result.data[0].qvalue == 2.45e-10
-
-        mock_gtex_client.get_single_tissue_eqtl.assert_called_once()
 
 
 class TestGTExServiceParameterizedTests:
@@ -445,7 +419,6 @@ class TestGTExServiceRealWorldScenarios:
         mock_logger,
         gene_search_response,
         median_expression_response,
-        eqtl_response,
     ):
         """Test comprehensive gene analysis with multiple data types."""
         service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
@@ -453,7 +426,6 @@ class TestGTExServiceRealWorldScenarios:
         # Configure all mocks
         mock_gtex_client.search_genes.return_value = gene_search_response
         mock_gtex_client.get_median_gene_expression.return_value = median_expression_response
-        mock_gtex_client.get_single_tissue_eqtl.return_value = eqtl_response
 
         gene = "BRCA1"
         tissue = TissueSiteDetailId.BREAST_MAMMARY_TISSUE
@@ -469,20 +441,10 @@ class TestGTExServiceRealWorldScenarios:
         )
         expression_data = await service.get_median_gene_expression(expression_request)
 
-        # 3. Get eQTL data
-        eqtl_request = SingleTissueEqtlRequest(
-            gene_symbol=[gene],
-            tissue_site_detail_id=[tissue],
-            dataset_id=DatasetId.GTEX_V8,
-        )
-        eqtl_data = await service.get_single_tissue_eqtl(eqtl_request)
-
         # Verify all results
         assert isinstance(gene_info, PaginatedGeneResponse)
         assert isinstance(expression_data, PaginatedMedianGeneExpressionResponse)
-        assert len(eqtl_data.data) == 2
 
         # Verify service was called for each operation
         mock_gtex_client.search_genes.assert_called_once()
         mock_gtex_client.get_median_gene_expression.assert_called_once()
-        mock_gtex_client.get_single_tissue_eqtl.assert_called_once()

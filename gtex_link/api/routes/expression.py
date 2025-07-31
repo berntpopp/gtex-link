@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from gtex_link.exceptions import GTExAPIError, ValidationError
 from gtex_link.models import (
+    DatasetId,
     ErrorResponse,
     GeneExpressionRequest,
     MedianGeneExpressionRequest,
     PaginatedGeneExpressionResponse,
     PaginatedMedianGeneExpressionResponse,
     PaginatedTopExpressedGenesResponse,
+    TissueSiteDetailId,
     TopExpressedGenesRequest,
 )
 
@@ -51,9 +53,85 @@ router = APIRouter(prefix="/api/expression", tags=["Expression"])
 async def get_median_gene_expression(
     service: ServiceDep,
     logger: LoggerDep,
-    request: MedianGeneExpressionRequest = Depends(),
+    gencode_id: list[str] | None = Query(
+        None,
+        alias="gencodeId",
+        description="List of Gencode IDs",
+        examples=["ENSG00000012048.20"],
+    ),
+    gene_symbol: list[str] | None = Query(
+        None,
+        description="List of gene symbols",
+        examples=["BRCA1", "TP53"],
+    ),
+    tissue_site_detail_id: list[TissueSiteDetailId] | None = Query(
+        None,
+        alias="tissueSiteDetailId",
+        description="List of tissue site detail IDs",
+        examples=["Whole_Blood", "Breast_Mammary_Tissue"],
+    ),
+    dataset_id: DatasetId = Query(
+        DatasetId.GTEX_V8,
+        alias="datasetId",
+        description="Dataset ID",
+    ),
+    page: int = Query(0, ge=0, description="Page number (0-based)"),
+    items_per_page: int = Query(
+        250,
+        ge=1,
+        le=1000,
+        alias="itemsPerPage",
+        description="Number of items per page (1-1000)",
+    ),
 ) -> PaginatedMedianGeneExpressionResponse:
     """Get median gene expression data."""
+    # Validate that at least one gene identifier is provided
+    if not gencode_id and not gene_symbol:
+        raise HTTPException(
+            status_code=422, detail="Either gencodeId or geneSymbol must be provided"
+        )
+
+    # Create request object from query parameters
+    # If gene_symbol is provided but not gencode_id, we need to convert gene symbols to gencode IDs
+    final_gencode_id = gencode_id
+
+    if gene_symbol and not gencode_id:
+        # Convert gene symbols to gencode IDs using gene search
+        logger.info("Converting gene symbols to gencode IDs", gene_symbols=gene_symbol)
+        try:
+            gencode_ids = []
+            for symbol in gene_symbol:
+                # Search for the gene to get its gencode ID
+                search_result = await service.search_genes(
+                    query=symbol, dataset_id=dataset_id.value, page=0, page_size=1
+                )
+                if search_result.data:
+                    gencode_ids.append(search_result.data[0].gencode_id)
+                else:
+                    logger.warning("Gene symbol not found", gene_symbol=symbol)
+                    # Continue anyway - let the GTEx API handle the error
+                    gencode_ids.append(symbol)
+
+            final_gencode_id = gencode_ids
+            logger.info(
+                "Converted gene symbols to gencode IDs",
+                gene_symbols=gene_symbol,
+                gencode_ids=final_gencode_id,
+            )
+
+        except Exception as e:
+            logger.error("Failed to convert gene symbols to gencode IDs", error=str(e))
+            # Fall back to using gene symbols directly (will likely fail but shows better error)
+            final_gencode_id = gene_symbol
+
+    request = MedianGeneExpressionRequest(
+        gencode_id=final_gencode_id,
+        tissue_site_detail_id=tissue_site_detail_id,
+        dataset_id=dataset_id,
+        page=page,
+        items_per_page=items_per_page,
+    )
+
     try:
         logger.info("Get median gene expression request", **request.model_dump(exclude_none=True))
 
@@ -164,9 +242,34 @@ async def get_gene_expression(
 async def get_top_expressed_genes(
     service: ServiceDep,
     logger: LoggerDep,
-    request: TopExpressedGenesRequest = Depends(),
+    tissue_site_detail_id: TissueSiteDetailId = Query(
+        alias="tissueSiteDetailId",
+        description="Tissue site detail ID",
+        examples=["Whole_Blood", "Breast_Mammary_Tissue"],
+    ),
+    dataset_id: DatasetId = Query(
+        DatasetId.GTEX_V8,
+        alias="datasetId",
+        description="Dataset ID",
+    ),
+    page: int = Query(0, ge=0, description="Page number (0-based)"),
+    items_per_page: int = Query(
+        250,
+        ge=1,
+        le=1000,
+        alias="itemsPerPage",
+        description="Number of items per page (1-1000)",
+    ),
 ) -> PaginatedTopExpressedGenesResponse:
     """Get top expressed genes."""
+    # Create request object from query parameters
+    request = TopExpressedGenesRequest(
+        tissue_site_detail_id=tissue_site_detail_id,
+        dataset_id=dataset_id,
+        page=page,
+        items_per_page=items_per_page,
+    )
+
     try:
         logger.info("Get top expressed genes request", **request.model_dump(exclude_none=True))
 

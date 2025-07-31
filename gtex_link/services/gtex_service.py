@@ -7,30 +7,20 @@ from typing import TYPE_CHECKING, Any
 from gtex_link.exceptions import ValidationError
 from gtex_link.models import (
     DatasetSampleRequest,
-    EqtlGeneRequest,
     GeneExpressionRequest,
     GeneRequest,
     MedianGeneExpressionRequest,
     PaginatedDatasetSampleResponse,
-    PaginatedEqtlGeneResponse,
     PaginatedExonResponse,
     PaginatedGeneExpressionResponse,
     PaginatedGeneResponse,
-    PaginatedIndependentEqtlResponse,
     PaginatedMedianGeneExpressionResponse,
-    PaginatedMetaSoftResponse,
-    PaginatedSGeneResponse,
-    PaginatedSingleTissueEqtlResponse,
-    PaginatedSingleTissueSqtlResponse,
     PaginatedSubjectResponse,
     PaginatedTissueSiteDetailResponse,
     PaginatedTopExpressedGenesResponse,
     PaginatedTranscriptResponse,
     PaginatedVariantResponse,
     ServiceInfo,
-    SGeneRequest,
-    SingleTissueEqtlRequest,
-    SingleTissueSqtlRequest,
     SubjectRequest,
     TissueSiteDetailRequest,
     TopExpressedGenesRequest,
@@ -113,31 +103,6 @@ class GTExService:
         self.get_top_expressed_genes = self.cache.cached(
             maxsize=min(400, default_maxsize), ttl=default_ttl, key_pattern="top_genes"
         )(self._get_top_expressed_genes_impl)
-
-        # Association endpoints
-        self.get_single_tissue_eqtl = self.cache.cached(
-            maxsize=min(600, default_maxsize), ttl=default_ttl, key_pattern="eqtl"
-        )(self._get_single_tissue_eqtl_impl)
-
-        self.get_single_tissue_sqtl = self.cache.cached(
-            maxsize=min(600, default_maxsize), ttl=default_ttl, key_pattern="sqtl"
-        )(self._get_single_tissue_sqtl_impl)
-
-        self.get_egenes = self.cache.cached(
-            maxsize=min(500, default_maxsize), ttl=default_ttl, key_pattern="egenes"
-        )(self._get_egenes_impl)
-
-        self.get_sgenes = self.cache.cached(
-            maxsize=min(500, default_maxsize), ttl=default_ttl, key_pattern="sgenes"
-        )(self._get_sgenes_impl)
-
-        self.get_independent_eqtl = self.cache.cached(
-            maxsize=min(400, default_maxsize), ttl=default_ttl, key_pattern="independent_eqtl"
-        )(self._get_independent_eqtl_impl)
-
-        self.get_metasoft = self.cache.cached(
-            maxsize=min(300, default_maxsize), ttl=default_ttl, key_pattern="metasoft"
-        )(self._get_metasoft_impl)
 
         # Dataset endpoints
         self.get_tissue_site_details = self.cache.cached(
@@ -271,62 +236,6 @@ class GTExService:
         api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_top_expressed_genes(api_params)
         return PaginatedTopExpressedGenesResponse(**raw_data)
-
-    # Association endpoints (implementation methods called by cached versions)
-
-    async def _get_single_tissue_eqtl_impl(
-        self, params: SingleTissueEqtlRequest
-    ) -> PaginatedSingleTissueEqtlResponse:
-        """Get single tissue eQTL data."""
-        (
-            self.logger.info("Fetching single tissue eQTL", **params.model_dump())
-            if self.logger
-            else None
-        )
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
-        raw_data = await self.client.get_single_tissue_eqtl(api_params)
-        return PaginatedSingleTissueEqtlResponse(**raw_data)
-
-    async def _get_single_tissue_sqtl_impl(
-        self, params: SingleTissueSqtlRequest
-    ) -> PaginatedSingleTissueSqtlResponse:
-        """Get single tissue sQTL data."""
-        (
-            self.logger.info("Fetching single tissue sQTL", **params.model_dump())
-            if self.logger
-            else None
-        )
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
-        raw_data = await self.client.get_single_tissue_sqtl(api_params)
-        return PaginatedSingleTissueSqtlResponse(**raw_data)
-
-    async def _get_egenes_impl(self, params: EqtlGeneRequest) -> PaginatedEqtlGeneResponse:
-        """Get eGene data."""
-        self.logger.info("Fetching eGenes", **params.model_dump()) if self.logger else None
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
-        raw_data = await self.client.get_egenes(api_params)
-        return PaginatedEqtlGeneResponse(**raw_data)
-
-    async def _get_sgenes_impl(self, params: SGeneRequest) -> PaginatedSGeneResponse:
-        """Get sGene data."""
-        self.logger.info("Fetching sGenes", **params.model_dump()) if self.logger else None
-        api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
-        raw_data = await self.client.get_sgenes(api_params)
-        return PaginatedSGeneResponse(**raw_data)
-
-    async def _get_independent_eqtl_impl(
-        self, params: dict[str, Any]
-    ) -> PaginatedIndependentEqtlResponse:
-        """Get independent eQTL data."""
-        self.logger.info("Fetching independent eQTL", **params) if self.logger else None
-        raw_data = await self.client.get_independent_eqtl(params)
-        return PaginatedIndependentEqtlResponse(**raw_data)
-
-    async def _get_metasoft_impl(self, params: dict[str, Any]) -> PaginatedMetaSoftResponse:
-        """Get MetaSoft analysis data."""
-        self.logger.info("Fetching MetaSoft data", **params) if self.logger else None
-        raw_data = await self.client.get_metasoft(params)
-        return PaginatedMetaSoftResponse(**raw_data)
 
     # Dataset endpoints (implementation methods called by cached versions)
 

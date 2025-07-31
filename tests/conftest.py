@@ -65,7 +65,7 @@ def test_cache_config() -> CacheConfigModel:
         size=100,
         ttl=60,  # Short TTL for tests
         stats_enabled=True,
-        cleanup_interval=30,
+        cleanup_interval=60,  # Must be >= 60 per validation rules
     )
 
 
@@ -103,7 +103,10 @@ def test_client(app) -> Generator[TestClient, None, None]:
 @pytest_asyncio.fixture
 async def async_client(app) -> AsyncGenerator[AsyncClient, None]:
     """Create async test client."""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    from httpx._transports.asgi import ASGITransport
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
 

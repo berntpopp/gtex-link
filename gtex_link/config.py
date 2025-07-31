@@ -65,13 +65,6 @@ class GTExAPIConfigModel(BaseModel):
             "top_expressed_gene": "expression/topExpressedGene",
             "gene_expression": "expression/geneExpression",
             "single_nucleus_gene_expression": "expression/singleNucleusGeneExpression",
-            # Association endpoints
-            "single_tissue_eqtl": "association/singleTissueEqtl",
-            "single_tissue_sqtl": "association/singleTissueSqtl",
-            "independent_eqtl": "association/independentEqtl",
-            "egene": "association/egene",
-            "sgene": "association/sgene",
-            "metasoft": "association/metasoft",
             # Dataset endpoints
             "tissue_site_detail": "dataset/tissueSiteDetail",
             "sample": "dataset/sample",

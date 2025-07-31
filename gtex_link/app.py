@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastmcp import FastMCP
 from fastmcp.server.openapi import MCPType, RouteMap
 
-from .api.routes import association_router, expression_router, health_router, reference_router
+from .api.routes import expression_router, health_router, reference_router
 from .config import settings
 from .logging_config import configure_logging, log_server_startup
 
@@ -53,7 +53,6 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(reference_router)
     app.include_router(expression_router)
-    app.include_router(association_router)
     app.include_router(health_router)
 
     # Root endpoint
@@ -81,15 +80,11 @@ def create_mcp_app() -> FastMCP:
     # MCP tool name mappings for GTEx functions (user-friendly names)
     mcp_custom_names = {
         "search_genes": "search_gtex_genes",
-        "get_genes": "get_gene_information", 
+        "get_genes": "get_gene_information",
         "get_transcripts": "get_transcript_information",
         "get_median_gene_expression": "get_median_expression_levels",
         "get_gene_expression": "get_individual_expression_data",
         "get_top_expressed_genes": "get_top_expressed_genes_by_tissue",
-        "get_single_tissue_eqtl": "get_expression_qtl_associations",
-        "get_single_tissue_sqtl": "get_splicing_qtl_associations",
-        "get_egenes": "get_expression_qtl_genes",
-        "get_sgenes": "get_splicing_qtl_genes",
     }
 
     # Route mappings for MCP tools (exclude utility endpoints)

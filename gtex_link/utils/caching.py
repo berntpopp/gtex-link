@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import functools
+import hashlib
+import json
 import time
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from async_lru import alru_cache
+from pydantic import BaseModel
 
 from gtex_link.logging_config import log_cache_operation
 
@@ -18,6 +20,42 @@ if TYPE_CHECKING:
 # Type variables for generic function signatures
 P = TypeVar("P")
 R = TypeVar("R")
+
+
+def _make_hashable_key(*args: Any, **kwargs: Any) -> str:
+    """Create a hashable key from arguments including Pydantic models."""
+
+    def _serialize_value(value: Any) -> Any:
+        """Convert unhashable values to hashable representations."""
+        if isinstance(value, BaseModel):
+            # Convert Pydantic model to sorted dict representation
+            return (
+                "__pydantic__",
+                value.__class__.__name__,
+                tuple(sorted(value.model_dump().items())),
+            )
+        elif isinstance(value, list):
+            return ("__list__", tuple(_serialize_value(item) for item in value))
+        elif isinstance(value, dict):
+            return (
+                "__dict__",
+                tuple(sorted((_serialize_value(k), _serialize_value(v)) for k, v in value.items())),
+            )
+        elif isinstance(value, set):
+            return ("__set__", tuple(sorted(_serialize_value(item) for item in value)))
+        else:
+            return value
+
+    # Serialize all arguments and keyword arguments
+    serialized_args = tuple(_serialize_value(arg) for arg in args)
+    serialized_kwargs = tuple(sorted((k, _serialize_value(v)) for k, v in kwargs.items()))
+
+    # Create a JSON representation and hash it
+    key_data = {"args": serialized_args, "kwargs": serialized_kwargs}
+    key_json = json.dumps(key_data, sort_keys=True, default=str)
+
+    # Create a shorter hash for use as cache key
+    return hashlib.md5(key_json.encode()).hexdigest()
 
 
 class CacheManager:
@@ -48,154 +86,148 @@ class CacheManager:
         }
 
     def _log_cache_hit(self, key: str) -> None:
-        """Log cache hit and update statistics."""
+        """Log cache hit."""
         self._cache_stats["hits"] += 1
         if self.logger:
-            log_cache_operation(self.logger, "hit", key, hit=True)
+            self.logger.debug("Cache hit", cache_key=key)
 
     def _log_cache_miss(self, key: str) -> None:
-        """Log cache miss and update statistics."""
+        """Log cache miss."""
         self._cache_stats["misses"] += 1
         if self.logger:
-            log_cache_operation(self.logger, "miss", key, hit=False)
+            self.logger.debug("Cache miss", cache_key=key)
 
     def cached(
         self,
-        maxsize: int = 256,
+        maxsize: int = 128,
         ttl: int = 3600,
         key_pattern: str | None = None,
     ) -> Callable[[Callable[..., Awaitable[R]]], Callable[..., Awaitable[R]]]:
-        """Advanced caching decorator with statistics tracking.
-
-        This decorator provides unified caching functionality with:
-        - Configurable cache size and TTL
-        - Automatic cache statistics tracking
-        - Centralized logging of cache operations
-        - Support for custom cache key patterns
+        """Create a caching decorator with custom key generation for Pydantic models.
 
         Args:
-            maxsize: Maximum number of cached items (default: 256)
-            ttl: Time-to-live in seconds (default: 3600 = 1 hour)
-            key_pattern: Optional pattern for generating cache keys
+            maxsize: Maximum number of cached items
+            ttl: Time-to-live in seconds
+            key_pattern: Optional pattern for cache key generation
 
         Returns:
             Decorated function with caching capabilities
-
-        Example:
-            ```python
-            cache_manager = CacheManager(logger)
-
-            @cache_manager.cached(maxsize=500, ttl=7200, key_pattern="gene_expression")
-            async def get_gene_expression(gene_id: str) -> dict:
-                return await client.get_gene_expression(gene_id)
-            ```
         """
 
         def decorator(func: Callable[..., Awaitable[R]]) -> Callable[..., Awaitable[R]]:
-            # Create the cached version using alru_cache
-            cached_func = alru_cache(maxsize=maxsize, ttl=ttl)(func)
-            self._cached_functions.append(cached_func)
+            cache_dict: dict[str, tuple[R, float]] = {}
+            hits = 0
+            misses = 0
 
             @functools.wraps(func)
             async def wrapper(*args: Any, **kwargs: Any) -> R:
+                nonlocal hits, misses
+
+                # Skip 'self' parameter for method calls
+                if args and hasattr(args[0], func.__name__):
+                    cache_args = args[1:]  # Skip 'self'
+                else:
+                    cache_args = args
+
+                # Create a hashable key from the arguments
+                hash_key = _make_hashable_key(*cache_args, **kwargs)
+
                 # Generate cache key for logging
                 if key_pattern:
-                    cache_key = f"{key_pattern}:{':'.join(str(arg) for arg in args)}"
-                    if kwargs:
-                        key_parts = [f"{k}={v}" for k, v in sorted(kwargs.items())]
-                        cache_key += f":{':'.join(key_parts)}"
+                    display_key = f"{key_pattern}:{hash_key[:8]}..."  # Show first 8 chars of hash
                 else:
-                    cache_key = f"{func.__name__}:{':'.join(str(arg) for arg in args)}"
-
-                # Check cache hit/miss by comparing cache info before and after
-                cache_info_before = cached_func.cache_info()
-                initial_hits = cache_info_before.hits
+                    display_key = f"{func.__name__}:{hash_key[:8]}..."
 
                 start_time = time.time()
+                was_cache_hit = False
 
-                # Execute cached function
-                result = await cached_func(*args, **kwargs)
+                # Check if we have a cached result
+                if hash_key in cache_dict:
+                    result, timestamp = cache_dict[hash_key]
+                    if time.time() - timestamp < ttl:
+                        was_cache_hit = True
+                        hits += 1
+                    else:
+                        # TTL expired, remove from cache
+                        del cache_dict[hash_key]
+                        misses += 1
+                        result = await func(*args, **kwargs)
+                        cache_dict[hash_key] = (result, time.time())
+                else:
+                    # Not in cache, compute result
+                    misses += 1
+                    result = await func(*args, **kwargs)
+                    cache_dict[hash_key] = (result, time.time())
 
-                # Determine if cache was hit
-                cache_info_after = cached_func.cache_info()
-                was_cache_hit = cache_info_after.hits > initial_hits
+                # Implement LRU eviction if cache is too large
+                if len(cache_dict) > maxsize:
+                    # Remove oldest entries
+                    sorted_items = sorted(cache_dict.items(), key=lambda x: x[1][1])
+                    for old_key, _ in sorted_items[: len(cache_dict) - maxsize]:
+                        del cache_dict[old_key]
 
                 # Log cache operation
                 if was_cache_hit:
-                    self._log_cache_hit(cache_key)
+                    self._log_cache_hit(display_key)
                 else:
-                    self._log_cache_miss(cache_key)
+                    self._log_cache_miss(display_key)
 
                 # Log performance metrics
-                execution_time = (time.time() - start_time) * 1000
-                if self.logger:
-                    self.logger.debug(
-                        "Cache operation completed",
-                        cache_key=cache_key,
-                        hit=was_cache_hit,
-                        execution_time_ms=execution_time,
-                        cache_size=cache_info_after.currsize,
-                        max_size=maxsize,
-                    )
+                cache_info_current = type(
+                    "CacheInfo",
+                    (),
+                    {
+                        "hits": hits,
+                        "misses": misses,
+                        "maxsize": maxsize,
+                        "currsize": len(cache_dict),
+                    },
+                )()
+
+                log_cache_operation(
+                    self.logger,
+                    was_cache_hit,
+                    display_key,
+                    cache_info_current,
+                    time.time() - start_time,
+                )
 
                 return result
 
-            # Store cache info access for management
-            wrapper.cache_info = cached_func.cache_info  # type: ignore
-            wrapper.cache_clear = cached_func.cache_clear  # type: ignore
+            # Add cache info method with actual stats
+            def cache_info():
+                return type(
+                    "CacheInfo",
+                    (),
+                    {
+                        "hits": hits,
+                        "misses": misses,
+                        "maxsize": maxsize,
+                        "currsize": len(cache_dict),
+                    },
+                )()
 
+            def cache_clear():
+                nonlocal hits, misses
+                cache_dict.clear()
+                hits = 0
+                misses = 0
+
+            wrapper.cache_info = cache_info  # type: ignore
+            wrapper.cache_clear = cache_clear  # type: ignore
+
+            self._cached_functions.append(wrapper)
             return wrapper
 
         return decorator
 
-    def clear_all_caches(self, pattern: str | None = None) -> dict[str, int]:
-        """Clear all managed caches.
-
-        Args:
-            pattern: Optional pattern to match (currently unused, clears all)
-
-        Returns:
-            Dictionary with cleared cache statistics
-        """
-        cleared_count = 0
-        cleared_functions = 0
-
-        for cached_func in self._cached_functions:
-            if hasattr(cached_func, "cache_info") and hasattr(
-                cached_func,
-                "cache_clear",
-            ):
-                info_before = cached_func.cache_info()
-                cached_func.cache_clear()
-                cleared_count += info_before.currsize
-                cleared_functions += 1
-
-        if self.logger:
-            log_cache_operation(
-                self.logger,
-                "clear_all",
-                pattern or "all",
-                size=cleared_count,
-            )
-
-        return {
-            "cleared_count": cleared_count,
-            "cleared_functions": cleared_functions,
-        }
-
-    def get_cache_info(self) -> dict[str, Any]:
-        """Get detailed information about all cached functions.
-
-        Returns:
-            Dictionary with cache information for each function
-        """
+    def get_cache_info(self) -> dict[str, dict[str, Any]]:
+        """Get cache information for all cached functions."""
         cache_info = {}
-
-        for i, cached_func in enumerate(self._cached_functions):
-            if hasattr(cached_func, "cache_info"):
-                info = cached_func.cache_info()
-                func_name = getattr(cached_func, "__name__", f"function_{i}")
-                cache_info[func_name] = {
+        for i, func in enumerate(self._cached_functions):
+            if hasattr(func, "cache_info"):
+                info = func.cache_info()
+                cache_info[f"function_{i}"] = {
                     "hits": info.hits,
                     "misses": info.misses,
                     "current_size": info.currsize,
@@ -206,34 +238,22 @@ class CacheManager:
                         else 0.0
                     ),
                 }
-
         return cache_info
 
+    def clear_all_caches(self) -> None:
+        """Clear all cached functions."""
+        for func in self._cached_functions:
+            if hasattr(func, "cache_clear"):
+                func.cache_clear()
 
-def create_service_cache_decorator(
-    logger: FilteringBoundLogger | None = None,
-) -> CacheManager:
-    """Create a cache manager for services.
 
-    This provides a convenient way to create a cache manager with
-    sensible defaults for service layer caching.
+def create_service_cache_decorator(logger: FilteringBoundLogger | None = None) -> CacheManager:
+    """Create a cache manager instance for service-level caching.
 
     Args:
         logger: Optional logger for cache operations
 
     Returns:
-        Configured CacheManager instance
-
-    Example:
-        ```python
-        from gtex_link.utils.caching import create_service_cache_decorator
-
-        cache = create_service_cache_decorator(logger)
-
-        class GTExService:
-            @cache.cached(maxsize=500, ttl=7200, key_pattern="gene_expression")
-            async def get_gene_expression(self, gene_id: str) -> dict:
-                return await self.client.get_gene_expression(gene_id)
-        ```
+        Configured cache manager instance
     """
     return CacheManager(logger)

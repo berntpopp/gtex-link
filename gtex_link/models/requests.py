@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 if TYPE_CHECKING:
     from pydantic import ValidationInfo
@@ -21,6 +21,12 @@ from .gtex import (
 
 class BaseRequest(BaseModel):
     """Base request model with common pagination fields."""
+
+    model_config = ConfigDict(
+        validate_assignment=True,
+        use_enum_values=True,
+        populate_by_name=True,
+    )
 
     page: int = Field(default=0, ge=0, description="Page number (0-based)")
     items_per_page: int = Field(
@@ -80,8 +86,9 @@ class TranscriptRequest(BaseRequest):
 class MedianGeneExpressionRequest(BaseRequest):
     """Request for median gene expression endpoint."""
 
-    gencode_id: list[str] = Field(
-        alias="gencodeId", description="List of Gencode IDs", min_length=1
+    gencode_id: list[str] | None = Field(None, alias="gencodeId", description="List of Gencode IDs")
+    gene_symbol: list[str] | None = Field(
+        None, alias="geneSymbol", description="List of gene symbols"
     )
     tissue_site_detail_id: list[TissueSiteDetailId] | None = Field(
         None, alias="tissueSiteDetailId", description="List of tissue site detail IDs"
@@ -89,6 +96,19 @@ class MedianGeneExpressionRequest(BaseRequest):
     dataset_id: DatasetId = Field(
         default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
     )
+
+    @field_validator("gencode_id", mode="after")
+    @classmethod
+    def validate_gene_identifiers(
+        cls, v: list[str] | None, info: ValidationInfo
+    ) -> list[str] | None:
+        """Validate that either gencode_id or gene_symbol is provided."""
+        gene_symbol = info.data.get("gene_symbol")
+
+        if not v and not gene_symbol:
+            raise ValueError("Either gencodeId or geneSymbol must be provided")
+
+        return v
 
 
 class GeneExpressionRequest(BaseRequest):
@@ -102,43 +122,6 @@ class GeneExpressionRequest(BaseRequest):
     )
     dataset_id: DatasetId = Field(
         default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
-    )
-
-
-class SingleTissueEqtlRequest(BaseRequest):
-    """Request for single tissue eQTL endpoint."""
-
-    gencode_id: list[str] | None = Field(None, alias="gencodeId", description="List of Gencode IDs")
-    gene_symbol: list[str] | None = Field(
-        None, alias="geneSymbol", description="List of gene symbols"
-    )
-    variant_id: list[str] | None = Field(None, alias="variantId", description="List of variant IDs")
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Field(
-        None, alias="tissueSiteDetailId", description="List of tissue site detail IDs"
-    )
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
-    )
-    pvalue_threshold: float | None = Field(
-        None, alias="pValueThreshold", gt=0, le=1, description="P-value threshold"
-    )
-
-
-class SingleTissueSqtlRequest(BaseRequest):
-    """Request for single tissue sQTL endpoint."""
-
-    phenotype_id: list[str] | None = Field(
-        None, alias="phenotypeId", description="List of phenotype IDs"
-    )
-    variant_id: list[str] | None = Field(None, alias="variantId", description="List of variant IDs")
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Field(
-        None, alias="tissueSiteDetailId", description="List of tissue site detail IDs"
-    )
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
-    )
-    pvalue_threshold: float | None = Field(
-        None, alias="pValueThreshold", gt=0, le=1, description="P-value threshold"
     )
 
 
@@ -191,36 +174,6 @@ class TopExpressedGenesRequest(BaseRequest):
     )
 
 
-class EqtlGeneRequest(BaseRequest):
-    """Request for eQTL gene (eGene) endpoint."""
-
-    gencode_id: list[str] | None = Field(None, alias="gencodeId", description="List of Gencode IDs")
-    gene_symbol: list[str] | None = Field(
-        None, alias="geneSymbol", description="List of gene symbols"
-    )
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Field(
-        None, alias="tissueSiteDetailId", description="List of tissue site detail IDs"
-    )
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
-    )
-
-
-class SGeneRequest(BaseRequest):
-    """Request for sGene endpoint."""
-
-    gencode_id: list[str] | None = Field(None, alias="gencodeId", description="List of Gencode IDs")
-    gene_symbol: list[str] | None = Field(
-        None, alias="geneSymbol", description="List of gene symbols"
-    )
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Field(
-        None, alias="tissueSiteDetailId", description="List of tissue site detail IDs"
-    )
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
-    )
-
-
 class TissueSiteDetailRequest(BaseRequest):
     """Request for tissue site detail endpoint."""
 
@@ -267,10 +220,6 @@ for cls in [
     MedianGeneExpressionRequest,
     GeneExpressionRequest,
     TopExpressedGenesRequest,
-    SingleTissueEqtlRequest,
-    SingleTissueSqtlRequest,
-    EqtlGeneRequest,
-    SGeneRequest,
     DatasetSampleRequest,
 ]:
     cls.model_rebuild()
