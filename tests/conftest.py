@@ -202,8 +202,6 @@ def sample_expression_data():
     return MEDIAN_GENE_EXPRESSION_RESPONSE["data"][0]
 
 
-
-
 @pytest.fixture
 def sample_variant_data():
     """Sample variant data from real GTEx API."""
@@ -251,8 +249,6 @@ def gene_search_response():
 def median_expression_response():
     """Complete median expression response."""
     return MEDIAN_GENE_EXPRESSION_RESPONSE
-
-
 
 
 @pytest.fixture

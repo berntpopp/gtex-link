@@ -348,7 +348,6 @@ class TestGTExClientAPIOperations:
 
         await client.close()
 
-
     @pytest.mark.asyncio
     async def test_parameter_validation(self, test_api_config):
         """Test client-side parameter validation."""

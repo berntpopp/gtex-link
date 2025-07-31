@@ -16,14 +16,14 @@ class TestHealthEndpoints:
     def test_health_check_success(self, test_client: TestClient):
         """Test successful health check endpoint."""
         from gtex_link.api.routes.dependencies import get_gtex_client
-        
+
         # Mock successful GTEx API call
         mock_client = AsyncMock()
         mock_client.get_service_info.return_value = {"id": "gtex_v2"}
-        
+
         async def mock_client_generator():
             yield mock_client
-        
+
         # Override the dependency
         test_client.app.dependency_overrides[get_gtex_client] = mock_client_generator
 
@@ -45,14 +45,14 @@ class TestHealthEndpoints:
     def test_health_check_gtex_api_unavailable(self, test_client: TestClient):
         """Test health check when GTEx API is unavailable."""
         from gtex_link.api.routes.dependencies import get_gtex_client
-        
+
         # Mock GTEx API failure
         mock_client = AsyncMock()
         mock_client.get_service_info.side_effect = httpx.HTTPError("API unavailable")
-        
+
         async def mock_client_generator():
             yield mock_client
-        
+
         # Override the dependency
         test_client.app.dependency_overrides[get_gtex_client] = mock_client_generator
 

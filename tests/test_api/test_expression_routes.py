@@ -97,7 +97,7 @@ class TestTopExpressedGenesRoutes:
         assert response.status_code == 422
 
 
-class TestIndividualExpressionRoutes:  
+class TestIndividualExpressionRoutes:
     """Test individual gene expression API routes."""
 
     def test_get_individual_expression_missing_gene(self, test_client: TestClient):
