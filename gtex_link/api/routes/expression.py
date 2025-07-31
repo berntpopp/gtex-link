@@ -50,15 +50,15 @@ router = APIRouter(prefix="/api/expression", tags=["Expression"])
                                 "geneSymbol": "BRCA1",
                                 "tissueSiteDetailId": "Whole_Blood",
                                 "median": 15.2,
-                                "unit": "TPM"
+                                "unit": "TPM",
                             }
                         ],
                         "page": 0,
                         "itemsPerPage": 250,
-                        "totalItems": 1
+                        "totalItems": 1,
                     }
                 }
-            }
+            },
         },
         400: {
             "description": "Invalid request parameters",
@@ -86,18 +86,17 @@ async def get_median_gene_expression(
         description="List of versioned GENCODE IDs (e.g. ENSG00000012048.20)",
         examples=["ENSG00000012048.20", "ENSG00000141510.11"],
         min_length=1,
-        max_length=50
+        max_length=50,
     ),
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Query(
-        None,
-        alias="tissueSiteDetailId", 
-        description="List of tissue site detail IDs for expression analysis",
-        examples=["Whole_Blood", "Brain_Cortex"]
+    tissue_site_detail_id: TissueSiteDetailId = Query(
+        default=TissueSiteDetailId.ALL,
+        alias="tissueSiteDetailId",
+        description="Tissue filter. Use 'ALL' (empty) for all tissues, or specific tissue name for single tissue.",
     ),
     dataset_id: DatasetId = Query(
         default=DatasetId.GTEX_V8,
-        alias="datasetId", 
-        description="Dataset ID - gtex_v8 is recommended"
+        alias="datasetId",
+        description="Dataset ID - gtex_v8 is recommended",
     ),
     page: int = Query(0, ge=0, description="Page number (0-based)"),
     items_per_page: int = Query(
@@ -109,14 +108,14 @@ async def get_median_gene_expression(
     ),
 ) -> PaginatedMedianGeneExpressionResponse:
     """Get median gene expression data."""
-    
+
     # Create request object from query parameters
     request = MedianGeneExpressionRequest(
-        gencode_id=gencode_id,
-        tissue_site_detail_id=tissue_site_detail_id,
-        dataset_id=dataset_id,
+        gencodeId=gencode_id,
+        tissueSiteDetailId=tissue_site_detail_id,
+        datasetId=dataset_id,
         page=page,
-        items_per_page=items_per_page,
+        itemsPerPage=items_per_page,
     )
 
     try:
@@ -168,15 +167,15 @@ async def get_median_gene_expression(
                                 "sampleId": "GTEX-111FC-0226-SM-5GIEN",
                                 "tissueSiteDetailId": "Whole_Blood",
                                 "expression": 15.2,
-                                "unit": "TPM"
+                                "unit": "TPM",
                             }
                         ],
                         "page": 0,
                         "itemsPerPage": 250,
-                        "totalItems": 670
+                        "totalItems": 670,
                     }
                 }
-            }
+            },
         },
         400: {
             "description": "Invalid request parameters",
@@ -200,28 +199,27 @@ async def get_gene_expression(
     service: GTExService = GTExServiceDep,
     logger: FilteringBoundLogger = LoggerDep,
     gencode_id: list[str] = Query(
-        alias="gencodeId", 
-        description="List of versioned GENCODE IDs (e.g. ENSG00000012048.20)", 
+        alias="gencodeId",
+        description="List of versioned GENCODE IDs (e.g. ENSG00000012048.20)",
         min_length=1,
         max_length=50,
-        examples=["ENSG00000012048.20"]
+        examples=["ENSG00000012048.20"],
     ),
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Query(
-        None, 
-        alias="tissueSiteDetailId", 
-        description="List of tissue site detail IDs for expression analysis",
-        examples=["Whole_Blood", "Brain_Cortex"]
+    tissue_site_detail_id: TissueSiteDetailId = Query(
+        default=TissueSiteDetailId.ALL,
+        alias="tissueSiteDetailId",
+        description="Tissue filter. Use 'ALL' (empty) for all tissues, or specific tissue name for single tissue.",
     ),
     attribute_subset: str | None = Query(
         None,
         alias="attributeSubset",
         description="Donor attribute to subset data by",
-        examples=["sex", "age"]
+        examples=["sex", "age"],
     ),
     dataset_id: DatasetId = Query(
-        default=DatasetId.GTEX_V8, 
-        alias="datasetId", 
-        description="Dataset ID - gtex_v8 is recommended"
+        default=DatasetId.GTEX_V8,
+        alias="datasetId",
+        description="Dataset ID - gtex_v8 is recommended",
     ),
     page: int = Query(0, ge=0, description="Page number (0-based)"),
     items_per_page: int = Query(
@@ -233,17 +231,17 @@ async def get_gene_expression(
     ),
 ) -> PaginatedGeneExpressionResponse:
     """Get gene expression data."""
-    
+
     # Create request object from query parameters
     request = GeneExpressionRequest(
-        gencode_id=gencode_id,
-        tissue_site_detail_id=tissue_site_detail_id,
-        attribute_subset=attribute_subset,
-        dataset_id=dataset_id,
+        gencodeId=gencode_id,
+        tissueSiteDetailId=tissue_site_detail_id,
+        attributeSubset=attribute_subset,
+        datasetId=dataset_id,
         page=page,
-        items_per_page=items_per_page,
+        itemsPerPage=items_per_page,
     )
-    
+
     try:
         logger.info("Get gene expression request", **request.model_dump(exclude_none=True))
 
@@ -291,15 +289,15 @@ async def get_gene_expression(
                                 "geneSymbol": "HBB",
                                 "tissueSiteDetailId": "Whole_Blood",
                                 "median": 267405.0,
-                                "unit": "TPM"
+                                "unit": "TPM",
                             }
                         ],
                         "page": 0,
                         "itemsPerPage": 250,
-                        "totalItems": 56200
+                        "totalItems": 56200,
                     }
                 }
-            }
+            },
         },
         400: {
             "description": "Invalid request parameters",
@@ -323,19 +321,15 @@ async def get_top_expressed_genes(
     service: GTExService = GTExServiceDep,
     logger: FilteringBoundLogger = LoggerDep,
     tissue_site_detail_id: TissueSiteDetailId = Query(
-        alias="tissueSiteDetailId", 
-        description="Tissue site detail ID for top gene analysis",
-        examples=["Whole_Blood", "Brain_Cortex", "Muscle_Skeletal"]
+        alias="tissueSiteDetailId", description="Tissue site detail ID for top gene analysis"
     ),
     filter_mt_gene: bool = Query(
-        default=True,
-        alias="filterMtGene",
-        description="Exclude mitochondrial genes from results"
+        default=True, alias="filterMtGene", description="Exclude mitochondrial genes from results"
     ),
     dataset_id: DatasetId = Query(
         default=DatasetId.GTEX_V8,
-        alias="datasetId", 
-        description="Dataset ID - gtex_v8 is recommended"
+        alias="datasetId",
+        description="Dataset ID - gtex_v8 is recommended",
     ),
     page: int = Query(0, ge=0, description="Page number (0-based)"),
     items_per_page: int = Query(
@@ -347,14 +341,14 @@ async def get_top_expressed_genes(
     ),
 ) -> PaginatedTopExpressedGenesResponse:
     """Get top expressed genes."""
-    
+
     # Create request object from query parameters
     request = TopExpressedGenesRequest(
-        tissue_site_detail_id=tissue_site_detail_id,
-        filter_mt_gene=filter_mt_gene,
-        dataset_id=dataset_id,
+        tissueSiteDetailId=tissue_site_detail_id,
+        filterMtGene=filter_mt_gene,
+        datasetId=dataset_id,
         page=page,
-        items_per_page=items_per_page,
+        itemsPerPage=items_per_page,
     )
 
     try:

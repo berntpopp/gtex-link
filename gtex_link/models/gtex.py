@@ -83,10 +83,13 @@ class DonorSex(str, Enum):
 
 class TissueSiteDetailId(str, Enum):
     """Tissue site detail ID enumeration.
-    
+
     Organized with most commonly used tissues first for better UX.
     """
-    
+
+    # Special value for all tissues (default behavior)
+    ALL = ""
+
     # Most commonly used tissues (appear first in dropdowns)
     WHOLE_BLOOD = "Whole_Blood"
     BRAIN_CORTEX = "Brain_Cortex"
@@ -98,7 +101,7 @@ class TissueSiteDetailId(str, Enum):
     THYROID = "Thyroid"
     ADIPOSE_SUBCUTANEOUS = "Adipose_Subcutaneous"
     SKIN_SUN_EXPOSED = "Skin_Sun_Exposed_Lower_leg"
-    
+
     # All other tissues (alphabetically organized)
     ADIPOSE_VISCERAL = "Adipose_Visceral_Omentum"
     ADRENAL_GLAND = "Adrenal_Gland"

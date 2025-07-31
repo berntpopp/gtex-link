@@ -212,6 +212,9 @@ class GTExService:
             else None
         )
         api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
+        # Convert empty string tissue filter to None for GTEx API compatibility
+        if api_params.get("tissueSiteDetailId") == "":
+            api_params.pop("tissueSiteDetailId", None)
         raw_data = await self.client.get_median_gene_expression(api_params)
         return PaginatedMedianGeneExpressionResponse(**raw_data)
 
@@ -221,6 +224,9 @@ class GTExService:
         """Get gene expression data."""
         self.logger.info("Fetching gene expression", **params.model_dump()) if self.logger else None
         api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
+        # Convert empty string tissue filter to None for GTEx API compatibility
+        if api_params.get("tissueSiteDetailId") == "":
+            api_params.pop("tissueSiteDetailId", None)
         raw_data = await self.client.get_gene_expression(api_params)
         return PaginatedGeneExpressionResponse(**raw_data)
 

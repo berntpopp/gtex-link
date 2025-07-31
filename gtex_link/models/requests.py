@@ -87,23 +87,23 @@ class MedianGeneExpressionRequest(BaseRequest):
     """Request for median gene expression endpoint."""
 
     gencode_id: list[str] = Field(
-        alias="gencodeId", 
+        alias="gencodeId",
         description="List of versioned GENCODE IDs (e.g. ENSG00000012048.20)",
         min_length=1,
         max_length=50,
-        examples=[["ENSG00000012048.20", "ENSG00000141510.11"]]
+        examples=[["ENSG00000012048.20", "ENSG00000141510.11"]],
     )
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Field(
-        None, 
-        alias="tissueSiteDetailId", 
-        description="List of tissue site detail IDs for expression analysis",
-        examples=[["Whole_Blood", "Brain_Cortex"], ["Muscle_Skeletal"]]
+    tissue_site_detail_id: TissueSiteDetailId = Field(
+        default=TissueSiteDetailId.ALL,
+        alias="tissueSiteDetailId",
+        description="Tissue filter. Use 'ALL' (empty) for all tissues, or specific tissue name for single tissue.",
+        examples=["", "Whole_Blood", "Brain_Cortex"],
     )
     dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, 
-        alias="datasetId", 
+        default=DatasetId.GTEX_V8,
+        alias="datasetId",
         description="Dataset ID - gtex_v8 is recommended",
-        examples=["gtex_v8"]
+        examples=["gtex_v8"],
     )
 
 
@@ -111,29 +111,29 @@ class GeneExpressionRequest(BaseRequest):
     """Request for gene expression endpoint."""
 
     gencode_id: list[str] = Field(
-        alias="gencodeId", 
-        description="List of versioned GENCODE IDs (e.g. ENSG00000012048.20)", 
+        alias="gencodeId",
+        description="List of versioned GENCODE IDs (e.g. ENSG00000012048.20)",
         min_length=1,
         max_length=50,
-        examples=[["ENSG00000012048.20"]]
+        examples=[["ENSG00000012048.20"]],
     )
-    tissue_site_detail_id: list[TissueSiteDetailId] | None = Field(
-        None, 
-        alias="tissueSiteDetailId", 
-        description="List of tissue site detail IDs for expression analysis",
-        examples=[["Whole_Blood", "Brain_Cortex"]]
+    tissue_site_detail_id: TissueSiteDetailId = Field(
+        default=TissueSiteDetailId.ALL,
+        alias="tissueSiteDetailId",
+        description="Tissue filter. Use 'ALL' (empty) for all tissues, or specific tissue name for single tissue.",
+        examples=["", "Whole_Blood", "Brain_Cortex"],
     )
     attribute_subset: str | None = Field(
         None,
         alias="attributeSubset",
         description="Donor attribute to subset data by",
-        examples=["sex", "age"]
+        examples=["sex", "age"],
     )
     dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, 
-        alias="datasetId", 
+        default=DatasetId.GTEX_V8,
+        alias="datasetId",
         description="Dataset ID - gtex_v8 is recommended",
-        examples=["gtex_v8"]
+        examples=["gtex_v8"],
     )
 
 
@@ -179,21 +179,21 @@ class TopExpressedGenesRequest(BaseRequest):
     """Request for top expressed genes endpoint."""
 
     tissue_site_detail_id: TissueSiteDetailId = Field(
-        alias="tissueSiteDetailId", 
+        alias="tissueSiteDetailId",
         description="Tissue site detail ID for top gene analysis",
-        examples=["Whole_Blood", "Brain_Cortex", "Muscle_Skeletal"]
+        examples=["Whole_Blood", "Brain_Cortex", "Muscle_Skeletal"],
     )
     filter_mt_gene: bool = Field(
         default=True,
         alias="filterMtGene",
         description="Exclude mitochondrial genes from results",
-        examples=[True, False]
+        examples=[True, False],
     )
     dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, 
-        alias="datasetId", 
+        default=DatasetId.GTEX_V8,
+        alias="datasetId",
         description="Dataset ID - gtex_v8 is recommended",
-        examples=["gtex_v8"]
+        examples=["gtex_v8"],
     )
 
 
