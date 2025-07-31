@@ -175,11 +175,11 @@ class TestGTExClientRateLimiting:
         # Tokens are replenished on next acquire call, so let's access the rate limiter
         # to trigger the replenishment calculation without consuming a token
         import time
+
         now = time.time()
         elapsed = now - client._rate_limiter.last_update
         expected_tokens = min(
-            client._rate_limiter.burst,
-            initial_tokens + elapsed * client._rate_limiter.rate
+            client._rate_limiter.burst, initial_tokens + elapsed * client._rate_limiter.rate
         )
 
         # After 0.6 seconds at 10 tokens/sec, we should have gained ~6 tokens
@@ -249,7 +249,9 @@ class TestGTExClientErrorHandling:
 
         # Mock timeout error
         with patch.object(client, "_get_session") as mock_session:
-            mock_session.return_value.request.side_effect = httpx.TimeoutException("Request timed out")
+            mock_session.return_value.request.side_effect = httpx.TimeoutException(
+                "Request timed out"
+            )
 
             with pytest.raises(GTExAPIError) as exc_info:
                 await client.search_genes(query="BRCA1")
@@ -273,6 +275,7 @@ class TestGTExClientErrorHandling:
         with patch.object(client, "_get_session") as mock_session:
             # Create success response mock with non-async json method
             from unittest.mock import MagicMock
+
             mock_success_response = MagicMock()
             mock_success_response.status_code = 200
             mock_success_response.json.return_value = {"data": []}
@@ -339,7 +342,13 @@ class TestGTExClientAPIOperations:
             mock_request.assert_called_once_with(
                 "GET",
                 client.config.endpoints["gene_search"],
-                params={"geneId": "BRCA1", "gencodeVersion": "v26", "genomeBuild": "GRCh38", "page": 0, "itemsPerPage": 250},
+                params={
+                    "geneId": "BRCA1",
+                    "gencodeVersion": "v26",
+                    "genomeBuild": "GRCh38",
+                    "page": 0,
+                    "itemsPerPage": 250,
+                },
             )
 
         await client.close()
@@ -519,7 +528,7 @@ class TestGTExClientConcurrency:
         config = GTExAPIConfigModel(
             base_url=test_api_config.base_url,
             rate_limit_per_second=15.0,  # Within allowed range (max 20)
-            burst_size=30,               # Within allowed range (max 50)
+            burst_size=30,  # Within allowed range (max 50)
         )
 
         client = GTExClient(config=config)

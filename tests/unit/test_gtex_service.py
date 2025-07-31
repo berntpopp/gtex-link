@@ -54,7 +54,9 @@ class TestGTExServiceCoreOperations:
     """Test core GTEx service operations with real data."""
 
     @pytest.mark.asyncio
-    async def test_get_service_info(self, mock_gtex_client, test_cache_config, mock_logger, service_info_response):
+    async def test_get_service_info(
+        self, mock_gtex_client, test_cache_config, mock_logger, service_info_response
+    ):
         """Test get service info operation."""
         service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
 
@@ -357,7 +359,12 @@ class TestGTExServiceRealWorldScenarios:
 
         # Step 2: Get expression data for breast tissue
         expression_request = MedianGeneExpressionRequest(
-            gencode_id=["ENSG00000012048.20", "ENSG00000139618.13", "ENSG00000141510.11", "ENSG00000171862.13"],  # BRCA1, BRCA2, TP53, PIK3CA
+            gencode_id=[
+                "ENSG00000012048.20",
+                "ENSG00000139618.13",
+                "ENSG00000141510.11",
+                "ENSG00000171862.13",
+            ],  # BRCA1, BRCA2, TP53, PIK3CA
             tissue_site_detail_id=TissueSiteDetailId.BREAST_MAMMARY_TISSUE,
         )
 

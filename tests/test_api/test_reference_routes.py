@@ -13,9 +13,9 @@ class TestGeneSearchRoutes:
         response = test_client.get(
             "/api/reference/geneSearch",  # Updated URL
             params={
-                "geneId": "BRCA1",           # Updated parameter name
+                "geneId": "BRCA1",  # Updated parameter name
                 "page": 0,
-                "itemsPerPage": 250,         # Updated parameter name
+                "itemsPerPage": 250,  # Updated parameter name
             },
         )
 
@@ -36,7 +36,9 @@ class TestGeneSearchRoutes:
 
     def test_search_genes_empty_query(self, test_client: TestClient):
         """Test gene search with empty query."""
-        response = test_client.get("/api/reference/geneSearch", params={"geneId": ""})  # Updated URL and param
+        response = test_client.get(
+            "/api/reference/geneSearch", params={"geneId": ""}
+        )  # Updated URL and param
 
         assert response.status_code == 422
 
@@ -46,7 +48,7 @@ class TestGeneSearchRoutes:
             "/api/reference/geneSearch",
             params={
                 "geneId": "ENSG00000012048.20",  # Updated parameter and correct ID
-                "gencodeVersion": "v26",        # Optional new parameter
+                "gencodeVersion": "v26",  # Optional new parameter
             },
         )
 
@@ -82,7 +84,9 @@ class TestGeneSearchRoutes:
     @pytest.mark.parametrize("gene_query", ["BRCA1", "TP53", "EGFR", "KRAS", "PIK3CA"])
     def test_search_genes_multiple_queries(self, test_client: TestClient, gene_query):
         """Test gene search with multiple different queries."""
-        response = test_client.get("/api/reference/geneSearch", params={"geneId": gene_query})  # Updated URL and param
+        response = test_client.get(
+            "/api/reference/geneSearch", params={"geneId": gene_query}
+        )  # Updated URL and param
 
         assert response.status_code == 200
 
@@ -93,7 +97,7 @@ class TestGeneInfoRoutes:
     def test_get_genes_success(self, test_client: TestClient):
         """Test successful gene information retrieval."""
         response = test_client.get(
-            "/api/reference/gene",           # Updated URL
+            "/api/reference/gene",  # Updated URL
             params={
                 "geneId": ["BRCA1", "TP53"],  # Updated parameter name
             },
@@ -123,7 +127,7 @@ class TestGeneInfoRoutes:
             "/api/reference/gene",
             params={
                 "geneId": ["ENSG00000012048.20"],  # Use specific gene ID instead
-                "genomeBuild": "GRCh38/hg38",       # Correct GTEx API format
+                "genomeBuild": "GRCh38/hg38",  # Correct GTEx API format
             },
         )
 
@@ -147,7 +151,7 @@ class TestGeneInfoRoutes:
             "/api/reference/gene",
             params={
                 "geneId": ["BRCA1", "BRCA2", "TP53"],  # Multiple gene symbols
-                "gencodeVersion": "v26",               # Optional parameter
+                "gencodeVersion": "v26",  # Optional parameter
             },
         )
 
@@ -172,7 +176,7 @@ class TestTranscriptRoutes:
     def test_get_transcripts_by_gene(self, test_client: TestClient):
         """Test transcript retrieval by gene."""
         response = test_client.get(
-            "/api/reference/transcript",           # Updated URL
+            "/api/reference/transcript",  # Updated URL
             params={
                 "gencodeId": "ENSG00000012048.20",  # Updated parameter - single string, not array
             },
@@ -188,7 +192,7 @@ class TestTranscriptRoutes:
             "/api/reference/transcript",
             params={
                 "gencodeId": "ENSG00000012048.20",  # Single string, correct ID
-                "gencodeVersion": "v26",             # Optional parameter
+                "gencodeVersion": "v26",  # Optional parameter
             },
         )
 
@@ -201,7 +205,7 @@ class TestTranscriptRoutes:
             "/api/reference/transcript",
             params={
                 "gencodeId": "ENSG00000012048.20",  # Required parameter
-                "genomeBuild": "GRCh38/hg38",        # Correct GTEx API format
+                "genomeBuild": "GRCh38/hg38",  # Correct GTEx API format
             },
         )
 

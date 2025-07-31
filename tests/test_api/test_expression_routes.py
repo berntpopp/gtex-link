@@ -17,7 +17,7 @@ class TestMedianExpressionRoutes:
             "/api/expression/median-gene-expression",
             params={
                 "gencodeId": ["ENSG00000012048.20"],  # BRCA1 GENCODE ID
-                "tissueSiteDetailId": "Whole_Blood",    # Single enum value
+                "tissueSiteDetailId": "Whole_Blood",  # Single enum value
             },
         )
 
@@ -31,7 +31,11 @@ class TestMedianExpressionRoutes:
         response = test_client.get(
             "/api/expression/median-gene-expression",
             params={
-                "gencodeId": ["ENSG00000012048.20", "ENSG00000139618.13", "ENSG00000141510.11"],  # BRCA1, BRCA2, TP53
+                "gencodeId": [
+                    "ENSG00000012048.20",
+                    "ENSG00000139618.13",
+                    "ENSG00000141510.11",
+                ],  # BRCA1, BRCA2, TP53
                 "tissueSiteDetailId": "Whole_Blood",
             },
         )
@@ -68,7 +72,7 @@ class TestTopExpressedGenesRoutes:
             "/api/expression/top-expressed-genes",
             params={
                 "tissueSiteDetailId": "Whole_Blood",  # Correct parameter name
-                "filterMtGene": True,                   # Optional parameter
+                "filterMtGene": True,  # Optional parameter
             },
         )
 

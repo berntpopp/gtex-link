@@ -87,32 +87,20 @@ class TestRequestModels:
     def test_pagination_limits(self):
         """Test pagination parameter limits."""
         # Valid pagination
-        request = GeneRequest(
-            gene_id=["BRCA1"],  # Required field
-            items_per_page=1000
-        )
+        request = GeneRequest(gene_id=["BRCA1"], items_per_page=1000)  # Required field
         assert request.items_per_page == 1000
 
         # Invalid - too large (GTEx API limit is 100000)
         with pytest.raises(ValidationError):
-            GeneRequest(
-                gene_id=["BRCA1"],
-                items_per_page=100001
-            )
+            GeneRequest(gene_id=["BRCA1"], items_per_page=100001)
 
         # Invalid - too small
         with pytest.raises(ValidationError):
-            GeneRequest(
-                gene_id=["BRCA1"],
-                items_per_page=0
-            )
+            GeneRequest(gene_id=["BRCA1"], items_per_page=0)
 
         # Invalid - negative page
         with pytest.raises(ValidationError):
-            GeneRequest(
-                gene_id=["BRCA1"],
-                page=-1
-            )
+            GeneRequest(gene_id=["BRCA1"], page=-1)
 
 
 class TestResponseModels:

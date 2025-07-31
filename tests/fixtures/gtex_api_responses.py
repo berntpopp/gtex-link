@@ -212,11 +212,8 @@ SERVICE_INFO_RESPONSE: dict[str, Any] = {
     "id": "gtex-portal-api",
     "name": "GTEx Portal API",
     "version": "2.0.0",
-    "organization": {
-        "name": "Broad Institute",
-        "url": "https://www.broadinstitute.org"
-    },
-    "title": "GTEx Portal API"
+    "organization": {"name": "Broad Institute", "url": "https://www.broadinstitute.org"},
+    "title": "GTEx Portal API",
 }
 
 # Error response examples

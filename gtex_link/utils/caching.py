@@ -171,25 +171,26 @@ class CacheManager:
                 else:
                     self._log_cache_miss(display_key)
 
-                # Log performance metrics
-                cache_info_current = type(
-                    "CacheInfo",
-                    (),
-                    {
-                        "hits": hits,
-                        "misses": misses,
-                        "maxsize": maxsize,
-                        "currsize": len(cache_dict),
-                    },
-                )()
+                # Log performance metrics if logger is available
+                if self.logger:
+                    cache_info_current = type(
+                        "CacheInfo",
+                        (),
+                        {
+                            "hits": hits,
+                            "misses": misses,
+                            "maxsize": maxsize,
+                            "currsize": len(cache_dict),
+                        },
+                    )()
 
-                log_cache_operation(
-                    self.logger,
-                    was_cache_hit,
-                    display_key,
-                    cache_info_current,
-                    time.time() - start_time,
-                )
+                    log_cache_operation(
+                        self.logger,
+                        "cache_hit" if was_cache_hit else "cache_miss",
+                        display_key,
+                        was_cache_hit,
+                        len(cache_dict),
+                    )
 
                 return result
 
