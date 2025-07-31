@@ -29,7 +29,6 @@ class TestUnifiedServerManager:
             patch("gtex_link.server_manager.uvicorn.Config") as mock_config,
             patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
         ):
-
             mock_logger = MagicMock()
             manager = UnifiedServerManager(logger=mock_logger)
 
@@ -58,7 +57,6 @@ class TestUnifiedServerManager:
             patch("gtex_link.server_manager.mcp_app") as mock_mcp_app,
             patch.dict("os.environ", {}, clear=True),
         ):
-
             mock_logger = MagicMock()
             manager = UnifiedServerManager(logger=mock_logger)
 
@@ -78,7 +76,6 @@ class TestUnifiedServerManager:
             patch("gtex_link.server_manager.mcp_app") as mock_mcp_app,
             patch.dict("os.environ", {"TRANSPORT": "stdio"}, clear=True),
         ):
-
             mock_logger = MagicMock()
             manager = UnifiedServerManager(logger=mock_logger)
 
@@ -98,7 +95,6 @@ class TestUnifiedServerManager:
             patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
             patch.dict("os.environ", {}, clear=False),
         ):  # Ensure TRANSPORT is not set
-
             mock_logger = MagicMock()
             manager = UnifiedServerManager(logger=mock_logger)
 
@@ -124,7 +120,6 @@ class TestUnifiedServerManager:
             patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
             patch.dict("os.environ", {}, clear=False),
         ):
-
             manager = UnifiedServerManager()
 
             # Mock server instance
@@ -149,7 +144,6 @@ class TestUnifiedServerManager:
             patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
             patch.dict("os.environ", {}, clear=False),
         ):
-
             manager = UnifiedServerManager()
 
             # Mock server instance
@@ -175,7 +169,6 @@ class TestUnifiedServerManager:
             patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
             patch.dict("os.environ", {}, clear=False),
         ):
-
             mock_server = AsyncMock()
             mock_server.serve = AsyncMock()
             mock_server_class.return_value = mock_server
@@ -210,11 +203,10 @@ class TestUnifiedServerManager:
     async def test_start_server_error_handling(self):
         """Test server startup error handling."""
         with (
-            patch("gtex_link.server_manager.uvicorn.Config") as mock_config,
+            patch("gtex_link.server_manager.uvicorn.Config"),
             patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
             patch.dict("os.environ", {}, clear=False),
         ):
-
             manager = UnifiedServerManager()
 
             # Mock server to raise an exception during serve

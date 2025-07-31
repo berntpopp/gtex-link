@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from fastapi import Depends
 
 from gtex_link.api.client import GTExClient
-from gtex_link.config import get_api_config, get_cache_config, settings
+from gtex_link.config import get_api_config, get_cache_config
 from gtex_link.logging_config import configure_logging
 from gtex_link.services.gtex_service import GTExService
 

@@ -1,7 +1,6 @@
 """Tests for reference data API routes."""
 
 from fastapi.testclient import TestClient
-from httpx import AsyncClient
 import pytest
 
 

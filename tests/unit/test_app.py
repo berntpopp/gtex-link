@@ -1,7 +1,6 @@
 """Tests for FastAPI app creation and configuration."""
 
-import warnings
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -47,7 +46,6 @@ class TestAppCreation:
             patch("gtex_link.app.log_server_startup") as mock_log_startup,
             patch("gtex_link.app.settings") as mock_settings,
         ):
-
             # Mock logger
             mock_logger = MagicMock()
             mock_configure.return_value = mock_logger
@@ -72,7 +70,6 @@ class TestAppCreation:
             patch("gtex_link.app.FastMCP") as mock_fastmcp,
             patch("gtex_link.app.create_app") as mock_create_app,
         ):
-
             # Mock the FastAPI app
             mock_app = MagicMock()
             mock_create_app.return_value = mock_app
@@ -97,7 +94,6 @@ class TestAppCreation:
     def test_mcp_name_mappings(self):
         """Test MCP custom name mappings are correct."""
         with patch("gtex_link.app.FastMCP") as mock_fastmcp, patch("gtex_link.app.create_app"):
-
             mock_fastmcp.from_fastapi.return_value = MagicMock()
 
             create_mcp_app()
@@ -145,7 +141,6 @@ class TestAppCreation:
     def test_mcp_route_maps_configuration(self):
         """Test MCP route maps are properly configured."""
         with patch("gtex_link.app.FastMCP") as mock_fastmcp, patch("gtex_link.app.create_app"):
-
             mock_fastmcp.from_fastapi.return_value = MagicMock()
 
             create_mcp_app()

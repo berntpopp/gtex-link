@@ -4,7 +4,8 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
+
+# TestClient import removed - not used in these tests
 
 from gtex_link.api.routes.health import health_check, version_info, _start_time
 

@@ -1,7 +1,6 @@
 """Test health check endpoints."""
 
-import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 from fastapi import status
 from fastapi.testclient import TestClient

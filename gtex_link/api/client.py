@@ -163,7 +163,7 @@ class GTExClient:
 
     @property
     def client(self) -> httpx.AsyncClient:
-        """Get HTTP client (backwards compatibility)."""
+        """Get HTTP client for backwards compatibility."""
         if self._session is None:
             raise RuntimeError("Session not initialized. Call _get_session() first.")
         return self._session

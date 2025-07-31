@@ -1,11 +1,11 @@
 """Tests for expression API routes."""
 
-from unittest.mock import MagicMock, patch
+# Removed unused imports
 
 from fastapi.testclient import TestClient
 import pytest
 
-from gtex_link.exceptions import GTExAPIError, ValidationError
+# Removed unused imports
 
 
 class TestMedianExpressionRoutes:

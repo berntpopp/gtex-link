@@ -11,7 +11,6 @@ from gtex_link.exceptions import (
     GTExAPIError,
     RateLimitError,
     ServiceUnavailableError,
-    ValidationError,
 )
 
 

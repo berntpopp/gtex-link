@@ -1,7 +1,6 @@
 """Basic CLI tests for coverage - minimal mocking approach."""
 
 import argparse
-import sys
 from unittest.mock import patch, MagicMock
 
 from gtex_link.cli import create_parser, show_config
@@ -34,7 +33,6 @@ class TestCLIBasic:
             patch("gtex_link.cli.get_cache_config") as mock_cache_config,
             patch("gtex_link.cli.console"),
         ):
-
             # Create simple mock config objects
             api_config = MagicMock()
             api_config.base_url = "https://example.com"
@@ -62,7 +60,6 @@ class TestCLIBasic:
             patch("gtex_link.cli.get_api_config") as mock_api_config,
             patch("gtex_link.cli.console"),
         ):
-
             # Mock config to raise exception
             mock_api_config.side_effect = Exception("Config error")
 
@@ -80,7 +77,6 @@ class TestCLIBasic:
             patch("gtex_link.cli.create_parser") as mock_create_parser,
             patch("sys.exit") as mock_exit,
         ):
-
             # Mock parser to avoid actual argument parsing
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = MagicMock(command=None)
@@ -104,7 +100,6 @@ class TestCLIBasic:
             patch("sys.argv", ["gtex-link", "config"]),
             patch("gtex_link.cli.show_config") as mock_show_config,
         ):
-
             from gtex_link.cli import main
 
             main()

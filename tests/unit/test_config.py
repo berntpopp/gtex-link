@@ -1,8 +1,5 @@
 """Tests for configuration validation."""
 
-import pytest
-from pydantic import ValidationError
-
 from gtex_link.config import (
     GTExAPIConfigModel,
     ServerSettings,

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from structlog.typing import FilteringBoundLogger
+from typing import TYPE_CHECKING
+
+from fastapi import APIRouter, HTTPException, Query
 
 from gtex_link.exceptions import GTExAPIError, ValidationError
 from gtex_link.models import (
@@ -15,9 +16,13 @@ from gtex_link.models import (
     PaginatedTranscriptResponse,
     TranscriptRequest,
 )
-from gtex_link.services.gtex_service import GTExService
 
 from .dependencies import GTExServiceDep, LoggerDep
+
+if TYPE_CHECKING:
+    from structlog.typing import FilteringBoundLogger
+
+    from gtex_link.services.gtex_service import GTExService
 
 router = APIRouter(prefix="/api/reference", tags=["Reference Data"])
 
@@ -27,16 +32,16 @@ router = APIRouter(prefix="/api/reference", tags=["Reference Data"])
     response_model=PaginatedGeneResponse,
     summary="Search for genes by partial or complete match",
     description="""Find genes that are partial or complete match of a gene ID.
-    
+
     **Gene ID Types:**
     - Gene symbol (e.g., BRCA1, TP53)
     - GENCODE ID (e.g., ENSG00000012048.20)
     - Ensembl ID (e.g., ENSG00000012048)
-    
+
     **Optional Parameters:**
     - GENCODE version and genome build can be specified for specific releases
     - By default uses the genome build and GENCODE version from the latest GTEx release
-    
+
     **Examples:**
     - Search for BRCA1: `geneId=BRCA1`
     - Search with specific version: `geneId=BRCA1&gencodeVersion=v26&genomeBuild=GRCh38`
@@ -202,19 +207,19 @@ async def search_genes(
     response_model=PaginatedGeneResponse,
     summary="Get reference gene information",
     description="""Get detailed information about reference genes.
-    
+
     **Required Parameters:**
     - Gene IDs: List of gene symbols, versioned or unversioned GENCODE IDs
-    
+
     **Gene ID Types:**
     - Gene symbols (e.g., BRCA1, TP53)
     - Versioned GENCODE IDs (e.g., ENSG00000012048.20) - **recommended for unique matching**
     - Unversioned GENCODE IDs (e.g., ENSG00000012048)
-    
+
     **Optional Parameters:**
     - GENCODE version and genome build for specific genome releases
     - By default uses the latest GTEx release genome build and GENCODE version
-    
+
     **Examples:**
     - Get BRCA1 and TP53: `geneId=BRCA1&geneId=TP53`
     - Get by GENCODE ID: `geneId=ENSG00000012048.20&geneId=ENSG00000141510.11`
@@ -306,16 +311,16 @@ async def get_genes(
     response_model=PaginatedTranscriptResponse,
     summary="Get gene transcripts",
     description="""Find all transcripts of a reference gene.
-    
+
     **Required Parameters:**
     - GENCODE ID: A versioned GENCODE ID of a gene (e.g., ENSG00000065613.9)
-    
+
     **Key Notes:**
     - Returns information about all transcripts for the specified gene
     - Requires a versioned GENCODE ID for accurate matching
     - A genome build and GENCODE version must be provided (or defaults are used)
     - By default queries the genome build and GENCODE version from the latest GTEx release
-    
+
     **Examples:**
     - Get BRCA1 transcripts: `gencodeId=ENSG00000012048.20`
     - With specific version: `gencodeId=ENSG00000012048.20&gencodeVersion=v26&genomeBuild=GRCh38`

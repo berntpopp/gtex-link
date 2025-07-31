@@ -1,9 +1,10 @@
 """Comprehensive tests for CLI functionality - simplified approach."""
 
+import argparse
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-import argparse
 
 from gtex_link.cli import (
     show_config,
@@ -467,8 +468,6 @@ async def test_connection_success():
 
         # Mock the import inside the function
         with patch.dict("sys.modules", {"gtex_link.api.client": MagicMock()}):
-            import sys
-
             mock_gtex_client = AsyncMock()
             mock_gtex_client.get_service_info = AsyncMock(return_value={"version": "2.0"})
             mock_gtex_client.__aenter__ = AsyncMock(return_value=mock_gtex_client)

@@ -1,11 +1,9 @@
 """Comprehensive tests for caching utilities."""
 
 import asyncio
-import json
 import pytest
-import time
 from typing import Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 from pydantic import BaseModel
 

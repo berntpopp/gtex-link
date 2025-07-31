@@ -4,7 +4,6 @@ import pytest
 
 from gtex_link.exceptions import GTExAPIError, ValidationError
 from gtex_link.models import (
-    DatasetId,
     MedianGeneExpressionRequest,
     PaginatedGeneResponse,
     PaginatedMedianGeneExpressionResponse,
@@ -442,11 +441,13 @@ class TestGTExServiceMissingCoverage:
         """Test tissueSiteDetailId empty string filtering logic."""
         from gtex_link.models import GeneExpressionRequest
 
-        service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
+        # Note: service instance not needed for this test, just testing the logic
+        # service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
 
         # Test the specific logic from lines 234-238
         request = GeneExpressionRequest(
-            gencode_id=["ENSG00000012048.20"], tissue_site_detail_id=""  # Empty string
+            gencode_id=["ENSG00000012048.20"],
+            tissue_site_detail_id="",  # Empty string
         )
 
         # Replicate the exact logic from the service

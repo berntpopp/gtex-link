@@ -2,25 +2,27 @@
 """Simple MCP server entry point for GTEx-Link using direct MCP SDK."""
 
 import asyncio
-import sys
 import os
+import sys
 from typing import Any, Sequence
 
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
-import mcp.types as types
+from mcp.server import Server  # noqa: E402
+from mcp.server.stdio import stdio_server  # noqa: E402
+from mcp.types import TextContent, Tool  # noqa: E402
 
 # Import GTEx services
-from gtex_link.config import settings
-from gtex_link.logging_config import configure_logging
-from gtex_link.services.gtex_service import GTExService
-from gtex_link.api.client import GTExClient
-from gtex_link.models import MedianGeneExpressionRequest, GeneRequest, TopExpressedGenesRequest
-from gtex_link.models.gtex import TissueSiteDetailId, DatasetId
+from gtex_link.api.client import GTExClient  # noqa: E402
+from gtex_link.config import settings  # noqa: E402
+from gtex_link.logging_config import configure_logging  # noqa: E402
+from gtex_link.models import (  # noqa: E402
+    MedianGeneExpressionRequest,
+    TopExpressedGenesRequest,
+)
+from gtex_link.models.gtex import TissueSiteDetailId  # noqa: E402
+from gtex_link.services.gtex_service import GTExService  # noqa: E402
 
 
 # Initialize logger
@@ -182,7 +184,8 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> Sequence[Tex
                     text=f"Found {len(expressions)} expression records:\n\n"
                     + "\n".join(
                         [
-                            f"• {e['gene_symbol']} in {e['tissue']}: {e['median_tpm']:.2f} TPM ({e['num_samples']} samples)"
+                            f"• {e['gene_symbol']} in {e['tissue']}: "
+                            f"{e['median_tpm']:.2f} TPM ({e['num_samples']} samples)"
                             for e in expressions[:10]
                         ]
                     ),  # Limit to first 10
@@ -217,7 +220,7 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> Sequence[Tex
                     text=f"Top {len(genes)} expressed genes in {tissue}:\n\n"
                     + "\n".join(
                         [
-                            f"{i+1}. {g['gene_symbol']}: {g['median_tpm']:.2f} TPM"
+                            f"{i + 1}. {g['gene_symbol']}: {g['median_tpm']:.2f} TPM"
                             for i, g in enumerate(genes)
                         ]
                     ),

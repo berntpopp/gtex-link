@@ -137,7 +137,7 @@ class CacheManager:
                 else:
                     display_key = f"{func.__name__}:{hash_key[:8]}..."
 
-                start_time = time.time()
+                # start_time = time.time()  # Unused for now
                 was_cache_hit = False
 
                 # Check if we have a cached result
@@ -173,17 +173,6 @@ class CacheManager:
 
                 # Log performance metrics if logger is available
                 if self.logger:
-                    cache_info_current = type(
-                        "CacheInfo",
-                        (),
-                        {
-                            "hits": hits,
-                            "misses": misses,
-                            "maxsize": maxsize,
-                            "currsize": len(cache_dict),
-                        },
-                    )()
-
                     log_cache_operation(
                         self.logger,
                         "cache_hit" if was_cache_hit else "cache_miss",

@@ -2,8 +2,9 @@
 
 import logging
 import sys
-from unittest.mock import MagicMock, patch, Mock
-import pytest
+from unittest.mock import MagicMock, patch
+
+# pytest and Mock imports removed - not used directly in tests
 import structlog
 from gtex_link.logging_config import (
     configure_stdlib_logging,

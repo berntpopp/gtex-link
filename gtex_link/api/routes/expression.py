@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from structlog.typing import FilteringBoundLogger
+from typing import TYPE_CHECKING
+
+from fastapi import APIRouter, HTTPException, Query
 
 from gtex_link.exceptions import GTExAPIError, ValidationError
 from gtex_link.models import (
@@ -17,9 +18,13 @@ from gtex_link.models import (
     TissueSiteDetailId,
     TopExpressedGenesRequest,
 )
-from gtex_link.services.gtex_service import GTExService
 
 from .dependencies import GTExServiceDep, LoggerDep
+
+if TYPE_CHECKING:
+    from structlog.typing import FilteringBoundLogger
+
+    from gtex_link.services.gtex_service import GTExService
 
 router = APIRouter(prefix="/api/expression", tags=["Expression"])
 
@@ -29,11 +34,11 @@ router = APIRouter(prefix="/api/expression", tags=["Expression"])
     response_model=PaginatedMedianGeneExpressionResponse,
     summary="Get median gene expression data",
     description="""Get median gene expression data across tissues.
-    
+
     **Required:** Versioned GENCODE IDs (e.g., ENSG00000012048.20)
     **Optional:** Filter by specific tissues
     **Returns:** Median expression values in TPM units
-    
+
     **Example:** Get BRCA1 expression in blood and brain tissues
     """,
     operation_id="get_median_gene_expression",
@@ -90,7 +95,8 @@ async def get_median_gene_expression(
     tissue_site_detail_id: TissueSiteDetailId = Query(
         default=TissueSiteDetailId.ALL,
         alias="tissueSiteDetailId",
-        description="Tissue filter. Use 'ALL' (empty) for all tissues, or specific tissue name for single tissue.",
+        description="Tissue filter. Use 'ALL' (empty) for all tissues, "
+        "or specific tissue name for single tissue.",
     ),
     dataset_id: DatasetId = Query(
         default=DatasetId.GTEX_V8,
@@ -144,11 +150,11 @@ async def get_median_gene_expression(
     response_model=PaginatedGeneExpressionResponse,
     summary="Get individual sample gene expression data",
     description="""Get normalized gene expression data at the sample level.
-    
+
     **Required:** Versioned GENCODE IDs
     **Optional:** Filter by tissues, donor attributes
     **Returns:** Individual sample expression values in TPM units
-    
+
     **Example:** Get BRCA1 expression in all blood samples
     """,
     operation_id="get_gene_expression",
@@ -206,7 +212,8 @@ async def get_gene_expression(
     tissue_site_detail_id: TissueSiteDetailId = Query(
         default=TissueSiteDetailId.ALL,
         alias="tissueSiteDetailId",
-        description="Tissue filter. Use 'ALL' (empty) for all tissues, or specific tissue name for single tissue.",
+        description="Tissue filter. Use 'ALL' (empty) for all tissues, "
+        "or specific tissue name for single tissue.",
     ),
     attribute_subset: str | None = Query(
         None,
@@ -266,11 +273,11 @@ async def get_gene_expression(
     response_model=PaginatedTopExpressedGenesResponse,
     summary="Get top expressed genes by tissue",
     description="""Get top expressed genes for a specific tissue, sorted by median expression.
-    
+
     **Required:** Single tissue site detail ID
     **Optional:** Filter mitochondrial genes, change dataset
     **Returns:** Top expressed genes ranked by median TPM
-    
+
     **Example:** Get top 10 genes expressed in whole blood
     """,
     operation_id="get_top_expressed_genes",

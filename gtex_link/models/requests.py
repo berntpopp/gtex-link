@@ -14,7 +14,6 @@ from .gtex import (
     DatasetId,
     GencodeVersion,
     GenomeBuild,
-    SortBy,
     SortDirection,
     TissueSiteDetailId,
     VariantSortBy,
