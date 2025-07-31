@@ -123,7 +123,7 @@ class TestGeneInfoRoutes:
             "/api/reference/gene",
             params={
                 "geneId": ["ENSG00000012048.20"],  # Use specific gene ID instead
-                "genomeBuild": "GRCh38",           # Optional parameter
+                "genomeBuild": "GRCh38/hg38",       # Correct GTEx API format
             },
         )
 
@@ -201,7 +201,7 @@ class TestTranscriptRoutes:
             "/api/reference/transcript",
             params={
                 "gencodeId": "ENSG00000012048.20",  # Required parameter
-                "genomeBuild": "GRCh38",             # Optional parameter
+                "genomeBuild": "GRCh38/hg38",        # Correct GTEx API format
             },
         )
 

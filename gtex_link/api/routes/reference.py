@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from structlog.typing import FilteringBoundLogger
 
 from gtex_link.exceptions import GTExAPIError, ValidationError
 from gtex_link.models import (
@@ -14,11 +15,9 @@ from gtex_link.models import (
     PaginatedTranscriptResponse,
     TranscriptRequest,
 )
-
 from gtex_link.services.gtex_service import GTExService
-from structlog.typing import FilteringBoundLogger
 
-from .dependencies import LoggerDep, GTExServiceDep
+from .dependencies import GTExServiceDep, LoggerDep
 
 router = APIRouter(prefix="/api/reference", tags=["Reference Data"])
 

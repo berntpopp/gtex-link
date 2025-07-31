@@ -34,17 +34,16 @@ def _make_hashable_key(*args: Any, **kwargs: Any) -> str:
                 value.__class__.__name__,
                 tuple(sorted(value.model_dump().items())),
             )
-        elif isinstance(value, list):
+        if isinstance(value, list):
             return ("__list__", tuple(_serialize_value(item) for item in value))
-        elif isinstance(value, dict):
+        if isinstance(value, dict):
             return (
                 "__dict__",
                 tuple(sorted((_serialize_value(k), _serialize_value(v)) for k, v in value.items())),
             )
-        elif isinstance(value, set):
+        if isinstance(value, set):
             return ("__set__", tuple(sorted(_serialize_value(item) for item in value)))
-        else:
-            return value
+        return value
 
     # Serialize all arguments and keyword arguments
     serialized_args = tuple(_serialize_value(arg) for arg in args)

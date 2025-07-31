@@ -12,7 +12,7 @@ import httpx
 from gtex_link.config import settings
 from gtex_link.models.responses import HealthResponse
 
-from .dependencies import LoggerDep, GTExClientDep
+from .dependencies import GTExClientDep, LoggerDep
 
 if TYPE_CHECKING:
     from structlog.typing import FilteringBoundLogger

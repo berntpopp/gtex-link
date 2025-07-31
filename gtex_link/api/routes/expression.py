@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from structlog.typing import FilteringBoundLogger
 
 from gtex_link.exceptions import GTExAPIError, ValidationError
 from gtex_link.models import (
@@ -16,11 +17,9 @@ from gtex_link.models import (
     TissueSiteDetailId,
     TopExpressedGenesRequest,
 )
-
 from gtex_link.services.gtex_service import GTExService
-from structlog.typing import FilteringBoundLogger
 
-from .dependencies import LoggerDep, GTExServiceDep
+from .dependencies import GTExServiceDep, LoggerDep
 
 router = APIRouter(prefix="/api/expression", tags=["Expression"])
 
@@ -108,7 +107,6 @@ async def get_median_gene_expression(
     ),
 ) -> PaginatedMedianGeneExpressionResponse:
     """Get median gene expression data."""
-
     # Create request object from query parameters
     request = MedianGeneExpressionRequest(
         gencodeId=gencode_id,
@@ -231,7 +229,6 @@ async def get_gene_expression(
     ),
 ) -> PaginatedGeneExpressionResponse:
     """Get gene expression data."""
-
     # Create request object from query parameters
     request = GeneExpressionRequest(
         gencodeId=gencode_id,
@@ -341,7 +338,6 @@ async def get_top_expressed_genes(
     ),
 ) -> PaginatedTopExpressedGenesResponse:
     """Get top expressed genes."""
-
     # Create request object from query parameters
     request = TopExpressedGenesRequest(
         tissueSiteDetailId=tissue_site_detail_id,

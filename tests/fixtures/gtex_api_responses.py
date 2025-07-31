@@ -210,7 +210,7 @@ SUBJECT_RESPONSE: dict[str, Any] = {
 # Real GTEx service info response
 SERVICE_INFO_RESPONSE: dict[str, Any] = {
     "id": "gtex-portal-api",
-    "name": "GTEx Portal API", 
+    "name": "GTEx Portal API",
     "version": "2.0.0",
     "organization": {
         "name": "Broad Institute",
