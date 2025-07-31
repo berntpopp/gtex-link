@@ -82,9 +82,24 @@ class DonorSex(str, Enum):
 
 
 class TissueSiteDetailId(str, Enum):
-    """Tissue site detail ID enumeration."""
-
+    """Tissue site detail ID enumeration.
+    
+    Organized with most commonly used tissues first for better UX.
+    """
+    
+    # Most commonly used tissues (appear first in dropdowns)
+    WHOLE_BLOOD = "Whole_Blood"
+    BRAIN_CORTEX = "Brain_Cortex"
+    MUSCLE_SKELETAL = "Muscle_Skeletal"
+    LIVER = "Liver"
+    LUNG = "Lung"
+    BREAST_MAMMARY_TISSUE = "Breast_Mammary_Tissue"
+    HEART_LEFT_VENTRICLE = "Heart_Left_Ventricle"
+    THYROID = "Thyroid"
     ADIPOSE_SUBCUTANEOUS = "Adipose_Subcutaneous"
+    SKIN_SUN_EXPOSED = "Skin_Sun_Exposed_Lower_leg"
+    
+    # All other tissues (alphabetically organized)
     ADIPOSE_VISCERAL = "Adipose_Visceral_Omentum"
     ADRENAL_GLAND = "Adrenal_Gland"
     ARTERY_AORTA = "Artery_Aorta"
@@ -96,7 +111,6 @@ class TissueSiteDetailId(str, Enum):
     BRAIN_CAUDATE = "Brain_Caudate_basal_ganglia"
     BRAIN_CEREBELLAR_HEMISPHERE = "Brain_Cerebellar_Hemisphere"
     BRAIN_CEREBELLUM = "Brain_Cerebellum"
-    BRAIN_CORTEX = "Brain_Cortex"
     BRAIN_FRONTAL_CORTEX = "Brain_Frontal_Cortex_BA9"
     BRAIN_HIPPOCAMPUS = "Brain_Hippocampus"
     BRAIN_HYPOTHALAMUS = "Brain_Hypothalamus"
@@ -104,7 +118,6 @@ class TissueSiteDetailId(str, Enum):
     BRAIN_PUTAMEN = "Brain_Putamen_basal_ganglia"
     BRAIN_SPINAL_CORD = "Brain_Spinal_cord_cervical_c-1"
     BRAIN_SUBSTANTIA_NIGRA = "Brain_Substantia_nigra"
-    BREAST_MAMMARY_TISSUE = "Breast_Mammary_Tissue"
     CELLS_CULTURED_FIBROBLASTS = "Cells_Cultured_fibroblasts"
     CELLS_EBV_LYMPHOCYTES = "Cells_EBV-transformed_lymphocytes"
     CERVIX_ECTOCERVIX = "Cervix_Ectocervix"
@@ -116,28 +129,21 @@ class TissueSiteDetailId(str, Enum):
     ESOPHAGUS_MUSCULARIS = "Esophagus_Muscularis"
     FALLOPIAN_TUBE = "Fallopian_Tube"
     HEART_ATRIAL_APPENDAGE = "Heart_Atrial_Appendage"
-    HEART_LEFT_VENTRICLE = "Heart_Left_Ventricle"
     KIDNEY_CORTEX = "Kidney_Cortex"
     KIDNEY_MEDULLA = "Kidney_Medulla"
-    LIVER = "Liver"
-    LUNG = "Lung"
     MINOR_SALIVARY_GLAND = "Minor_Salivary_Gland"
-    MUSCLE_SKELETAL = "Muscle_Skeletal"
     NERVE_TIBIAL = "Nerve_Tibial"
     OVARY = "Ovary"
     PANCREAS = "Pancreas"
     PITUITARY = "Pituitary"
     PROSTATE = "Prostate"
     SKIN_NOT_SUN_EXPOSED = "Skin_Not_Sun_Exposed_Suprapubic"
-    SKIN_SUN_EXPOSED = "Skin_Sun_Exposed_Lower_leg"
     SMALL_INTESTINE = "Small_Intestine_Terminal_Ileum"
     SPLEEN = "Spleen"
     STOMACH = "Stomach"
     TESTIS = "Testis"
-    THYROID = "Thyroid"
     UTERUS = "Uterus"
     VAGINA = "Vagina"
-    WHOLE_BLOOD = "Whole_Blood"
 
 
 class SortDirection(str, Enum):

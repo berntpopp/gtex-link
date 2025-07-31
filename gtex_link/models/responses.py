@@ -218,7 +218,8 @@ class MedianGeneExpression(BaseResponse):
 
     median: float
     tissue_site_detail_id: TissueSiteDetailId = Field(alias="tissueSiteDetailId")
-    data_source: str = Field(alias="dataSource")
+    ontology_id: str | None = Field(None, alias="ontologyId")
+    dataset_id: str = Field(alias="datasetId")
     gencode_id: str = Field(alias="gencodeId")
     gene_symbol: str = Field(alias="geneSymbol")
     unit: str
