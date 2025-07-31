@@ -154,13 +154,23 @@ def mock_gtex_service(
     mock_service.client = mock_gtex_client
     mock_service.cache_config = test_cache_config
 
-    # Configure cache stats
+    # Configure cache stats property
     mock_service.cache_stats = {
         "hits": 15,
         "misses": 5,
         "hit_rate": 75.0,
         "total_requests": 20,
         "cached_functions": 5,
+    }
+
+    # Configure client stats property
+    mock_service.client_stats = {
+        "total_requests": 10,
+        "successful_requests": 9,
+        "success_rate": 0.9,
+        "current_rate": 2.5,
+        "current_tokens": 8.0,
+        "avg_response_time": 0.15,
     }
 
     mock_service.get_cache_info.return_value = {

@@ -42,30 +42,25 @@ class TestRequestModels:
     def test_gene_search_request_valid(self):
         """Test valid gene search request."""
         request = GeneSearchRequest(
-            query="BRCA1",
-            dataset_id=DatasetId.GTEX_V8,
+            gene_id="BRCA1",  # Updated field name
             page=0,
             items_per_page=250,
         )
-        assert request.query == "BRCA1"
-        assert request.dataset_id == DatasetId.GTEX_V8
+        assert request.gene_id == "BRCA1"
 
     def test_gene_search_request_invalid_query(self):
         """Test invalid gene search request with empty query."""
         with pytest.raises(ValidationError) as exc_info:
-            GeneSearchRequest(query="", dataset_id=DatasetId.GTEX_V8)
+            GeneSearchRequest(gene_id="")  # Updated field name
 
         assert "String should have at least 1 character" in str(exc_info.value)
 
     def test_gene_request_valid(self):
         """Test valid gene request."""
         request = GeneRequest(
-            geneSymbol=["BRCA1", "TP53"],  # Use API field name
-            chromosome=[Chromosome.CHR17, Chromosome.CHR17],
-            dataset_id=DatasetId.GTEX_V8,
+            gene_id=["BRCA1", "TP53"],  # Updated field name
         )
-        assert request.gene_symbol == ["BRCA1", "TP53"]
-        assert len(request.chromosome) == 2
+        assert request.gene_id == ["BRCA1", "TP53"]
 
     def test_variant_by_location_request_valid(self):
         """Test valid variant by location request."""
@@ -73,7 +68,6 @@ class TestRequestModels:
             chromosome=Chromosome.CHR17,
             start=43000000,
             end=44000000,
-            dataset_id=DatasetId.GTEX_V8,
         )
         assert request.chromosome == Chromosome.CHR17
         assert request.start == 43000000
@@ -86,28 +80,39 @@ class TestRequestModels:
                 chromosome=Chromosome.CHR17,
                 start=44000000,
                 end=43000000,  # end <= start
-                dataset_id=DatasetId.GTEX_V8,
             )
 
         assert "End position must be greater than start position" in str(exc_info.value)
 
     def test_pagination_limits(self):
         """Test pagination parameter limits."""
-        # Valid pagination - use API field name
-        request = GeneRequest(itemsPerPage=1000)
+        # Valid pagination
+        request = GeneRequest(
+            gene_id=["BRCA1"],  # Required field
+            items_per_page=1000
+        )
         assert request.items_per_page == 1000
 
-        # Invalid - too large
+        # Invalid - too large (GTEx API limit is 100000)
         with pytest.raises(ValidationError):
-            GeneRequest(itemsPerPage=1001)
+            GeneRequest(
+                gene_id=["BRCA1"],
+                items_per_page=100001
+            )
 
         # Invalid - too small
         with pytest.raises(ValidationError):
-            GeneRequest(itemsPerPage=0)
+            GeneRequest(
+                gene_id=["BRCA1"],
+                items_per_page=0
+            )
 
         # Invalid - negative page
         with pytest.raises(ValidationError):
-            GeneRequest(page=-1)
+            GeneRequest(
+                gene_id=["BRCA1"],
+                page=-1
+            )
 
 
 class TestResponseModels:

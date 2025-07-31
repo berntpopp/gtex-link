@@ -54,21 +54,19 @@ class TestGTExServiceCoreOperations:
     """Test core GTEx service operations with real data."""
 
     @pytest.mark.asyncio
-    async def test_get_service_info(self, mock_gtex_client, test_cache_config, mock_logger):
+    async def test_get_service_info(self, mock_gtex_client, test_cache_config, mock_logger, service_info_response):
         """Test get service info operation."""
         service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
 
         # Mock the service info response
-        mock_gtex_client.get_service_info.return_value = {
-            "title": "GTEx Portal API",
-            "version": "2.0.0",
-        }
+        mock_gtex_client.get_service_info.return_value = service_info_response
 
         result = await service.get_service_info()
 
         assert isinstance(result, ServiceInfo)
-        assert result.title == "GTEx Portal API"
+        assert result.name == "GTEx Portal API"
         assert result.version == "2.0.0"
+        assert result.organization.name == "Broad Institute"
         mock_gtex_client.get_service_info.assert_called_once()
 
     @pytest.mark.asyncio
@@ -82,7 +80,8 @@ class TestGTExServiceCoreOperations:
 
         result = await service.search_genes(
             query="BRCA1",
-            dataset_id="gtex_v8",
+            gencode_version="v26",
+            genome_build="GRCh38",
             page=0,
             page_size=250,
         )
@@ -94,7 +93,8 @@ class TestGTExServiceCoreOperations:
 
         mock_gtex_client.search_genes.assert_called_once_with(
             query="BRCA1",
-            dataset_id="gtex_v8",
+            gencode_version="v26",
+            genome_build="GRCh38",
             page=0,
             page_size=250,
         )
@@ -107,7 +107,7 @@ class TestGTExServiceCoreOperations:
         service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
 
         with pytest.raises(ValidationError) as exc_info:
-            await service.search_genes(query="", dataset_id="gtex_v8")
+            await service.search_genes(query="")
 
         assert "at least 1 character" in str(exc_info.value)
 
@@ -137,9 +137,8 @@ class TestGTExServiceCoreOperations:
         mock_gtex_client.get_median_gene_expression.return_value = median_expression_response
 
         request = MedianGeneExpressionRequest(
-            gene_symbol=["BRCA1"],
-            tissue_site_detail_id=[TissueSiteDetailId.BREAST_MAMMARY_TISSUE],
-            dataset_id=DatasetId.GTEX_V8,
+            gencode_id=["ENSG00000012048.20"],  # BRCA1 GENCODE ID
+            tissue_site_detail_id=TissueSiteDetailId.BREAST_MAMMARY_TISSUE,
         )
 
         result = await service.get_median_gene_expression(request)
@@ -147,7 +146,7 @@ class TestGTExServiceCoreOperations:
         assert isinstance(result, PaginatedMedianGeneExpressionResponse)
         assert len(result.data) == 3
         assert result.data[0].gene_symbol == "BRCA1"
-        assert result.data[0].tissue_site_detail_id == TissueSiteDetailId.BREAST_MAMMARY_TISSUE
+        assert result.data[0].tissue_site_detail_id == "Breast_Mammary_Tissue"
 
         mock_gtex_client.get_median_gene_expression.assert_called_once()
 
@@ -188,9 +187,8 @@ class TestGTExServiceParameterizedTests:
         tissue_enum = getattr(TissueSiteDetailId, tissue_id.upper())
 
         request = MedianGeneExpressionRequest(
-            gene_symbol=["BRCA1"],
-            tissue_site_detail_id=[tissue_enum],
-            dataset_id=DatasetId.GTEX_V8,
+            gencode_id=["ENSG00000012048.20"],  # BRCA1 GENCODE ID
+            tissue_site_detail_id=tissue_enum,
         )
 
         result = await service.get_median_gene_expression(request)
@@ -227,7 +225,7 @@ class TestGTExServiceErrorHandling:
         # Mock client to raise network error
         mock_gtex_client.get_median_gene_expression.side_effect = Exception("Network timeout")
 
-        request = MedianGeneExpressionRequest(gene_symbol=["BRCA1"])
+        request = MedianGeneExpressionRequest(gencode_id=["ENSG00000012048.20"])
 
         with pytest.raises(Exception) as exc_info:
             await service.get_median_gene_expression(request)
@@ -242,9 +240,9 @@ class TestGTExServiceCacheIntegration:
         """Test cache key generation."""
         service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
 
-        key1 = service._generate_cache_key("search", query="BRCA1", dataset="gtex_v8")
-        key2 = service._generate_cache_key("search", dataset="gtex_v8", query="BRCA1")
-        key3 = service._generate_cache_key("search", query="TP53", dataset="gtex_v8")
+        key1 = service._generate_cache_key("search", query="BRCA1", gencode_version="v26")
+        key2 = service._generate_cache_key("search", gencode_version="v26", query="BRCA1")
+        key3 = service._generate_cache_key("search", query="TP53", gencode_version="v26")
 
         # Same parameters should generate same key regardless of order
         assert key1 == key2
@@ -359,9 +357,8 @@ class TestGTExServiceRealWorldScenarios:
 
         # Step 2: Get expression data for breast tissue
         expression_request = MedianGeneExpressionRequest(
-            gene_symbol=cancer_genes,
-            tissue_site_detail_id=[TissueSiteDetailId.BREAST_MAMMARY_TISSUE],
-            dataset_id=DatasetId.GTEX_V8,
+            gencode_id=["ENSG00000012048.20", "ENSG00000139618.13", "ENSG00000141510.11", "ENSG00000171862.13"],  # BRCA1, BRCA2, TP53, PIK3CA
+            tissue_site_detail_id=TissueSiteDetailId.BREAST_MAMMARY_TISSUE,
         )
 
         expression_result = await service.get_median_gene_expression(expression_request)
@@ -397,9 +394,8 @@ class TestGTExServiceRealWorldScenarios:
         tissue_results = []
         for tissue in tissues:
             request = MedianGeneExpressionRequest(
-                gene_symbol=["BRCA1"],
-                tissue_site_detail_id=[tissue],
-                dataset_id=DatasetId.GTEX_V8,
+                gencode_id=["ENSG00000012048.20"],  # BRCA1 GENCODE ID
+                tissue_site_detail_id=tissue,
             )
             result = await service.get_median_gene_expression(request)
             tissue_results.append(result)
@@ -435,9 +431,8 @@ class TestGTExServiceRealWorldScenarios:
 
         # 2. Get expression data
         expression_request = MedianGeneExpressionRequest(
-            gene_symbol=[gene],
-            tissue_site_detail_id=[tissue],
-            dataset_id=DatasetId.GTEX_V8,
+            gencode_id=["ENSG00000012048.20"],  # BRCA1 GENCODE ID
+            tissue_site_detail_id=tissue,
         )
         expression_data = await service.get_median_gene_expression(expression_request)
 

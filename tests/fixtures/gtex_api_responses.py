@@ -47,7 +47,8 @@ GENE_SEARCH_RESPONSE: dict[str, Any] = {
 MEDIAN_GENE_EXPRESSION_RESPONSE: dict[str, Any] = {
     "data": [
         {
-            "dataSource": "GTEx_v8",
+            "datasetId": "gtex_v8",
+            "ontologyId": "UBERON:0001911",
             "gencodeId": "ENSG00000012048.22",
             "geneSymbol": "BRCA1",
             "median": 12.5436,
@@ -56,7 +57,8 @@ MEDIAN_GENE_EXPRESSION_RESPONSE: dict[str, Any] = {
             "unit": "TPM",
         },
         {
-            "dataSource": "GTEx_v8",
+            "datasetId": "gtex_v8",
+            "ontologyId": "UBERON:0001134",
             "gencodeId": "ENSG00000012048.22",
             "geneSymbol": "BRCA1",
             "median": 8.2147,
@@ -65,7 +67,8 @@ MEDIAN_GENE_EXPRESSION_RESPONSE: dict[str, Any] = {
             "unit": "TPM",
         },
         {
-            "dataSource": "GTEx_v8",
+            "datasetId": "gtex_v8",
+            "ontologyId": "UBERON:0002046",
             "gencodeId": "ENSG00000012048.22",
             "geneSymbol": "BRCA1",
             "median": 15.7893,
@@ -205,7 +208,16 @@ SUBJECT_RESPONSE: dict[str, Any] = {
 }
 
 # Real GTEx service info response
-SERVICE_INFO_RESPONSE: dict[str, Any] = {"title": "GTEx Portal API", "version": "2.0.0"}
+SERVICE_INFO_RESPONSE: dict[str, Any] = {
+    "id": "gtex-portal-api",
+    "name": "GTEx Portal API", 
+    "version": "2.0.0",
+    "organization": {
+        "name": "Broad Institute",
+        "url": "https://www.broadinstitute.org"
+    },
+    "title": "GTEx Portal API"
+}
 
 # Error response examples
 ERROR_RESPONSES: dict[str, dict[str, Any]] = {
