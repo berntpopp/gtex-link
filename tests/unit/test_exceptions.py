@@ -3,12 +3,12 @@
 import pytest
 
 from gtex_link.exceptions import (
-    GTExAPIError,
-    ValidationError,
-    RateLimitError,
-    ConfigurationError,
     CacheError,
+    ConfigurationError,
+    GTExAPIError,
+    RateLimitError,
     ServiceUnavailableError,
+    ValidationError,
 )
 
 

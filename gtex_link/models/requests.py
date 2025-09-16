@@ -261,4 +261,5 @@ for cls in [
     TopExpressedGenesRequest,
     DatasetSampleRequest,
 ]:
-    cls.model_rebuild()
+    if hasattr(cls, "model_rebuild"):
+        cls.model_rebuild()

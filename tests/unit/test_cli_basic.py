@@ -1,7 +1,7 @@
 """Basic CLI tests for coverage - minimal mocking approach."""
 
 import argparse
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from gtex_link.cli import create_parser, show_config
 

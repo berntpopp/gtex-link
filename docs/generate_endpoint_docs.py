@@ -32,7 +32,7 @@ def sanitize_filename(path: str, method: str) -> str:
     return f"{clean_path}_{method.lower()}.md"
 
 
-def format_parameter(param: Dict[str, Any]) -> str:
+def format_parameter(param: dict[str, Any]) -> str:
     """Format a parameter for markdown documentation."""
     name = param.get("name", "unknown")
     param_in = param.get("in", "unknown")
@@ -65,7 +65,7 @@ def format_parameter(param: Dict[str, Any]) -> str:
     return param_doc
 
 
-def format_response(response_code: str, response_data: Dict[str, Any]) -> str:
+def format_response(response_code: str, response_data: dict[str, Any]) -> str:
     """Format a response for markdown documentation."""
     description = response_data.get("description", "No description provided")
     content = response_data.get("content", {})
@@ -88,7 +88,7 @@ def format_response(response_code: str, response_data: Dict[str, Any]) -> str:
     return response_doc
 
 
-def generate_endpoint_markdown(path: str, method: str, endpoint_data: Dict[str, Any]) -> str:
+def generate_endpoint_markdown(path: str, method: str, endpoint_data: dict[str, Any]) -> str:
     """Generate markdown content for a single endpoint."""
     summary = endpoint_data.get("summary", "No summary provided")
     description = endpoint_data.get("description", "No description provided")

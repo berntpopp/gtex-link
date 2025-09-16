@@ -108,7 +108,7 @@ def configure_structlog() -> None:
         processors = [*shared_processors, structlog.dev.ConsoleRenderer(colors=False)]
 
     structlog.configure(
-        processors=processors,
+        processors=processors,  # type: ignore[arg-type]
         wrapper_class=structlog.stdlib.BoundLogger,
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
@@ -124,7 +124,7 @@ def configure_logging() -> FilteringBoundLogger:
     configure_structlog()
 
     # Return configured logger
-    return structlog.get_logger("gtex_link")
+    return structlog.get_logger("gtex_link")  # type: ignore[no-any-return]
 
 
 def orjson_serializer(obj: Any) -> str:
@@ -170,7 +170,7 @@ def log_cache_operation(
     size: int | None = None,
 ) -> None:
     """Log cache operation with structured data."""
-    log_data = {
+    log_data: dict[str, Any] = {
         "operation": operation,
         "key": key,
     }
@@ -213,7 +213,7 @@ def log_server_startup(
     port: int | None = None,
 ) -> None:
     """Log server startup with structured data."""
-    log_data = {
+    log_data: dict[str, Any] = {
         "mode": mode,
     }
 
@@ -230,7 +230,7 @@ def log_error_with_context(
     context: dict[str, Any] | None = None,
 ) -> None:
     """Log error with additional context."""
-    log_data = {
+    log_data: dict[str, Any] = {
         "operation": operation,
         "error_type": type(error).__name__,
         "error_message": str(error),

@@ -193,7 +193,7 @@ class GTExClient:
         endpoint: str,
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """Make HTTP request with rate limiting and error handling.
 
         Args:
@@ -281,7 +281,11 @@ class GTExClient:
 
                 # Parse JSON response
                 try:
-                    return response.json()
+                    result = response.json()
+                    if not isinstance(result, dict):
+                        # If API returns a list or other type, wrap it
+                        return {"data": result}
+                    return result
                 except json.JSONDecodeError as e:
                     if self.logger:
                         log_error_with_context(

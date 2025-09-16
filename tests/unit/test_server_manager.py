@@ -221,9 +221,10 @@ class TestUnifiedServerManager:
     def test_import_dependencies(self):
         """Test that all required dependencies are importable."""
         # Test that the module imports work
-        from gtex_link.server_manager import UnifiedServerManager
-        from gtex_link.app import app, mcp_app
         import uvicorn
+
+        from gtex_link.app import app, mcp_app
+        from gtex_link.server_manager import UnifiedServerManager
 
         # Verify classes and functions exist
         assert UnifiedServerManager is not None

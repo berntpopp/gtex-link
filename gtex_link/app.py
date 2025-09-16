@@ -112,7 +112,7 @@ app = create_app()
 
 # Create MCP app conditionally to avoid schema generation issues
 try:
-    mcp_app = create_mcp_app()
+    mcp_app: FastMCP[Any] | None = create_mcp_app()
 except Exception as e:
     import warnings
 

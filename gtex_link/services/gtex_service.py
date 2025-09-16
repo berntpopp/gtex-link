@@ -312,7 +312,12 @@ class GTExService:
             Dictionary with cleared cache statistics
         """
         self.logger.info("Clearing service cache", pattern=pattern) if self.logger else None
-        return self.cache.clear_all_caches(pattern)
+        # Get cache info before clearing
+        cache_info = self.cache.get_cache_info()
+        # Clear all caches
+        self.cache.clear_all_caches()
+        # Return summary stats
+        return {"cleared_functions": len(cache_info)}
 
     def get_cache_info(self) -> dict[str, Any]:
         """Get detailed cache information.

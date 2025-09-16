@@ -47,7 +47,11 @@ class UnifiedServerManager:
             os.environ["TRANSPORT"] = "stdio"
 
             # Start MCP server in stdio mode
-            await mcp_app.run()
+            if mcp_app is not None:
+                await mcp_app.run()  # type: ignore[func-returns-value]
+            else:
+                raise RuntimeError("MCP app not available - cannot start in stdio mode")
+            return
 
         elif mode == "http":
             # Start HTTP server only
@@ -64,7 +68,11 @@ class UnifiedServerManager:
         elif mode == "unified":
             # Check if we're in stdio mode via environment
             if os.environ.get("TRANSPORT") == "stdio":
-                await mcp_app.run()
+                if mcp_app is not None:
+                    await mcp_app.run()  # type: ignore[func-returns-value]
+                else:
+                    raise RuntimeError("MCP app not available - cannot start in unified/stdio mode")
+                return
             else:
                 # Start HTTP server
                 config = uvicorn.Config(

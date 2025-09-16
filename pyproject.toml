@@ -15,7 +15,7 @@ maintainers = [
     {name = "GTEx-Link Development Team", email = "dev@gtex-link.org"}
 ]
 keywords = [
-    "gtex", "genomics", "expression", "eqtl", "bioinformatics", "api", "mcp", 
+    "gtex", "genomics", "expression", "eqtl", "bioinformatics", "api", "mcp",
     "genetics", "variants", "transcriptomics", "research"
 ]
 classifiers = [
@@ -25,7 +25,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -34,37 +33,37 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     # Web framework and API
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.29.0",
     "pydantic>=2.7.0",
     "pydantic-settings>=2.2.0",
-    
+
     # HTTP client and networking
     "httpx>=0.27.0",
-    
+
     # MCP integration
     "mcp>=1.0.0",
     "fastmcp>=0.2.0",
-    
+
     # Caching and performance
     "async-lru>=2.0.4",
-    
+
     # Logging and monitoring
     "structlog>=24.1.0",
     "orjson>=3.10.0",
-    
+
     # CLI interface
     "typer[rich]>=0.12.0",
     "rich>=13.7.0",
-    
+
     # Utilities
     "python-multipart>=0.0.9",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     # Testing
     "pytest>=8.0.0",
@@ -72,17 +71,15 @@ dev = [
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.12.0",
     "httpx>=0.27.0",  # For testing
-    
+
     # Code quality
     "ruff>=0.4.0",
-    "black>=24.0.0",
-    "flake8>=7.0.0",
     "mypy>=1.10.0",
     "pre-commit>=3.7.0",
-    
+
     # Security
     "bandit>=1.7.0",
-    
+
     # Documentation
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.5.0",
@@ -92,16 +89,12 @@ dev = [
 production = [
     # Production WSGI server
     "gunicorn>=22.0.0",
-    
+
     # Production monitoring
     "prometheus-client>=0.20.0",
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-instrumentation-fastapi>=0.41b0",
-]
-
-all = [
-    "gtex-link[dev,production]"
 ]
 
 [project.urls]
@@ -128,7 +121,7 @@ gtex_link = ["py.typed"]
 
 # Ruff configuration (linting and formatting)
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 100
 indent-width = 4
 
@@ -138,96 +131,27 @@ select = [
     "W",      # pycodestyle warnings
     "F",      # pyflakes
     "I",      # isort
-    "N",      # pep8-naming
-    "D",      # pydocstyle
     "UP",     # pyupgrade
-    "YTT",    # flake8-2020
-    "ANN",    # flake8-annotations
-    "ASYNC",  # flake8-async
-    "S",      # flake8-bandit
-    "BLE",    # flake8-blind-except
-    "FBT",    # flake8-boolean-trap
     "B",      # flake8-bugbear
-    "A",      # flake8-builtins
-    "COM",    # flake8-commas
     "C4",     # flake8-comprehensions
-    "DTZ",    # flake8-datetimez
-    "T10",    # flake8-debugger
-    "DJ",     # flake8-django
-    "EM",     # flake8-errmsg
-    "EXE",    # flake8-executable
-    "FA",     # flake8-future-annotations
-    "ISC",    # flake8-implicit-str-concat
-    "ICN",    # flake8-import-conventions
-    "G",      # flake8-logging-format
-    "INP",    # flake8-no-pep420
-    "PIE",    # flake8-pie
-    "T20",    # flake8-print
-    "PYI",    # flake8-pyi
-    "PT",     # flake8-pytest-style
-    "Q",      # flake8-quotes
-    "RSE",    # flake8-raise
-    "RET",    # flake8-return
-    "SLF",    # flake8-self
-    "SLOT",   # flake8-slots
     "SIM",    # flake8-simplify
-    "TID",    # flake8-tidy-imports
-    "TCH",    # flake8-type-checking
-    "INT",    # flake8-gettext
-    "ARG",    # flake8-unused-arguments
-    "PTH",    # flake8-use-pathlib
-    "TD",     # flake8-todos
-    "FIX",    # flake8-fixme
-    "ERA",    # eradicate
-    "PD",     # pandas-vet
-    "PGH",    # pygrep-hooks
-    "PL",     # pylint
-    "TRY",    # tryceratops
-    "FLY",    # flynt
-    "NPY",    # numpy
-    "PERF",   # perflint
-    "FURB",   # refurb
-    "LOG",    # flake8-logging
-    "RUF",    # ruff-specific rules
 ]
 
 ignore = [
-    "D100",   # Missing docstring in public module
-    "D104",   # Missing docstring in public package
-    "D203",   # 1 blank line required before class docstring
-    "D213",   # Multi-line docstring summary should start at the second line
-    "ANN101", # Missing type annotation for self in method
-    "ANN102", # Missing type annotation for cls in classmethod
-    "ANN401", # Dynamically typed expressions (Any) are disallowed
-    "S101",   # Use of assert detected
-    "B008",   # Do not perform function calls in argument defaults (FastAPI Query pattern)
-    "PERF203", # try-except within a loop (common retry pattern)
-    "PLR0913", # Too many arguments to function call
-    "PLR0911", # Too many return statements
-    "PLR0912", # Too many branches
-    "PLR0915", # Too many statements
-    "C901",   # Too complex
-    "COM812", # Trailing comma missing (conflicts with formatter)
-    "FBT001", # Boolean positional argument (acceptable for CLI)
-    "FBT002", # Boolean default positional argument (acceptable for CLI) 
-    "F403",   # Star imports (acceptable for __init__.py)
-    "F401",   # Unused imports in __init__.py (re-exported)
-    "SLF001", # Private member access (acceptable in tests)
-    "PT011",  # pytest.raises too broad (acceptable in some test cases)
-    "F405",   # Star import undefined names (acceptable in models __init__.py)
+    "E501",   # Line too long (handled by formatter)
+    "B008",   # FastAPI Query pattern is acceptable
+    "B028",   # warnings.warn stacklevel acceptable
+    "F401",   # Re-exported imports in __init__.py
+    "F403",   # Star imports in __init__.py are acceptable
+    "F405",   # Star imports in __init__.py are acceptable
+    "B011",   # assert False in tests is acceptable
+    "UP035",  # typing.Dict acceptable for compatibility
+    "SIM108", # if/else acceptable over ternary for readability
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = [
-    "D",      # Don't check docstrings in tests
-    "S",      # Don't check security in tests
-    "PLR",    # Don't check complexity in tests
-    "ANN",    # Don't require annotations in tests
-    "T20",    # Allow print statements in tests
-    "E501",   # Line too long (test files can have longer lines)
-    "PT011",  # Allow broad pytest.raises
-    "SLF001", # Allow access to private members in tests
-]
+"tests/**/*.py" = ["SIM105"]  # Allow try/except/pass in tests
+"docs/**/*.py" = ["UP035"]    # Allow typing.Dict in docs
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -245,7 +169,7 @@ line-ending = "auto"
 
 # MyPy configuration (type checking)
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 strict = true
 warn_unreachable = true
 warn_unused_ignores = true
@@ -330,24 +254,6 @@ directory = "htmlcov"
 [tool.coverage.xml]
 output = "coverage.xml"
 
-# Black formatting configuration (ruff format is preferred)
-[tool.black]
-line-length = 100
-target-version = ["py39", "py310", "py311", "py312"]
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
 
 # Bandit security configuration
 [tool.bandit]

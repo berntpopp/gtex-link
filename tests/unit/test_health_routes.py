@@ -6,8 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 # TestClient import removed - not used in these tests
-
-from gtex_link.api.routes.health import health_check, version_info, _start_time
+from gtex_link.api.routes.health import _start_time, health_check, version_info
 
 
 class TestHealthRoutes:

@@ -92,7 +92,7 @@ class TestConfigAccessors:
 
     def test_get_cache_config(self):
         """Test get_cache_config function returns correct config."""
-        from gtex_link.config import get_cache_config, CacheConfigModel
+        from gtex_link.config import CacheConfigModel, get_cache_config
 
         cache_config = get_cache_config()
         assert isinstance(cache_config, CacheConfigModel)

@@ -2,10 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
+import pytest
 
-from gtex_link.app import create_app, create_mcp_app, lifespan, app
+from gtex_link.app import app, create_app, create_mcp_app, lifespan
 
 
 class TestAppCreation:

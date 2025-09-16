@@ -193,7 +193,7 @@ class ServerSettings(BaseSettings):
         """Parse CORS origins from string or list."""
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+        return list(v) if v else []
 
 
 # Global settings instance

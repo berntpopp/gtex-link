@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """MCP server entry point for GTEx-Link."""
 
-import sys
 import os
+import sys
 
 
 def main() -> None:

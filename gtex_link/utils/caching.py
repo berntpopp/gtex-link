@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import functools
 import hashlib
 import json
 import time
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel
 
@@ -184,7 +185,7 @@ class CacheManager:
                 return result
 
             # Add cache info method with actual stats
-            def cache_info():
+            def cache_info() -> Any:
                 return type(
                     "CacheInfo",
                     (),
@@ -196,7 +197,7 @@ class CacheManager:
                     },
                 )()
 
-            def cache_clear():
+            def cache_clear() -> None:
                 nonlocal hits, misses
                 cache_dict.clear()
                 hits = 0

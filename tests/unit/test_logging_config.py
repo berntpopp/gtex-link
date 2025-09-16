@@ -6,17 +6,18 @@ from unittest.mock import MagicMock, patch
 
 # pytest and Mock imports removed - not used directly in tests
 import structlog
+
 from gtex_link.logging_config import (
-    configure_stdlib_logging,
-    configure_third_party_loggers,
-    configure_structlog,
     configure_logging,
-    orjson_serializer,
+    configure_stdlib_logging,
+    configure_structlog,
+    configure_third_party_loggers,
     log_api_request,
     log_cache_operation,
+    log_error_with_context,
     log_mcp_tool_call,
     log_server_startup,
-    log_error_with_context,
+    orjson_serializer,
 )
 
 

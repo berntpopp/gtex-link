@@ -378,13 +378,13 @@ class TestGTExServiceMissingCoverage:
     ):
         """Test that logger.info calls are executed for coverage of missing lines."""
         from gtex_link.models import (
-            GeneExpressionRequest,
-            TissueSiteDetailRequest,
-            SubjectRequest,
-            DatasetSampleRequest,
-            VariantRequest,
-            VariantByLocationRequest,
             Chromosome,
+            DatasetSampleRequest,
+            GeneExpressionRequest,
+            SubjectRequest,
+            TissueSiteDetailRequest,
+            VariantByLocationRequest,
+            VariantRequest,
         )
 
         service = GTExService(mock_gtex_client, test_cache_config, mock_logger)

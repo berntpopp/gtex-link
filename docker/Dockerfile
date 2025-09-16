@@ -4,27 +4,26 @@ FROM python:3.11-slim as builder
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    UV_LINK_MODE=copy
 
-# Install system dependencies
+# Install system dependencies and uv
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Create virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Add uv to PATH
+ENV PATH="/root/.local/bin:$PATH"
 
 # Set work directory
 WORKDIR /app
 
-# Copy requirements
-COPY pyproject.toml ./
+# Copy project files
+COPY pyproject.toml uv.lock ./
 
-# Install Python dependencies in virtual environment
-RUN pip install --upgrade pip && pip install -e .
+# Install dependencies with uv
+RUN uv sync --frozen
 
 # Production stage
 FROM python:3.11-slim as production
@@ -34,7 +33,7 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     GTEX_LINK_HOST=0.0.0.0 \
     GTEX_LINK_PORT=8000 \
-    PATH="/opt/venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH"
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -47,10 +46,8 @@ RUN groupadd -r gtex && useradd --no-log-init -r -g gtex gtex
 # Set work directory
 WORKDIR /app
 
-# Copy virtual environment from builder
-COPY --from=builder /opt/venv /opt/venv
-
-# Copy application code
+# Copy virtual environment and code from builder
+COPY --from=builder /app/.venv .venv
 COPY --chown=gtex:gtex . .
 
 # Switch to non-root user
@@ -64,4 +61,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 8000
 
 # Default command
-CMD ["gtex-link", "server", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "server.py"]

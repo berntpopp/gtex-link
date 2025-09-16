@@ -1,11 +1,11 @@
 """Comprehensive tests for caching utilities."""
 
 import asyncio
-import pytest
 from typing import Any
 from unittest.mock import Mock, patch
 
 from pydantic import BaseModel
+import pytest
 
 from gtex_link.utils.caching import (
     CacheManager,

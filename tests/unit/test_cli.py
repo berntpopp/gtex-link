@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from gtex_link.cli import (
-    show_config,
     create_parser,
     main,
+    show_config,
 )
 
 

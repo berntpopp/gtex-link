@@ -19,13 +19,19 @@ GTEx-Link is a production-ready server that provides both REST API and Model Con
 ### Installation
 
 ```bash
-# Install from PyPI (when available)
-pip install gtex-link
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Or install from source
+# Clone and setup project
 git clone https://github.com/gtex-link/gtex-link.git
 cd gtex-link
-pip install -e .
+make dev-setup
+
+# Run development server
+make server
+
+# Run all quality checks
+make check-all
 ```
 
 ### Basic Usage
@@ -33,31 +39,37 @@ pip install -e .
 #### HTTP Server
 
 ```bash
-# Start HTTP server
-gtex-link server --host 127.0.0.1 --port 8000
+# Start development server
+make server
+
+# Start HTTP server with custom options
+uv run gtex-link server --host 127.0.0.1 --port 8000
 
 # With auto-reload for development
-gtex-link server --reload
+uv run gtex-link server --reload
 ```
 
 #### MCP Server
 
 ```bash
-# Start MCP server (stdio mode)
-gtex-mcp
+# Start MCP server for Claude Desktop
+make mcp
+
+# Or run directly with uv
+uv run gtex-mcp
 ```
 
 #### Test Connection
 
 ```bash
 # Test GTEx Portal API connectivity
-gtex-link test
+uv run gtex-link test
 
 # Search for genes
-gtex-link search BRCA1 --limit 5
+uv run gtex-link search BRCA1 --limit 5
 
 # Show configuration
-gtex-link config
+uv run gtex-link config
 ```
 
 ### Docker Usage
