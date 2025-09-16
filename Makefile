@@ -51,8 +51,13 @@ info:  ## Show project information
 docker-build:  ## Build Docker image
 	docker compose -f docker/docker-compose.yml build
 
-docker-dev:  ## Start development environment with Docker Compose
+docker-dev:  ## Start development environment with Docker Compose (foreground)
+	docker compose -f docker/docker-compose.dev.yml down 2>/dev/null || true
 	docker compose -f docker/docker-compose.dev.yml up --build
+
+docker-dev-bg:  ## Start development environment with Docker Compose (background)
+	docker compose -f docker/docker-compose.dev.yml down 2>/dev/null || true
+	docker compose -f docker/docker-compose.dev.yml up --build -d
 
 docker-prod:  ## Start production environment with Docker Compose
 	docker compose -f docker/docker-compose.yml up -d
@@ -61,8 +66,12 @@ docker-stop:  ## Stop all Docker services
 	docker compose -f docker/docker-compose.yml down
 	docker compose -f docker/docker-compose.dev.yml down
 
-docker-logs:  ## Show Docker logs
+docker-logs:  ## Show Docker logs (production)
 	docker compose -f docker/docker-compose.yml logs -f
+
+docker-logs-dev:  ## Show Docker logs (development)
+	docker compose -f docker/docker-compose.dev.yml logs -f
 
 docker-clean:  ## Clean Docker resources
 	docker compose -f docker/docker-compose.yml down -v --rmi all
+	docker compose -f docker/docker-compose.dev.yml down -v --rmi all

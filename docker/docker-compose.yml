@@ -1,10 +1,12 @@
 version: '3.8'
+name: gtex-link
 
 services:
   gtex-link:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+    container_name: gtex-link-prod
     ports:
       - "8000:8000"
     environment:

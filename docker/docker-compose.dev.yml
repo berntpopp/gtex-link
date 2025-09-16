@@ -1,9 +1,12 @@
+name: gtex-link-dev
+
 services:
   gtex-link-dev:
     build:
       context: ..
       dockerfile: docker/Dockerfile
       target: builder
+    container_name: gtex-link-dev
     ports:
       - "8000:8000"
     environment:
