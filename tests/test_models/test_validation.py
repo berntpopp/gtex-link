@@ -87,7 +87,7 @@ class TestRequestModels:
         """Test invalid variant by location request with end <= start."""
         with pytest.raises(ValidationError) as exc_info:
             VariantByLocationRequest(
-                chromosome=Chromosome.CHR17,
+                chromosome="chr17",
                 start=44000000,
                 end=43000000,  # end <= start
             )
@@ -138,7 +138,7 @@ class TestResponseModels:
 
         gene = Gene(**gene_data)
         assert gene.gene_symbol == "BRCA1"
-        assert gene.chromosome == Chromosome.CHR17
+        assert gene.chromosome == "chr17"
         assert gene.start < gene.end
 
     def test_median_gene_expression_valid(self):

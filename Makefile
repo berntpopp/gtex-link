@@ -1,4 +1,4 @@
-.PHONY: help install lint format typecheck test test-cov clean dev-setup check-all fix server mcp mcp-http unified-server cli-help
+.PHONY: help install lint format typecheck test test-cov clean dev-setup check-all fix server mcp mcp-http cli-help
 
 help:  ## Show this help message
 	@echo "GTEx-Link Development Commands:"
@@ -43,8 +43,6 @@ mcp:  ## Start MCP server (STDIO transport)
 mcp-http:  ## Start MCP server with HTTP transport
 	uv run python mcp_http_server.py
 
-unified-server:  ## Start unified server (FastAPI + MCP info)
-	uv run python unified_server.py
 
 clean:  ## Clean cache and temporary files
 	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage

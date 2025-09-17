@@ -139,7 +139,7 @@ class TestGTExServiceCoreOperations:
 
         request = MedianGeneExpressionRequest(
             gencode_id=["ENSG00000012048.20"],  # BRCA1 GENCODE ID
-            tissue_site_detail_id=TissueSiteDetailId.BREAST_MAMMARY_TISSUE,
+            tissue_site_detail_id="Breast_Mammary_Tissue",
         )
 
         result = await service.get_median_gene_expression(request)
@@ -185,11 +185,9 @@ class TestGTExServiceParameterizedTests:
 
         mock_gtex_client.get_median_gene_expression.return_value = median_expression_response
 
-        tissue_enum = getattr(TissueSiteDetailId, tissue_id.upper())
-
         request = MedianGeneExpressionRequest(
             gencode_id=["ENSG00000012048.20"],  # BRCA1 GENCODE ID
-            tissue_site_detail_id=tissue_enum,
+            tissue_site_detail_id=tissue_id,
         )
 
         result = await service.get_median_gene_expression(request)

@@ -131,7 +131,7 @@ class TestMainFunction:
             mock_args.command = "server"
             mock_args.host = "127.0.0.1"
             mock_args.port = 8000
-            mock_args.mode = "unified"
+            mock_args.mode = "http"
             mock_args.reload = False
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
@@ -261,7 +261,7 @@ class TestMainFunction:
             mock_args.command = "server"
             mock_args.host = "127.0.0.1"
             mock_args.port = 8000
-            mock_args.mode = "unified"
+            mock_args.mode = "http"
             mock_args.reload = False
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
@@ -288,7 +288,7 @@ class TestMainFunction:
             mock_args.command = "server"
             mock_args.host = "127.0.0.1"
             mock_args.port = 8000
-            mock_args.mode = "unified"
+            mock_args.mode = "http"
             mock_args.reload = False
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
@@ -315,7 +315,7 @@ class TestMainFunction:
             mock_args.command = "server"
             mock_args.host = "127.0.0.1"
             mock_args.port = 8000
-            mock_args.mode = "unified"
+            mock_args.mode = "http"
             mock_args.reload = False
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
@@ -342,7 +342,7 @@ class TestMainFunction:
             mock_args.command = "server"
             mock_args.host = "127.0.0.1"
             mock_args.port = 8000
-            mock_args.mode = "unified"
+            mock_args.mode = "http"
             mock_args.reload = False
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
@@ -362,7 +362,7 @@ async def test_run_server_success():
     """Test successful server startup using functional approach."""
     with (
         patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.UnifiedServerManager") as mock_server_manager_class,
+        patch("gtex_link.cli.ServerManager") as mock_server_manager_class,
     ):
         # Setup mocks
         from gtex_link.cli import run_server
@@ -375,10 +375,10 @@ async def test_run_server_success():
         mock_server_manager.start_server = AsyncMock()
 
         # Test run_server
-        await run_server(host="127.0.0.1", port=8000, mode="unified", reload=False)
+        await run_server(host="127.0.0.1", port=8000, mode="http", reload=False)
 
         mock_server_manager.start_server.assert_called_once_with(
-            host="127.0.0.1", port=8000, mode="unified", reload=False
+            host="127.0.0.1", port=8000, mode="http", reload=False
         )
 
 
@@ -387,7 +387,7 @@ async def test_run_server_keyboard_interrupt():
     """Test server runner handles KeyboardInterrupt."""
     with (
         patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.UnifiedServerManager") as mock_server_manager_class,
+        patch("gtex_link.cli.ServerManager") as mock_server_manager_class,
     ):
         from gtex_link.cli import run_server
 
@@ -408,7 +408,7 @@ async def test_run_server_os_error():
     """Test server runner handles OSError."""
     with (
         patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.UnifiedServerManager") as mock_server_manager_class,
+        patch("gtex_link.cli.ServerManager") as mock_server_manager_class,
         pytest.raises(SystemExit) as exc_info,
     ):
         from gtex_link.cli import run_server
@@ -432,7 +432,7 @@ async def test_run_server_runtime_error():
     """Test server runner handles RuntimeError."""
     with (
         patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.UnifiedServerManager") as mock_server_manager_class,
+        patch("gtex_link.cli.ServerManager") as mock_server_manager_class,
         pytest.raises(SystemExit) as exc_info,
     ):
         from gtex_link.cli import run_server

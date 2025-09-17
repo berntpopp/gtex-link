@@ -55,7 +55,7 @@ COPY --from=builder /app/.venv .venv
 COPY --chown=gtex:gtex . .
 
 # Ensure new entry points are executable and verify venv
-RUN chmod +x mcp_http_server.py unified_server.py \
+RUN chmod +x mcp_http_server.py mcp_server.py server.py \
     && ls -la /app/.venv/bin/python \
     && /app/.venv/bin/python --version
 
@@ -69,5 +69,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose port
 EXPOSE 8000
 
-# Default command - unified server with FastAPI + MCP
-CMD ["/app/.venv/bin/python", "unified_server.py"]
+# Default command - HTTP server
+CMD ["/app/.venv/bin/python", "server.py"]

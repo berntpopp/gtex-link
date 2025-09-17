@@ -107,39 +107,6 @@ def create_mcp_app() -> FastMCP:
     )
 
 
-def create_unified_app() -> FastAPI:
-    """Create unified FastAPI app with MCP capabilities.
-
-    This creates a FastAPI app that serves both REST API endpoints
-    and provides MCP integration information.
-    """
-    # Create base FastAPI app
-    base_app = create_app()
-
-    # Override root endpoint to include MCP information
-    @base_app.get("/", response_model=None)
-    async def unified_root() -> dict[str, Any]:
-        """Root endpoint for unified server with MCP info."""
-        return {
-            "name": "GTEx-Link",
-            "version": "0.1.0",
-            "description": (
-                "High-performance MCP/API server for GTEx Portal genetic expression database"
-            ),
-            "docs": "/docs",
-            "health": "/api/health",
-            "mcp_info": {
-                "available": True,
-                "transport": "http",
-                "endpoint": settings.mcp_path,
-                "note": "MCP server running on separate transport - use dedicated MCP client",
-            },
-            "mode": "unified",
-        }
-
-    return base_app
-
-
 # Create application instances
 app = create_app()
 

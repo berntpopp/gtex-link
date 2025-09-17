@@ -130,8 +130,8 @@ class ServerSettings(BaseSettings):
     reload: bool = Field(default=False, description="Enable auto-reload in development")
 
     # Transport modes
-    transport_mode: Literal["stdio", "http", "unified", "streamable-http", "mcp-unified"] = Field(
-        default="unified",
+    transport_mode: Literal["stdio", "http", "streamable-http"] = Field(
+        default="http",
         description="Server transport mode",
     )
 

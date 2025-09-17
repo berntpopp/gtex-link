@@ -147,7 +147,7 @@ GTEx-Link can be configured via environment variables or `.env` file:
 ### Server Configuration
 - `GTEX_LINK_HOST` - Server host (default: 127.0.0.1)
 - `GTEX_LINK_PORT` - Server port (default: 8000)
-- `GTEX_LINK_TRANSPORT_MODE` - Transport mode: http/stdio/unified (default: unified)
+- `GTEX_LINK_TRANSPORT_MODE` - Transport mode: http/stdio (default: http)
 
 ### Caching Configuration
 - `GTEX_LINK_CACHE_SIZE` - Maximum cached items (default: 1000)

@@ -13,7 +13,7 @@ from rich.table import Table
 
 from .config import get_api_config, get_cache_config
 from .logging_config import configure_logging
-from .server_manager import UnifiedServerManager
+from .server_manager import ServerManager
 
 # Initialize rich console
 console = Console()
@@ -168,9 +168,9 @@ def create_parser() -> argparse.ArgumentParser:
     server_parser.add_argument("--port", type=int, default=8000, help="Server port (default: 8000)")
     server_parser.add_argument(
         "--mode",
-        choices=["http", "stdio", "unified"],
-        default="unified",
-        help="Server mode (default: unified)",
+        choices=["http", "stdio"],
+        default="http",
+        help="Server mode (default: http)",
     )
     server_parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
 
@@ -193,13 +193,13 @@ def create_parser() -> argparse.ArgumentParser:
 async def run_server(
     host: str = "127.0.0.1",
     port: int = 8000,
-    mode: str = "unified",
+    mode: str = "http",
     *,
     reload: bool = False,
 ) -> None:
     """Run the server."""
     logger = configure_logging()
-    server_manager = UnifiedServerManager(logger=logger)
+    server_manager = ServerManager(logger=logger)
 
     try:
         await server_manager.start_server(host=host, port=port, mode=mode, reload=reload)
