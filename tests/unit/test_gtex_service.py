@@ -424,7 +424,7 @@ class TestGTExServiceMissingCoverage:
 
         # Test variants by location logging (lines 295-298)
         try:
-            request = VariantByLocationRequest(chromosome=Chromosome.CHR17, start=1000, end=2000)
+            request = VariantByLocationRequest(chromosome="chr17", start=1000, end=2000)
             await service._get_variants_by_location_impl(request)
         except Exception:
             pass
@@ -493,7 +493,7 @@ class TestGTExServiceRealWorldScenarios:
                 "ENSG00000141510.11",
                 "ENSG00000171862.13",
             ],  # BRCA1, BRCA2, TP53, PIK3CA
-            tissue_site_detail_id=TissueSiteDetailId.BREAST_MAMMARY_TISSUE,
+            tissue_site_detail_id="Breast_Mammary_Tissue",
         )
 
         expression_result = await service.get_median_gene_expression(expression_request)
@@ -520,10 +520,10 @@ class TestGTExServiceRealWorldScenarios:
 
         # Compare expression across multiple tissues
         tissues = [
-            TissueSiteDetailId.BREAST_MAMMARY_TISSUE,
-            TissueSiteDetailId.WHOLE_BLOOD,
-            TissueSiteDetailId.BRAIN_CORTEX,
-            TissueSiteDetailId.LIVER,
+            "Breast_Mammary_Tissue",
+            "Whole_Blood",
+            "Brain_Cortex",
+            "Liver",
         ]
 
         tissue_results = []
@@ -559,7 +559,7 @@ class TestGTExServiceRealWorldScenarios:
         mock_gtex_client.get_median_gene_expression.return_value = median_expression_response
 
         gene = "BRCA1"
-        tissue = TissueSiteDetailId.BREAST_MAMMARY_TISSUE
+        tissue = "Breast_Mammary_Tissue"
 
         # 1. Search for gene
         gene_info = await service.search_genes(query=gene)
