@@ -21,19 +21,29 @@ class TestEnumValidation:
 
     def test_chromosome_enum_valid(self):
         """Test valid chromosome values."""
-        assert Chromosome.CHR1 == "chr1"
-        assert Chromosome.CHR_X == "chrX"
-        assert Chromosome.CHR_M == "chrM"
+        # Test that Literal types work correctly
+        from typing import get_args
+
+        valid_chromosomes = get_args(Chromosome)
+        assert "chr1" in valid_chromosomes
+        assert "chrX" in valid_chromosomes
+        assert "chrM" in valid_chromosomes
 
     def test_dataset_id_enum_valid(self):
         """Test valid dataset ID values."""
-        assert DatasetId.GTEX_V8 == "gtex_v8"
-        assert DatasetId.GTEX_V10 == "gtex_v10"
+        from typing import get_args
+
+        valid_datasets = get_args(DatasetId)
+        assert "gtex_v8" in valid_datasets
+        assert "gtex_v10" in valid_datasets
 
     def test_tissue_site_detail_id_enum_valid(self):
         """Test valid tissue site detail ID values."""
-        assert TissueSiteDetailId.WHOLE_BLOOD == "Whole_Blood"
-        assert TissueSiteDetailId.BRAIN_CORTEX == "Brain_Cortex"
+        from typing import get_args
+
+        valid_tissues = get_args(TissueSiteDetailId)
+        assert "Whole_Blood" in valid_tissues
+        assert "Brain_Cortex" in valid_tissues
 
 
 class TestRequestModels:
@@ -65,11 +75,11 @@ class TestRequestModels:
     def test_variant_by_location_request_valid(self):
         """Test valid variant by location request."""
         request = VariantByLocationRequest(
-            chromosome=Chromosome.CHR17,
+            chromosome="chr17",
             start=43000000,
             end=44000000,
         )
-        assert request.chromosome == Chromosome.CHR17
+        assert request.chromosome == "chr17"
         assert request.start == 43000000
         assert request.end == 44000000
 

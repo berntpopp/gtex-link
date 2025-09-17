@@ -177,8 +177,8 @@ async def search_genes(
 
         result = await service.search_genes(
             query=gene_id,
-            gencode_version=gencode_version.value if gencode_version else None,
-            genome_build=genome_build.value if genome_build else None,
+            gencode_version=gencode_version if gencode_version else None,
+            genome_build=genome_build if genome_build else None,
             page=page,
             page_size=items_per_page,
         )

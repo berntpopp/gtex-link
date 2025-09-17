@@ -12,6 +12,8 @@ services:
     environment:
       - GTEX_LINK_HOST=0.0.0.0
       - GTEX_LINK_PORT=8000
+      - GTEX_LINK_TRANSPORT_MODE=mcp-unified
+      - GTEX_LINK_MCP_PATH=/mcp
       - GTEX_LINK_LOG_LEVEL=INFO
       - GTEX_LINK_LOG_FORMAT=json
     healthcheck:

@@ -22,8 +22,10 @@ WORKDIR /app
 # Copy project files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies with uv
-RUN uv sync --frozen
+# Install dependencies with uv and verify venv
+RUN uv sync --frozen \
+    && ls -la /app/.venv/bin/python \
+    && /app/.venv/bin/python --version
 
 # Production stage
 FROM python:3.11-slim as production
@@ -33,7 +35,9 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     GTEX_LINK_HOST=0.0.0.0 \
     GTEX_LINK_PORT=8000 \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    UV_CACHE_DIR=/tmp/uv-cache \
+    UV_LINK_MODE=copy
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -50,6 +54,11 @@ WORKDIR /app
 COPY --from=builder /app/.venv .venv
 COPY --chown=gtex:gtex . .
 
+# Ensure new entry points are executable and verify venv
+RUN chmod +x mcp_http_server.py unified_server.py \
+    && ls -la /app/.venv/bin/python \
+    && /app/.venv/bin/python --version
+
 # Switch to non-root user
 USER gtex
 
@@ -60,5 +69,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose port
 EXPOSE 8000
 
-# Default command
-CMD ["python", "server.py"]
+# Default command - unified server with FastAPI + MCP
+CMD ["/app/.venv/bin/python", "unified_server.py"]

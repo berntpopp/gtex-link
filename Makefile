@@ -1,4 +1,4 @@
-.PHONY: help install lint format typecheck test test-cov clean dev-setup check-all fix server mcp cli-help
+.PHONY: help install lint format typecheck test test-cov clean dev-setup check-all fix server mcp mcp-http unified-server cli-help
 
 help:  ## Show this help message
 	@echo "GTEx-Link Development Commands:"
@@ -37,8 +37,14 @@ dev-setup: install  ## Complete development environment setup
 server:  ## Start development HTTP server
 	uv run python server.py
 
-mcp:  ## Start MCP server
+mcp:  ## Start MCP server (STDIO transport)
 	uv run python mcp_server.py
+
+mcp-http:  ## Start MCP server with HTTP transport
+	uv run python mcp_http_server.py
+
+unified-server:  ## Start unified server (FastAPI + MCP info)
+	uv run python unified_server.py
 
 clean:  ## Clean cache and temporary files
 	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage
@@ -62,9 +68,13 @@ docker-dev-bg:  ## Start development environment with Docker Compose (background
 docker-prod:  ## Start production environment with Docker Compose
 	docker compose -f docker/docker-compose.yml up -d
 
+docker-mcp:  ## Start MCP services with Docker Compose
+	docker compose -f docker/docker-compose.mcp.yml up -d --build
+
 docker-stop:  ## Stop all Docker services
 	docker compose -f docker/docker-compose.yml down
 	docker compose -f docker/docker-compose.dev.yml down
+	docker compose -f docker/docker-compose.mcp.yml down
 
 docker-logs:  ## Show Docker logs (production)
 	docker compose -f docker/docker-compose.yml logs -f
@@ -75,3 +85,4 @@ docker-logs-dev:  ## Show Docker logs (development)
 docker-clean:  ## Clean Docker resources
 	docker compose -f docker/docker-compose.yml down -v --rmi all
 	docker compose -f docker/docker-compose.dev.yml down -v --rmi all
+	docker compose -f docker/docker-compose.mcp.yml down -v --rmi all

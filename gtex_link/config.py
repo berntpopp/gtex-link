@@ -130,13 +130,19 @@ class ServerSettings(BaseSettings):
     reload: bool = Field(default=False, description="Enable auto-reload in development")
 
     # Transport modes
-    transport_mode: Literal["stdio", "http", "unified"] = Field(
+    transport_mode: Literal["stdio", "http", "unified", "streamable-http", "mcp-unified"] = Field(
         default="unified",
         description="Server transport mode",
     )
 
     # MCP settings
     mcp_path: str = Field(default="/mcp", description="MCP endpoint path")
+    mcp_port: int = Field(
+        default=8001,
+        ge=1024,
+        le=65535,
+        description="MCP HTTP server port (for streamable-http mode)",
+    )
 
     # CORS settings
     cors_origins: list[str] = Field(

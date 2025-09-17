@@ -2,23 +2,167 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.json_schema import GenerateJsonSchema, JsonSchemaValue
+from pydantic_core import core_schema
 
+# Import original enums for runtime validation but use Literal types for schema
 from .gtex import (
-    Chromosome,
-    DatasetId,
-    DonorSex,
-    GencodeVersion,
-    GenomeBuild,
-    HardyScale,
-    Sex,
-    Strand,
-    TissueSiteDetailId,
+    Chromosome as _Chromosome,
+)
+from .gtex import (
+    DatasetId as _DatasetId,
+)
+from .gtex import (
+    DonorSex as _DonorSex,
+)
+from .gtex import (
+    GencodeVersion as _GencodeVersion,
+)
+from .gtex import (
+    GenomeBuild as _GenomeBuild,
+)
+from .gtex import (
+    HardyScale as _HardyScale,
+)
+from .gtex import (
+    Sex as _Sex,
+)
+from .gtex import (
+    Strand as _Strand,
+)
+from .gtex import (
+    TissueSiteDetailId as _TissueSiteDetailId,
 )
 
+# Define Literal types for MCP compatibility
+Chromosome = Literal[
+    "chr1",
+    "chr2",
+    "chr3",
+    "chr4",
+    "chr5",
+    "chr6",
+    "chr7",
+    "chr8",
+    "chr9",
+    "chr10",
+    "chr11",
+    "chr12",
+    "chr13",
+    "chr14",
+    "chr15",
+    "chr16",
+    "chr17",
+    "chr18",
+    "chr19",
+    "chr20",
+    "chr21",
+    "chr22",
+    "chrX",
+    "chrY",
+    "chrM",
+]
+
+DatasetId = Literal["gtex_v8", "gtex_snrnaseq_pilot", "gtex_v10"]
+
+GencodeVersion = Literal["v19", "v26", "v32", "v43"]
+
+GenomeBuild = Literal["GRCh37", "GRCh38", "GRCh38/hg38"]
+
+Strand = Literal["+", "-"]
+
+Sex = Literal["Male", "Female"]
+
+DonorSex = Literal["M", "F"]
+
+HardyScale = Literal["0", "1", "2", "3", "4"]
+
+TissueSiteDetailId = Literal[
+    "",
+    "Whole_Blood",
+    "Brain_Cortex",
+    "Muscle_Skeletal",
+    "Liver",
+    "Lung",
+    "Breast_Mammary_Tissue",
+    "Heart_Left_Ventricle",
+    "Thyroid",
+    "Adipose_Subcutaneous",
+    "Skin_Sun_Exposed_Lower_leg",
+    "Adipose_Visceral_Omentum",
+    "Adrenal_Gland",
+    "Artery_Aorta",
+    "Artery_Coronary",
+    "Artery_Tibial",
+    "Bladder",
+    "Brain_Amygdala",
+    "Brain_Anterior_cingulate_cortex_BA24",
+    "Brain_Caudate_basal_ganglia",
+    "Brain_Cerebellar_Hemisphere",
+    "Brain_Cerebellum",
+    "Brain_Frontal_Cortex_BA9",
+    "Brain_Hippocampus",
+    "Brain_Hypothalamus",
+    "Brain_Nucleus_accumbens_basal_ganglia",
+    "Brain_Putamen_basal_ganglia",
+    "Brain_Spinal_cord_cervical_c-1",
+    "Brain_Substantia_nigra",
+    "Cells_Cultured_fibroblasts",
+    "Cells_EBV-transformed_lymphocytes",
+    "Cervix_Ectocervix",
+    "Cervix_Endocervix",
+    "Colon_Sigmoid",
+    "Colon_Transverse",
+    "Esophagus_Gastroesophageal_Junction",
+    "Esophagus_Mucosa",
+    "Esophagus_Muscularis",
+    "Fallopian_Tube",
+    "Heart_Atrial_Appendage",
+    "Kidney_Cortex",
+    "Kidney_Medulla",
+    "Minor_Salivary_Gland",
+    "Nerve_Tibial",
+    "Ovary",
+    "Pancreas",
+    "Pituitary",
+    "Prostate",
+    "Skin_Not_Sun_Exposed_Suprapubic",
+    "Small_Intestine_Terminal_Ileum",
+    "Spleen",
+    "Stomach",
+    "Testis",
+    "Uterus",
+    "Vagina",
+]
+
 T = TypeVar("T")
+
+
+class MCPCompatibleJsonSchema(GenerateJsonSchema):
+    """Custom JSON schema generator for MCP compatibility.
+
+    This generator ensures that enum schemas are always inlined without
+    $ref or $defs references, which is a requirement for MCP compatibility.
+    """
+
+    def enum_schema(self, schema: core_schema.EnumSchema) -> JsonSchemaValue:
+        """Generate inline enum schema without $ref references."""
+        enum_values = [member.value for member in schema["members"]]
+
+        # Return inline enum schema instead of $ref
+        result: JsonSchemaValue = {
+            "type": "string",
+            "enum": enum_values,
+        }
+
+        # Add title if available
+        if "schema_ref" in schema and schema["schema_ref"]:
+            result["title"] = schema["schema_ref"]
+
+        return result
 
 
 class BaseResponse(BaseModel):
@@ -28,7 +172,19 @@ class BaseResponse(BaseModel):
         validate_assignment=True,
         use_enum_values=True,
         populate_by_name=True,
+        json_schema_mode_override="serialization",
     )
+
+    @classmethod
+    def model_json_schema(
+        cls, by_alias: bool = True, ref_template: str = "#/$defs/{model}"
+    ) -> dict[str, Any]:
+        """Generate JSON schema using MCP-compatible generator."""
+        return super().model_json_schema(
+            by_alias=by_alias,
+            ref_template=ref_template,
+            schema_generator=MCPCompatibleJsonSchema,
+        )
 
 
 class PaginationInfo(BaseResponse):

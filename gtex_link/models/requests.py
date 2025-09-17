@@ -110,13 +110,13 @@ class MedianGeneExpressionRequest(BaseRequest):
         examples=[["ENSG00000012048.20", "ENSG00000141510.11"]],
     )
     tissue_site_detail_id: TissueSiteDetailId = Field(
-        default=TissueSiteDetailId.ALL,
+        default="",
         alias="tissueSiteDetailId",
         description="Tissue filter. Use 'ALL' (empty) for all tissues, or specific tissue name for single tissue.",
         examples=["", "Whole_Blood", "Brain_Cortex"],
     )
     dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8,
+        default="gtex_v8",
         alias="datasetId",
         description="Dataset ID - gtex_v8 is recommended",
         examples=["gtex_v8"],
@@ -134,7 +134,7 @@ class GeneExpressionRequest(BaseRequest):
         examples=[["ENSG00000012048.20"]],
     )
     tissue_site_detail_id: TissueSiteDetailId = Field(
-        default=TissueSiteDetailId.ALL,
+        default="",
         alias="tissueSiteDetailId",
         description="Tissue filter. Use 'ALL' (empty) for all tissues, or specific tissue name for single tissue.",
         examples=["", "Whole_Blood", "Brain_Cortex"],
@@ -146,7 +146,7 @@ class GeneExpressionRequest(BaseRequest):
         examples=["sex", "age"],
     )
     dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8,
+        default="gtex_v8",
         alias="datasetId",
         description="Dataset ID - gtex_v8 is recommended",
         examples=["gtex_v8"],
@@ -160,9 +160,7 @@ class VariantRequest(BaseRequest):
     chromosome: list[Chromosome] | None = Field(None, description="List of chromosomes")
     start: int | None = Field(None, ge=0, description="Start position")
     end: int | None = Field(None, ge=0, description="End position")
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
-    )
+    dataset_id: DatasetId = Field(default="gtex_v8", alias="datasetId", description="Dataset ID")
     sort_by: VariantSortBy = Field(
         default=VariantSortBy.CHROMOSOME, alias="sortBy", description="Sort field"
     )
@@ -177,9 +175,7 @@ class VariantByLocationRequest(BaseRequest):
     chromosome: Chromosome = Field(description="Chromosome")
     start: int = Field(ge=0, description="Start position")
     end: int = Field(ge=0, description="End position")
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
-    )
+    dataset_id: DatasetId = Field(default="gtex_v8", alias="datasetId", description="Dataset ID")
 
     @field_validator("end")
     @classmethod
@@ -206,7 +202,7 @@ class TopExpressedGenesRequest(BaseRequest):
         examples=[True, False],
     )
     dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8,
+        default="gtex_v8",
         alias="datasetId",
         description="Dataset ID - gtex_v8 is recommended",
         examples=["gtex_v8"],
@@ -219,18 +215,14 @@ class TissueSiteDetailRequest(BaseRequest):
     tissue_site_detail_id: list[TissueSiteDetailId] | None = Field(
         None, alias="tissueSiteDetailId", description="List of tissue site detail IDs"
     )
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
-    )
+    dataset_id: DatasetId = Field(default="gtex_v8", alias="datasetId", description="Dataset ID")
 
 
 class SubjectRequest(BaseRequest):
     """Request for subject endpoint."""
 
     subject_id: list[str] | None = Field(None, alias="subjectId", description="List of subject IDs")
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
-    )
+    dataset_id: DatasetId = Field(default="gtex_v8", alias="datasetId", description="Dataset ID")
 
 
 class DatasetSampleRequest(BaseRequest):
@@ -241,9 +233,7 @@ class DatasetSampleRequest(BaseRequest):
     tissue_site_detail_id: list[TissueSiteDetailId] | None = Field(
         None, alias="tissueSiteDetailId", description="List of tissue site detail IDs"
     )
-    dataset_id: DatasetId = Field(
-        default=DatasetId.GTEX_V8, alias="datasetId", description="Dataset ID"
-    )
+    dataset_id: DatasetId = Field(default="gtex_v8", alias="datasetId", description="Dataset ID")
 
 
 # Rebuild all models to resolve forward references

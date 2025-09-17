@@ -1,0 +1,60 @@
+name: gtex-link-mcp
+
+services:
+  # Unified server (FastAPI + MCP info on same port)
+  gtex-link-unified:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: production
+    container_name: gtex-link-unified
+    ports:
+      - "8000:8000"
+    environment:
+      - GTEX_LINK_HOST=0.0.0.0
+      - GTEX_LINK_PORT=8000
+      - GTEX_LINK_TRANSPORT_MODE=mcp-unified
+      - GTEX_LINK_MCP_PATH=/mcp
+      - GTEX_LINK_LOG_LEVEL=INFO
+      - GTEX_LINK_LOG_FORMAT=json
+    command: ["/app/.venv/bin/python", "unified_server.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - gtex-mcp-network
+
+  # MCP HTTP server only
+  gtex-link-mcp-http:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: production
+    container_name: gtex-link-mcp-http
+    ports:
+      - "8001:8001"
+    environment:
+      - GTEX_LINK_HOST=0.0.0.0
+      - GTEX_LINK_MCP_PORT=8001
+      - GTEX_LINK_TRANSPORT_MODE=streamable-http
+      - GTEX_LINK_MCP_PATH=/mcp
+      - GTEX_LINK_LOG_LEVEL=INFO
+      - GTEX_LINK_LOG_FORMAT=json
+    command: ["/app/.venv/bin/python", "mcp_http_server.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/mcp"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - gtex-mcp-network
+
+networks:
+  gtex-mcp-network:
+    driver: bridge

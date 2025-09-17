@@ -65,6 +65,14 @@ class UnifiedServerManager:
             server = uvicorn.Server(config)
             await server.serve()
 
+        elif mode == "streamable-http":
+            # Start MCP server with Streamable HTTP transport
+            await self._start_streamable_http_mcp(host, port)
+
+        elif mode == "mcp-unified":
+            # Start unified server with FastAPI + MCP on same port
+            await self._start_mcp_unified_server(host, port, reload)
+
         elif mode == "unified":
             # Check if we're in stdio mode via environment
             if os.environ.get("TRANSPORT") == "stdio":
@@ -87,3 +95,52 @@ class UnifiedServerManager:
         else:
             msg = f"Unknown server mode: {mode}"
             raise ValueError(msg)
+
+    async def _start_streamable_http_mcp(self, host: str, port: int) -> None:
+        """Start MCP server with Streamable HTTP transport."""
+        if mcp_app is not None:
+            if self.logger:
+                self.logger.info(
+                    "Starting MCP server with Streamable HTTP transport",
+                    host=host,
+                    port=port,
+                    endpoint="/mcp",
+                )
+
+            try:
+                await mcp_app.run(transport="streamable-http", host=host, port=port, path="/mcp")  # type: ignore[func-returns-value]
+            except Exception as e:
+                if self.logger:
+                    self.logger.error("Failed to start MCP HTTP server", error=str(e))
+                raise RuntimeError(f"MCP HTTP server failed to start: {e}") from e
+        else:
+            raise RuntimeError("MCP app not available - cannot start in streamable-http mode")
+
+    async def _start_mcp_unified_server(self, host: str, port: int, reload: bool) -> None:
+        """Start unified server with FastAPI + MCP on same port."""
+        from .app import create_unified_app
+
+        if self.logger:
+            self.logger.info(
+                "Starting unified server with FastAPI + MCP",
+                host=host,
+                port=port,
+                mode="mcp-unified",
+            )
+
+        try:
+            unified_app = create_unified_app()
+
+            config = uvicorn.Config(
+                app=unified_app,
+                host=host,
+                port=port,
+                reload=reload,
+                log_config=None,  # Use our custom logging
+            )
+            server = uvicorn.Server(config)
+            await server.serve()
+        except Exception as e:
+            if self.logger:
+                self.logger.error("Failed to start unified server", error=str(e))
+            raise RuntimeError(f"Unified server failed to start: {e}") from e

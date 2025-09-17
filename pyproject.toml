@@ -107,6 +107,8 @@ Changelog = "https://github.com/gtex-link/gtex-link/blob/main/CHANGELOG.md"
 [project.scripts]
 gtex-link = "gtex_link.cli:main"
 gtex-mcp = "mcp_server:main"
+gtex-mcp-http = "mcp_http_server:main"
+gtex-unified = "unified_server:main"
 
 [tool.setuptools]
 package-dir = {"" = "."}

@@ -93,13 +93,13 @@ async def get_median_gene_expression(
         max_length=50,
     ),
     tissue_site_detail_id: TissueSiteDetailId = Query(
-        default=TissueSiteDetailId.ALL,
+        default="",
         alias="tissueSiteDetailId",
         description="Tissue filter. Use 'ALL' (empty) for all tissues, "
         "or specific tissue name for single tissue.",
     ),
     dataset_id: DatasetId = Query(
-        default=DatasetId.GTEX_V8,
+        default="gtex_v8",
         alias="datasetId",
         description="Dataset ID - gtex_v8 is recommended",
     ),
@@ -210,7 +210,7 @@ async def get_gene_expression(
         examples=["ENSG00000012048.20"],
     ),
     tissue_site_detail_id: TissueSiteDetailId = Query(
-        default=TissueSiteDetailId.ALL,
+        default="",
         alias="tissueSiteDetailId",
         description="Tissue filter. Use 'ALL' (empty) for all tissues, "
         "or specific tissue name for single tissue.",
@@ -222,7 +222,7 @@ async def get_gene_expression(
         examples=["sex", "age"],
     ),
     dataset_id: DatasetId = Query(
-        default=DatasetId.GTEX_V8,
+        default="gtex_v8",
         alias="datasetId",
         description="Dataset ID - gtex_v8 is recommended",
     ),
@@ -331,7 +331,7 @@ async def get_top_expressed_genes(
         default=True, alias="filterMtGene", description="Exclude mitochondrial genes from results"
     ),
     dataset_id: DatasetId = Query(
-        default=DatasetId.GTEX_V8,
+        default="gtex_v8",
         alias="datasetId",
         description="Dataset ID - gtex_v8 is recommended",
     ),
