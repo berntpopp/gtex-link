@@ -5,7 +5,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-      target: builder
+      target: production
     container_name: gtex-link-api-dev
     ports:
       - "${API_PORT_HOST:-8002}:8000"  # Use 8002 to avoid conflicts with phentrieve (8001)
@@ -21,21 +21,18 @@ services:
       - GTEX_LINK_CORS_ORIGINS=["http://localhost:3000","http://localhost:8000","http://localhost:8002","*"]
       - GTEX_LINK_CORS_ALLOW_CREDENTIALS=true
     volumes:
-      - ../gtex_link:/app/gtex_link:ro
-      - ../tests:/app/tests:ro
-      - ../server.py:/app/server.py:ro
-      - ../mcp_server.py:/app/mcp_server.py:ro
-      - ../mcp_http_server.py:/app/mcp_http_server.py:ro
-    command: ["uv", "run", "python", "server.py"]
+      # Mount source code for development (read-write for hot reload)
+      - ../gtex_link:/app/gtex_link
+      - ../tests:/app/tests
+      - ../server.py:/app/server.py
+      - ../mcp_server.py:/app/mcp_server.py
+      - ../mcp_http_server.py:/app/mcp_http_server.py
+    command: ["/app/.venv/bin/python", "server.py"]
+    restart: unless-stopped
     networks:
       - gtex_link_dev_network
-      - npm_proxy_network
 
 networks:
   gtex_link_dev_network:
     driver: bridge
     name: gtex_link_dev_network
-  # Override NPM network for development (make it local instead of external)
-  npm_proxy_network:
-    external: false
-    driver: bridge

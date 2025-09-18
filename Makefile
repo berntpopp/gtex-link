@@ -66,6 +66,7 @@ docker-dev-bg:  ## Start development environment with Docker Compose (background
 	docker compose -f docker/docker-compose.dev.yml down 2>/dev/null || true
 	docker compose -f docker/docker-compose.dev.yml up --build -d
 
+
 docker-prod:  ## Start production environment with Docker Compose
 	docker compose -f docker/docker-compose.yml up -d
 

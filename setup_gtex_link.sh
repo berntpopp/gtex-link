@@ -326,9 +326,3 @@ echo ""
 
 echo -e "${GREEN}Setup complete! 🎉${NC}"
 echo "GTEx-Link is ready for deployment with NPM."
-
-# --- Development Mode Instructions ---
-echo ""
-echo -e "${YELLOW}For local development (without NPM):${NC}"
-echo "Run: ${GREEN}$COMPOSE_COMMAND -f docker/docker-compose.dev.yml up${NC}"
-echo "Test: ${GREEN}curl http://localhost:8002/api/health/${NC}"

@@ -4,20 +4,6 @@ This directory contains multiple Docker Compose configurations for different dep
 
 ## Available Configurations
 
-### 🔧 Development
-**File**: `docker-compose.dev.yml`
-**Purpose**: Local development with live reload
-**Ports**: 8002:8000 (avoids conflicts)
-**Features**: Volume mounts, debug logging, permissive CORS
-
-```bash
-# Start development environment
-docker-compose -f docker-compose.dev.yml up
-
-# Test endpoints
-curl http://localhost:8002/api/health/
-curl http://localhost:8002/mcp
-```
 
 ### 🌐 NPM Production
 **File**: `docker-compose.npm.yml`
@@ -106,7 +92,6 @@ curl http://localhost:8001/mcp
 
 | Configuration | Port | Use Case | Network | Features |
 |---------------|------|----------|---------|----------|
-| `dev.yml` | 8002 | Development | Local | Live reload, volumes |
 | `npm.yml` | None | NPM Production | NPM shared | No ports, proxy ready |
 | `yml` | 8000 | Standalone Prod | Isolated | Basic production |
 | `yml` + `prod.yml` | 8000 | Enhanced Prod | Isolated | Resource limits, logging |
@@ -115,9 +100,6 @@ curl http://localhost:8001/mcp
 ## Quick Commands
 
 ```bash
-# Development
-docker-compose -f docker-compose.dev.yml up
-
 # NPM Production (recommended)
 docker-compose -f docker-compose.npm.yml --env-file ../.env.docker up -d --build
 
