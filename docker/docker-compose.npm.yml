@@ -11,7 +11,6 @@ services:
       - GTEX_LINK_HOST=0.0.0.0
       - GTEX_LINK_PORT=8000
       - GTEX_LINK_TRANSPORT_MODE=http
-      - GTEX_LINK_MCP_PATH=/mcp
       - GTEX_LINK_LOG_LEVEL=${LOG_LEVEL_API:-INFO}
       - GTEX_LINK_LOG_FORMAT=json
       - GTEX_LINK_RELOAD=false
@@ -22,7 +21,7 @@ services:
       - GTEX_LINK_CORS_ORIGINS=["https://gtex-link.example.com"]
       - GTEX_LINK_CORS_ALLOW_CREDENTIALS=true
     # env_file is specified via --env-file flag for consistency with phentrieve
-    # Use Python server.py for unified API+MCP serving
+    # Use Python server.py for FastAPI only
     command: ["python", "server.py"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
@@ -38,10 +37,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${GTEX_API_MEMORY_LIMIT:-1g}
-          cpus: ${GTEX_API_CPU_LIMIT:-1.0}
+          memory: ${GTEX_API_MEMORY_LIMIT:-512m}
+          cpus: ${GTEX_API_CPU_LIMIT:-0.5}
         reservations:
-          memory: 256m
+          memory: 128m
           cpus: 0.25
     # Production logging configuration
     logging:
@@ -50,6 +49,54 @@ services:
         max-size: "50m"
         max-file: "5"
         labels: "service=gtex-link-api,environment=production,proxy=npm"
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+  gtex_link_mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: gtex-link-mcp-npm
+    # NO direct ports exposed - NPM handles all routing
+    environment:
+      - GTEX_LINK_HOST=0.0.0.0
+      - GTEX_LINK_MCP_PORT=8001
+      - GTEX_LINK_MCP_PATH=/mcp
+      - GTEX_LINK_TRANSPORT_MODE=streamable-http
+      - GTEX_LINK_LOG_LEVEL=${LOG_LEVEL_API:-INFO}
+      - GTEX_LINK_LOG_FORMAT=json
+      - GTEX_LINK_API_RATE_LIMIT_PER_SECOND=${GTEX_API_RATE_LIMIT:-5.0}
+      - GTEX_LINK_CACHE_SIZE=${GTEX_CACHE_SIZE:-1000}
+      - GTEX_LINK_CACHE_TTL=${GTEX_CACHE_TTL:-3600}
+    # Use Python mcp_http_server.py for MCP HTTP transport
+    command: ["python", "mcp_http_server.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/mcp"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - gtex_link_internal_net
+      - npm_proxy_network
+    # Resource limits (optional, can be customized via environment)
+    deploy:
+      resources:
+        limits:
+          memory: ${GTEX_MCP_MEMORY_LIMIT:-512m}
+          cpus: ${GTEX_MCP_CPU_LIMIT:-0.5}
+        reservations:
+          memory: 128m
+          cpus: 0.25
+    # Production logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+        labels: "service=gtex-link-mcp,environment=production,proxy=npm"
     # Security options
     security_opt:
       - no-new-privileges:true

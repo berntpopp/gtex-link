@@ -193,30 +193,35 @@ else
     echo "   GTEx-Link requires outbound HTTPS access to gtexportal.org"
 fi
 
-# --- Build GTEx-Link API Image ---
-echo -e "\n${YELLOW}Step 4: Building GTEx-Link API Docker image...${NC}"
+# --- Build GTEx-Link Docker Images ---
+echo -e "\n${YELLOW}Step 4: Building GTEx-Link Docker images...${NC}"
 echo "This may take a few minutes for the first build..."
+echo "Building API and MCP containers..."
 cd docker
-$COMPOSE_COMMAND -f docker-compose.npm.yml --env-file ../.env.docker build gtex_link_api
+$COMPOSE_COMMAND -f docker-compose.npm.yml --env-file ../.env.docker build
 cd ..
-echo -e "${GREEN}✓ GTEx-Link API image build completed.${NC}"
+echo -e "${GREEN}✓ GTEx-Link API and MCP image builds completed.${NC}"
 
 # --- Container Health Test ---
 echo -e "\n${YELLOW}Step 5: Testing GTEx-Link container functionality...${NC}"
-echo "Starting temporary container to test API and MCP endpoints..."
+echo "Starting temporary containers to test API and MCP endpoints..."
 
-# Start container in background for testing
+# Start both containers for testing
 cd docker
-CONTAINER_ID=$($COMPOSE_COMMAND -f docker-compose.npm.yml --env-file ../.env.docker run -d --rm gtex_link_api)
+echo "Starting API container for testing..."
+API_CONTAINER_ID=$($COMPOSE_COMMAND -f docker-compose.npm.yml --env-file ../.env.docker run -d --rm gtex_link_api)
+
+echo "Starting MCP container for testing..."
+MCP_CONTAINER_ID=$($COMPOSE_COMMAND -f docker-compose.npm.yml --env-file ../.env.docker run -d --rm gtex_link_mcp)
 cd ..
 
-# Wait for container to be ready
-echo "Waiting for container to initialize..."
-sleep 10
+# Wait for containers to be ready
+echo "Waiting for containers to initialize..."
+sleep 15
 
 # Test API health endpoint
 echo "Testing API health endpoint..."
-if docker exec "$CONTAINER_ID" curl -f -s http://localhost:8000/api/health/ > /dev/null; then
+if docker exec "$API_CONTAINER_ID" curl -f -s http://localhost:8000/api/health/ > /dev/null; then
     echo -e "${GREEN}✓ API health endpoint is working.${NC}"
 else
     echo -e "${RED}✗ API health endpoint failed.${NC}"
@@ -224,23 +229,25 @@ fi
 
 # Test MCP endpoint
 echo "Testing MCP endpoint..."
-if docker exec "$CONTAINER_ID" curl -f -s http://localhost:8000/mcp > /dev/null; then
+if docker exec "$MCP_CONTAINER_ID" curl -f -s http://localhost:8001/mcp > /dev/null; then
     echo -e "${GREEN}✓ MCP endpoint is working.${NC}"
 else
-    echo -e "${YELLOW}⚠️  MCP endpoint test inconclusive (this is normal).${NC}"
+    echo -e "${YELLOW}⚠️  MCP endpoint test failed. This may be expected for HTTP transport.${NC}"
 fi
 
-# Test GTEx API proxy
+# Test GTEx API proxy functionality
 echo "Testing GTEx API proxy functionality..."
-if docker exec "$CONTAINER_ID" curl -f -s --max-time 15 "http://localhost:8000/api/reference/geneSearch?geneId=BRCA1" > /dev/null; then
+if docker exec "$API_CONTAINER_ID" curl -f -s --max-time 15 "http://localhost:8000/api/reference/geneSearch?geneId=BRCA1" > /dev/null; then
     echo -e "${GREEN}✓ GTEx API proxy is working.${NC}"
 else
     echo -e "${YELLOW}⚠️  GTEx API proxy test failed. Check GTEx Portal availability.${NC}"
 fi
 
-# Stop test container
-docker stop "$CONTAINER_ID" > /dev/null
-echo -e "${GREEN}✓ Container functionality test completed.${NC}"
+# Stop test containers
+echo "Cleaning up test containers..."
+docker stop "$API_CONTAINER_ID" > /dev/null
+docker stop "$MCP_CONTAINER_ID" > /dev/null
+echo -e "${GREEN}✓ Container functionality tests completed.${NC}"
 
 # --- Configuration Validation ---
 echo -e "\n${YELLOW}Step 6: Validating Docker Compose configuration...${NC}"
@@ -278,11 +285,16 @@ echo "   - Block Common Exploits: Yes"
 echo "   - Websockets Support: Yes"
 echo "   - SSL: Request a new SSL Certificate, enable 'Force SSL'"
 echo ""
-echo "   Add these custom locations in the Advanced tab:"
-echo "   Location: /mcp"
-echo "     Forward to: gtex_link_api:8000"
-echo "   Location: /api/health/"
+echo "   ${YELLOW}IMPORTANT:${NC} Add these custom locations in the Advanced tab:"
+echo "   ${GREEN}Custom Location 1:${NC}"
+echo "     Location: /mcp"
+echo "     Proxy Pass: http://gtex_link_mcp:8001"
+echo ""
+echo "   ${GREEN}Custom Location 2 (Optional):${NC}"
+echo "     Location: /api/health/"
 echo "     Custom config: access_log off;"
+echo ""
+echo "   ${RED}Without the /mcp custom location, MCP won't work!${NC}"
 echo ""
 
 echo -e "${BLUE}3. Start GTEx-Link:${NC}"
@@ -291,11 +303,13 @@ echo "   ${GREEN}$COMPOSE_COMMAND -f docker/docker-compose.npm.yml --env-file .e
 echo ""
 
 echo -e "${BLUE}4. Test Your Deployment:${NC}"
-echo "   Once DNS propagates and NPM is configured:"
+echo "   Once DNS propagates and NPM is configured with custom locations:"
 echo "   - API Health: ${GREEN}curl $GTEX_API_URL_PUBLIC/api/health/${NC}"
 echo "   - Gene Search: ${GREEN}curl '$GTEX_API_URL_PUBLIC/api/reference/geneSearch?geneId=BRCA1'${NC}"
-echo "   - MCP Endpoint: ${GREEN}curl $GTEX_MCP_URL_PUBLIC${NC}"
+echo "   - MCP Endpoint: ${GREEN}curl $GTEX_MCP_URL_PUBLIC${NC} ${YELLOW}(requires /mcp custom location)${NC}"
 echo "   - API Documentation: ${GREEN}$GTEX_API_URL_PUBLIC/docs${NC}"
+echo ""
+echo "   ${YELLOW}Note:${NC} API calls route to gtex_link_api:8000, MCP calls route to gtex_link_mcp:8001"
 echo ""
 
 echo -e "${BLUE}5. MCP Integration:${NC}"
