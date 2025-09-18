@@ -1,61 +1,63 @@
-# NPM (Nginx Proxy Manager) production deployment
-# Usage: docker-compose -f docker-compose.yml -f docker-compose.npm.yml up -d
+name: gtex-link-npm
 
 services:
-  gtex-link:
-    # Production environment optimized for NPM
+  gtex_link_api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: gtex-link-api-npm
+    # NO direct ports exposed - NPM handles all routing
     environment:
-      GTEX_LINK_LOG_LEVEL: INFO
-      GTEX_LINK_LOG_FORMAT: json
-      GTEX_LINK_RELOAD: "false"
-      GTEX_LINK_CACHE_SIZE: 2000
-      GTEX_LINK_CACHE_TTL: 7200
-      GTEX_LINK_API_RATE_LIMIT_PER_SECOND: 5.0
-      
-      # NPM-specific environment variables (loaded from .env.npm)
-      GTEX_LINK_PUBLIC_DOMAIN: "${GTEX_LINK_PUBLIC_DOMAIN}"
-      GTEX_LINK_PUBLIC_URL: "${GTEX_LINK_PUBLIC_URL}"
-      GTEX_LINK_CORS_ORIGINS: "${GTEX_LINK_CORS_ORIGINS}"
-    
-    # Remove port mapping - NPM handles external access
-    ports: []
-    
-    # Connect to NPM's shared network
+      - GTEX_LINK_HOST=0.0.0.0
+      - GTEX_LINK_PORT=8000
+      - GTEX_LINK_TRANSPORT_MODE=http
+      - GTEX_LINK_MCP_PATH=/mcp
+      - GTEX_LINK_LOG_LEVEL=${LOG_LEVEL_API:-INFO}
+      - GTEX_LINK_LOG_FORMAT=json
+      - GTEX_LINK_RELOAD=false
+      - GTEX_LINK_API_RATE_LIMIT_PER_SECOND=${GTEX_API_RATE_LIMIT:-5.0}
+      - GTEX_LINK_CACHE_SIZE=${GTEX_CACHE_SIZE:-1000}
+      - GTEX_LINK_CACHE_TTL=${GTEX_CACHE_TTL:-3600}
+      # CORS configuration for production
+      - GTEX_LINK_CORS_ORIGINS=["https://gtex-link.example.com"]
+      - GTEX_LINK_CORS_ALLOW_CREDENTIALS=true
+    # env_file is specified via --env-file flag for consistency with phentrieve
+    # Use Python server.py for unified API+MCP serving
+    command: ["python", "server.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
     networks:
-      - npm_shared
-      - default
-    
-    # Production command
-    command: ["gtex-link", "server", "--host", "0.0.0.0", "--port", "8000"]
-    
-    # Production resource limits
+      - gtex_link_internal_net
+      - npm_proxy_network
+    # Resource limits (optional, can be customized via environment)
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '1.0'
+          memory: ${GTEX_API_MEMORY_LIMIT:-1g}
+          cpus: ${GTEX_API_CPU_LIMIT:-1.0}
         reservations:
-          memory: 512M
-          cpus: '0.5'
-    
-    # Production health check
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    
-    # Production logging
+          memory: 256m
+          cpus: 0.25
+    # Production logging configuration
     logging:
       driver: "json-file"
       options:
         max-size: "50m"
         max-file: "5"
-        labels: "service=gtex-link,environment=production,proxy=npm"
+        labels: "service=gtex-link-api,environment=production,proxy=npm"
+    # Security options
+    security_opt:
+      - no-new-privileges:true
 
-# NPM shared network configuration
 networks:
-  npm_shared:
+  gtex_link_internal_net:
+    driver: bridge
+    name: gtex_link_internal_net
+  npm_proxy_network:
     external: true
-    name: "${NPM_SHARED_NETWORK_NAME:-npm_default}"
+    name: ${NPM_SHARED_NETWORK_NAME:-npm_default}

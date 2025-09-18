@@ -1,29 +1,41 @@
 name: gtex-link-dev
 
 services:
-  gtex-link-dev:
+  gtex_link_api_dev:
     build:
       context: ..
       dockerfile: docker/Dockerfile
       target: builder
-    container_name: gtex-link-dev
+    container_name: gtex-link-api-dev
     ports:
-      - "8000:8000"
+      - "${API_PORT_HOST:-8002}:8000"  # Use 8002 to avoid conflicts with phentrieve (8001)
     environment:
       - GTEX_LINK_HOST=0.0.0.0
       - GTEX_LINK_PORT=8000
+      - GTEX_LINK_TRANSPORT_MODE=http
+      - GTEX_LINK_MCP_PATH=/mcp
       - GTEX_LINK_LOG_LEVEL=DEBUG
       - GTEX_LINK_LOG_FORMAT=console
       - GTEX_LINK_RELOAD=true
+      # Development CORS settings (more permissive)
+      - GTEX_LINK_CORS_ORIGINS=["http://localhost:3000","http://localhost:8000","http://localhost:8002","*"]
+      - GTEX_LINK_CORS_ALLOW_CREDENTIALS=true
     volumes:
       - ../gtex_link:/app/gtex_link:ro
       - ../tests:/app/tests:ro
       - ../server.py:/app/server.py:ro
       - ../mcp_server.py:/app/mcp_server.py:ro
+      - ../mcp_http_server.py:/app/mcp_http_server.py:ro
     command: ["uv", "run", "python", "server.py"]
     networks:
-      - gtex-dev-network
+      - gtex_link_dev_network
+      - npm_proxy_network
 
 networks:
-  gtex-dev-network:
+  gtex_link_dev_network:
+    driver: bridge
+    name: gtex_link_dev_network
+  # Override NPM network for development (make it local instead of external)
+  npm_proxy_network:
+    external: false
     driver: bridge
