@@ -107,9 +107,9 @@ echo "  API URL: $GTEX_API_URL"
 echo "  MCP URL: $GTEX_MCP_URL"
 echo ""
 
-# Update .env.docker with the provided domain
-sed -i "s|GTEX_API_URL_PUBLIC=.*|GTEX_API_URL_PUBLIC=$GTEX_API_URL|g" .env.docker
-sed -i "s|GTEX_MCP_URL_PUBLIC=.*|GTEX_MCP_URL_PUBLIC=$GTEX_MCP_URL|g" .env.docker
+# Update .env.docker with the provided domain (only uncommented lines)
+sed -i "s|^GTEX_API_URL_PUBLIC=.*|GTEX_API_URL_PUBLIC=$GTEX_API_URL|g" .env.docker
+sed -i "s|^GTEX_MCP_URL_PUBLIC=.*|GTEX_MCP_URL_PUBLIC=$GTEX_MCP_URL|g" .env.docker
 
 # Ask about NPM network name
 echo -e "${BLUE}Docker Network Configuration${NC}"
@@ -120,8 +120,8 @@ echo ""
 read -p "NPM network name [npm_default]: " NPM_NETWORK_INPUT
 NPM_NETWORK_NAME=${NPM_NETWORK_INPUT:-npm_default}
 
-# Update .env.docker with network name
-sed -i "s|NPM_SHARED_NETWORK_NAME=.*|NPM_SHARED_NETWORK_NAME=$NPM_NETWORK_NAME|g" .env.docker
+# Update .env.docker with network name (only uncommented lines)
+sed -i "s|^NPM_SHARED_NETWORK_NAME=.*|NPM_SHARED_NETWORK_NAME=$NPM_NETWORK_NAME|g" .env.docker
 
 echo -e "${GREEN}✓ Environment configuration updated automatically.${NC}"
 

@@ -22,25 +22,47 @@ curl http://localhost:8002/mcp
 ### 🌐 NPM Production
 **File**: `docker-compose.npm.yml`
 **Purpose**: Production deployment with Nginx Proxy Manager
-**Ports**: None (NPM handles routing)
-**Features**: No direct ports, NPM network integration, resource limits
+**Containers**: 2 separate containers (API + MCP)
+**Ports**: None (NPM handles all routing)
+**Features**: Dual-container architecture, NPM network integration, resource limits
+
+**Architecture**:
+- `gtex_link_api` (port 8000): FastAPI server for `/api/*` endpoints
+- `gtex_link_mcp` (port 8001): MCP HTTP server for `/mcp` endpoint
 
 **Prerequisites**:
-- Copy `.env.docker.example` to `.env.docker` and configure
+- Copy `.env.docker.example` to `.env.docker` and configure your domain
 - NPM network must exist (`npm_default`)
-- **Recommended**: Run `make setup` or `./setup_gtex_link.sh` for automated setup
+- **Recommended**: Run `make setup` or `../setup_gtex_link.sh` for automated setup
 
 ```bash
-# Setup environment
+# Automated setup (recommended)
+../setup_gtex_link.sh
+
+# OR manual setup:
 cp ../.env.docker.example ../.env.docker
 # Edit .env.docker with your domain
 
-# Deploy
+# Deploy both containers
 docker-compose -f docker-compose.npm.yml --env-file ../.env.docker up -d --build
 
 # Test (replace with your domain)
 curl https://gtex-link.example.com/api/health/
+curl https://gtex-link.example.com/mcp
 ```
+
+**NPM Configuration Required**:
+
+1. **Main Proxy Host**:
+   - Domain: `gtex-link.yourdomain.com`
+   - Forward to: `gtex_link_api:8000`
+   - SSL: Let's Encrypt with Force SSL
+
+2. **Custom Location** (Required for MCP):
+   - Location: `/mcp`
+   - Proxy Pass: `http://gtex_link_mcp:8001`
+
+   **⚠️ Without the `/mcp` custom location, MCP endpoints won't work!**
 
 ### 🚀 Standalone Production
 **File**: `docker-compose.yml`
