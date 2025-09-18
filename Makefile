@@ -1,4 +1,4 @@
-.PHONY: help install lint format typecheck test test-cov clean dev-setup check-all fix server mcp mcp-http cli-help
+.PHONY: help install lint format typecheck test test-cov clean dev-setup check-all fix server mcp mcp-http cli-help setup docker-npm docker-npm-bg docker-logs-npm
 
 help:  ## Show this help message
 	@echo "GTEx-Link Development Commands:"
@@ -33,6 +33,9 @@ check-all: lint typecheck test  ## Run all quality checks
 
 dev-setup: install  ## Complete development environment setup
 	uv run pre-commit install
+
+setup:  ## Run comprehensive setup for Docker + NPM deployment
+	./setup_gtex_link.sh
 
 server:  ## Start development HTTP server
 	uv run python server.py
@@ -69,10 +72,17 @@ docker-prod:  ## Start production environment with Docker Compose
 docker-mcp:  ## Start MCP services with Docker Compose
 	docker compose -f docker/docker-compose.mcp.yml up -d --build
 
+docker-npm:  ## Start NPM production environment (foreground)
+	docker compose -f docker/docker-compose.npm.yml --env-file .env.docker up --build
+
+docker-npm-bg:  ## Start NPM production environment (background)
+	docker compose -f docker/docker-compose.npm.yml --env-file .env.docker up -d --build
+
 docker-stop:  ## Stop all Docker services
 	docker compose -f docker/docker-compose.yml down
 	docker compose -f docker/docker-compose.dev.yml down
 	docker compose -f docker/docker-compose.mcp.yml down
+	docker compose -f docker/docker-compose.npm.yml --env-file .env.docker down 2>/dev/null || true
 
 docker-logs:  ## Show Docker logs (production)
 	docker compose -f docker/docker-compose.yml logs -f
@@ -80,7 +90,11 @@ docker-logs:  ## Show Docker logs (production)
 docker-logs-dev:  ## Show Docker logs (development)
 	docker compose -f docker/docker-compose.dev.yml logs -f
 
+docker-logs-npm:  ## Show Docker logs (NPM production)
+	docker compose -f docker/docker-compose.npm.yml --env-file .env.docker logs -f
+
 docker-clean:  ## Clean Docker resources
 	docker compose -f docker/docker-compose.yml down -v --rmi all
 	docker compose -f docker/docker-compose.dev.yml down -v --rmi all
 	docker compose -f docker/docker-compose.mcp.yml down -v --rmi all
+	docker compose -f docker/docker-compose.npm.yml --env-file .env.docker down -v --rmi all 2>/dev/null || true

@@ -28,6 +28,7 @@ curl http://localhost:8002/mcp
 **Prerequisites**:
 - Copy `.env.docker.example` to `.env.docker` and configure
 - NPM network must exist (`npm_default`)
+- **Recommended**: Run `make setup` or `./setup_gtex_link.sh` for automated setup
 
 ```bash
 # Setup environment
