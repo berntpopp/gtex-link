@@ -71,12 +71,14 @@ services:
       - GTEX_LINK_CACHE_TTL=${GTEX_CACHE_TTL:-3600}
     # Use Python mcp_http_server.py for MCP HTTP transport
     command: ["python", "mcp_http_server.py"]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/mcp"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+    # Healthcheck disabled - MCP Streamable HTTP transport requires session-aware connections
+    # which are incompatible with simple HTTP healthchecks
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8001/mcp"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
+    #   start_period: 60s
     restart: unless-stopped
     networks:
       - gtex_link_internal_net
