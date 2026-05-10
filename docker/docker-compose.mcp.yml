@@ -19,11 +19,15 @@ services:
       - GTEX_LINK_LOG_FORMAT=json
     command: ["/app/.venv/bin/python", "mcp_http_server.py"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/mcp"]
+      # MCP Streamable HTTP requires session-aware POSTs; GET /mcp returns 406 by spec.
+      # Probe the TCP listener instead — confirms the server is bound and accepting.
+      test:
+        - CMD-SHELL
+        - python -c "import socket; socket.create_connection(('127.0.0.1', 8001), 2).close()" || exit 1
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 30s
     restart: unless-stopped
     networks:
       - gtex-mcp-network
