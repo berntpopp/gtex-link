@@ -121,6 +121,11 @@ def _add_chatgpt_tools(mcp: FastMCP) -> None:
     from .config import DEFAULT_API_CONFIG, DEFAULT_CACHE_CONFIG
     from .models import GeneRequest, MedianGeneExpressionRequest
 
+    # Import enums directly from .models.gtex — the names re-exported via
+    # .models are Literal aliases defined in responses.py, which shadow the
+    # enum classes and have no .ALL / .GTEX_V8 attributes.
+    from .models.gtex import DatasetId, TissueSiteDetailId
+
     # Initialize services for the tools
     api_client = GTExClient(config=DEFAULT_API_CONFIG)
     gtex_service = GTExService(client=api_client, cache_config=DEFAULT_CACHE_CONFIG)
@@ -150,9 +155,9 @@ def _add_chatgpt_tools(mcp: FastMCP) -> None:
                 for gene in result.data:
                     search_results.append(
                         {
-                            "id": f"gene:{gene.gencodeId}",
-                            "title": f"{gene.geneSymbol} - {gene.description or 'Gene'}",
-                            "url": f"https://gtexportal.org/home/gene/{gene.geneSymbol}",
+                            "id": f"gene:{gene.gencode_id}",
+                            "title": f"{gene.gene_symbol} - {gene.description or 'Gene'}",
+                            "url": f"https://gtexportal.org/home/gene/{gene.gene_symbol}",
                         }
                     )
 
@@ -178,7 +183,13 @@ def _add_chatgpt_tools(mcp: FastMCP) -> None:
                 gencode_id = id.replace("gene:", "")
 
                 # Get detailed gene information
-                gene_request = GeneRequest(geneId=[gencode_id], page=0, itemsPerPage=1)
+                gene_request = GeneRequest(
+                    geneId=[gencode_id],
+                    gencodeVersion=None,
+                    genomeBuild=None,
+                    page=0,
+                    itemsPerPage=1,
+                )
                 gene_result = await gtex_service.get_genes(gene_request)
 
                 if gene_result.data and len(gene_result.data) > 0:
@@ -188,8 +199,8 @@ def _add_chatgpt_tools(mcp: FastMCP) -> None:
                     try:
                         expression_request = MedianGeneExpressionRequest(
                             gencodeId=[gencode_id],
-                            tissueSiteDetailId="",  # All tissues
-                            datasetId="gtex_v8",
+                            tissueSiteDetailId=TissueSiteDetailId.ALL,
+                            datasetId=DatasetId.GTEX_V8,
                             page=0,
                             itemsPerPage=50,
                         )
@@ -201,24 +212,26 @@ def _add_chatgpt_tools(mcp: FastMCP) -> None:
 
                     # Build comprehensive text content
                     text_parts = [
-                        f"Gene Symbol: {gene.geneSymbol}",
-                        f"GENCODE ID: {gene.gencodeId}",
+                        f"Gene Symbol: {gene.gene_symbol}",
+                        f"GENCODE ID: {gene.gencode_id}",
                         f"Description: {gene.description or 'Not available'}",
                         f"Chromosome: {gene.chromosome}",
                         f"Position: {gene.start:,}-{gene.end:,}",
                         f"Strand: {gene.strand}",
-                        f"Gene Type: {gene.geneType}",
-                        f"Gene Status: {gene.geneStatus}",
+                        f"Gene Type: {gene.gene_type}",
+                        f"Gene Status: {gene.gene_status}",
                     ]
 
-                    if gene.entrezGeneId:
-                        text_parts.append(f"Entrez Gene ID: {gene.entrezGeneId}")
+                    if gene.entrez_gene_id:
+                        text_parts.append(f"Entrez Gene ID: {gene.entrez_gene_id}")
 
                     # Add expression data if available
                     if expression_result and expression_result.data:
                         text_parts.append("\nExpression Data (median TPM by tissue):")
                         for exp in expression_result.data[:10]:  # Top 10 tissues
-                            text_parts.append(f"  {exp.tissueSiteDetailId}: {exp.median:.2f} TPM")
+                            text_parts.append(
+                                f"  {exp.tissue_site_detail_id}: {exp.median:.2f} TPM"
+                            )
 
                         if len(expression_result.data) > 10:
                             text_parts.append(
@@ -228,15 +241,15 @@ def _add_chatgpt_tools(mcp: FastMCP) -> None:
                     # Prepare the document response
                     document = {
                         "id": id,
-                        "title": f"{gene.geneSymbol} - {gene.description or 'Gene'}",
+                        "title": f"{gene.gene_symbol} - {gene.description or 'Gene'}",
                         "text": "\n".join(text_parts),
-                        "url": f"https://gtexportal.org/home/gene/{gene.geneSymbol}",
+                        "url": f"https://gtexportal.org/home/gene/{gene.gene_symbol}",
                         "metadata": {
                             "source": "GTEx Portal v8",
                             "type": "gene",
                             "chromosome": gene.chromosome,
-                            "gene_type": gene.geneType,
-                            "entrez_id": gene.entrezGeneId,
+                            "gene_type": gene.gene_type,
+                            "entrez_id": gene.entrez_gene_id,
                         },
                     }
 

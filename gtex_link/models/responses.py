@@ -158,9 +158,13 @@ class MCPCompatibleJsonSchema(GenerateJsonSchema):
             "enum": enum_values,
         }
 
-        # Add title if available
-        if "schema_ref" in schema and schema["schema_ref"]:
-            result["title"] = schema["schema_ref"]
+        # Add title if pydantic-core attached one. EnumSchema TypedDict does not
+        # declare schema_ref, but the runtime dict carries it for named enums —
+        # read defensively via cast to keep mypy happy.
+        schema_dict: dict[str, Any] = dict(schema)
+        schema_ref = schema_dict.get("schema_ref")
+        if schema_ref:
+            result["title"] = schema_ref
 
         return result
 
@@ -177,13 +181,18 @@ class BaseResponse(BaseModel):
 
     @classmethod
     def model_json_schema(
-        cls, by_alias: bool = True, ref_template: str = "#/$defs/{model}"
+        cls,
+        by_alias: bool = True,
+        ref_template: str = "#/$defs/{model}",
+        schema_generator: type[GenerateJsonSchema] = MCPCompatibleJsonSchema,
+        mode: Literal["validation", "serialization"] = "validation",
     ) -> dict[str, Any]:
-        """Generate JSON schema using MCP-compatible generator."""
+        """Generate JSON schema using MCP-compatible generator by default."""
         return super().model_json_schema(
             by_alias=by_alias,
             ref_template=ref_template,
-            schema_generator=MCPCompatibleJsonSchema,
+            schema_generator=schema_generator,
+            mode=mode,
         )
 
 
