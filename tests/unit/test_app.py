@@ -1,11 +1,27 @@
 """Tests for FastAPI app creation and configuration."""
 
-from unittest.mock import MagicMock, patch
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 import pytest
 
-from gtex_link.app import app, create_app, create_mcp_app, lifespan
+from gtex_link.app import _add_chatgpt_tools, app, create_app, create_mcp_app, lifespan
+from gtex_link.models import Gene, MedianGeneExpression, PaginatedResponse
+
+
+class _ToolCollector:
+    """Stand-in for FastMCP that captures functions registered via @mcp.tool()."""
+
+    def __init__(self) -> None:
+        self.tools: dict[str, object] = {}
+
+    def tool(self, *, name: str, description: str):
+        def decorator(fn):
+            self.tools[name] = fn
+            return fn
+
+        return decorator
 
 
 class TestAppCreation:
@@ -166,3 +182,191 @@ class TestAppCreation:
         assert hasattr(app_module, "app")
         assert callable(app_module.create_app)
         assert callable(app_module.create_mcp_app)
+
+
+def _make_brca1_gene() -> Gene:
+    """Build a BRCA1 Gene model from a realistic GTEx payload."""
+    return Gene.model_validate(
+        {
+            "chromosome": "chr17",
+            "dataSource": "GENCODE",
+            "description": "BRCA1 DNA repair associated",
+            "end": 43125364,
+            "entrezGeneId": 672,
+            "gencodeId": "ENSG00000012048.22",
+            "gencodeVersion": "v26",
+            "geneStatus": "KNOWN",
+            "geneSymbol": "BRCA1",
+            "geneSymbolUpper": "BRCA1",
+            "geneType": "protein_coding",
+            "genomeBuild": "GRCh38",
+            "start": 43044295,
+            "strand": "-",
+            "tss": 43125364,
+        }
+    )
+
+
+_TISSUES = [
+    "Whole_Blood",
+    "Brain_Cortex",
+    "Muscle_Skeletal",
+    "Liver",
+    "Lung",
+    "Breast_Mammary_Tissue",
+    "Heart_Left_Ventricle",
+    "Thyroid",
+    "Adipose_Subcutaneous",
+    "Skin_Sun_Exposed_Lower_leg",
+    "Adrenal_Gland",
+    "Artery_Aorta",
+]
+
+
+def _make_expression_rows(count: int) -> list[MedianGeneExpression]:
+    """Build N synthetic expression rows for BRCA1."""
+    return [
+        MedianGeneExpression.model_validate(
+            {
+                "datasetId": "gtex_v8",
+                "ontologyId": f"UBERON:000{i:04d}",
+                "gencodeId": "ENSG00000012048.22",
+                "geneSymbol": "BRCA1",
+                "median": 1.0 + i,
+                "numSamples": 100 + i,
+                "tissueSiteDetailId": _TISSUES[i % len(_TISSUES)],
+                "unit": "TPM",
+            }
+        )
+        for i in range(count)
+    ]
+
+
+def _paginated(items: list) -> PaginatedResponse:
+    """Wrap items in a PaginatedResponse with minimal paging info."""
+    return PaginatedResponse.model_validate(
+        {
+            "data": items,
+            "pagingInfo": {
+                "numberOfPages": 1,
+                "page": 0,
+                "maxItemsPerPage": 250,
+                "totalNumberOfItems": len(items),
+            },
+        }
+    )
+
+
+class TestChatGPTTools:
+    """Tests for the ChatGPT-compatible search and fetch MCP tools."""
+
+    def _register(self, service_mock: AsyncMock) -> _ToolCollector:
+        """Run _add_chatgpt_tools with a stubbed service and capture both tools."""
+        collector = _ToolCollector()
+        with (
+            patch("gtex_link.app.GTExService", return_value=service_mock),
+            patch("gtex_link.api.client.GTExClient"),
+        ):
+            _add_chatgpt_tools(collector)
+        return collector
+
+    @pytest.mark.asyncio
+    async def test_search_returns_chatgpt_format(self) -> None:
+        service = AsyncMock()
+        service.search_genes.return_value = _paginated([_make_brca1_gene()])
+        tools = self._register(service)
+
+        payload = json.loads(await tools.tools["search"]("BRCA1"))
+
+        assert payload == {
+            "results": [
+                {
+                    "id": "gene:ENSG00000012048.22",
+                    "title": "BRCA1 - BRCA1 DNA repair associated",
+                    "url": "https://gtexportal.org/home/gene/BRCA1",
+                }
+            ]
+        }
+        service.search_genes.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_search_returns_empty_results_on_exception(self) -> None:
+        service = AsyncMock()
+        service.search_genes.side_effect = RuntimeError("upstream down")
+        tools = self._register(service)
+
+        payload = json.loads(await tools.tools["search"]("BRCA1"))
+
+        assert payload == {"results": []}
+
+    @pytest.mark.asyncio
+    async def test_search_returns_empty_when_no_data(self) -> None:
+        service = AsyncMock()
+        service.search_genes.return_value = _paginated([])
+        tools = self._register(service)
+
+        payload = json.loads(await tools.tools["search"]("ZZZZZZ"))
+
+        assert payload == {"results": []}
+
+    @pytest.mark.asyncio
+    async def test_fetch_gene_with_expression_data(self) -> None:
+        service = AsyncMock()
+        service.get_genes.return_value = _paginated([_make_brca1_gene()])
+        service.get_median_gene_expression.return_value = _paginated(_make_expression_rows(12))
+        tools = self._register(service)
+
+        doc = json.loads(await tools.tools["fetch"]("gene:ENSG00000012048.22"))
+
+        assert doc["id"] == "gene:ENSG00000012048.22"
+        assert doc["title"].startswith("BRCA1 - ")
+        assert doc["url"] == "https://gtexportal.org/home/gene/BRCA1"
+        assert "Gene Symbol: BRCA1" in doc["text"]
+        assert "Entrez Gene ID: 672" in doc["text"]
+        # Top 10 tissues plus the "and N more" line
+        assert "and 2 more tissues" in doc["text"]
+        assert doc["metadata"]["entrez_id"] == 672
+
+    @pytest.mark.asyncio
+    async def test_fetch_gene_handles_expression_failure(self) -> None:
+        service = AsyncMock()
+        service.get_genes.return_value = _paginated([_make_brca1_gene()])
+        service.get_median_gene_expression.side_effect = RuntimeError("expression upstream down")
+        tools = self._register(service)
+
+        doc = json.loads(await tools.tools["fetch"]("gene:ENSG00000012048.22"))
+
+        # Document still produced from gene data, just without expression block
+        assert doc["title"].startswith("BRCA1 - ")
+        assert "Expression Data" not in doc["text"]
+
+    @pytest.mark.asyncio
+    async def test_fetch_unknown_id_returns_not_found_document(self) -> None:
+        service = AsyncMock()
+        tools = self._register(service)
+
+        doc = json.loads(await tools.tools["fetch"]("transcript:ENST123"))
+
+        assert doc["title"] == "Resource Not Found"
+        assert doc["metadata"]["type"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_fetch_returns_error_document_on_exception(self) -> None:
+        service = AsyncMock()
+        service.get_genes.side_effect = RuntimeError("boom")
+        tools = self._register(service)
+
+        doc = json.loads(await tools.tools["fetch"]("gene:ENSG00000012048.22"))
+
+        assert doc["title"] == "Error Retrieving Resource"
+        assert doc["metadata"]["error"] == "boom"
+
+    @pytest.mark.asyncio
+    async def test_fetch_returns_not_found_when_gene_data_empty(self) -> None:
+        service = AsyncMock()
+        service.get_genes.return_value = _paginated([])
+        tools = self._register(service)
+
+        doc = json.loads(await tools.tools["fetch"]("gene:ENSG99999999.1"))
+
+        assert doc["title"] == "Resource Not Found"
