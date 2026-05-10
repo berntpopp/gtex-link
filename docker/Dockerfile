@@ -62,9 +62,11 @@ RUN chmod +x mcp_http_server.py mcp_server.py server.py \
 # Switch to non-root user
 USER gtex
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${GTEX_LINK_PORT}/api/health/ || exit 1
+# Healthcheck is defined per-service in compose, not here.
+# Why: the same image runs both the API (port 8000, /api/health/) and the MCP server
+# (port 8001, no plain HTTP probe possible). A single image-level HEALTHCHECK can only
+# match one of them, and Compose silently inherits the image probe when a service
+# doesn't define its own — see issues #1, #3.
 
 # Expose port
 EXPOSE 8000
