@@ -22,7 +22,7 @@ def map_to_mcp_error_message(exc: Exception) -> str:
         return "GTEx Portal is temporarily unavailable. Try again later."
     if isinstance(exc, ValidationError):
         field = f"`{exc.field}`: " if exc.field else ""
-        return f"Invalid input — {field}{exc.message}"
+        return f"Invalid input -- {field}{exc.message}"
     if isinstance(exc, GTExAPIError):
         return "GTEx Portal returned an error. Verify the request inputs."
     return "An internal error occurred. The request was not completed."
