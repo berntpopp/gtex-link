@@ -1,8 +1,11 @@
 """MCP tool registration modules grouped by category."""
 
-# NOTE: Re-exports for `register_expression_tools`, `register_reference_tools`,
-# and `register_search_fetch_tools` are added when their modules land in later
-# sub-tasks of Phase 3. Importing them eagerly here would block mypy and any
-# test that touches the `gtex_link.mcp.tools` package before they exist.
+from gtex_link.mcp.tools.expression import register_expression_tools
+from gtex_link.mcp.tools.reference import register_reference_tools
+from gtex_link.mcp.tools.search_fetch import register_search_fetch_tools
 
-__all__: list[str] = []
+__all__ = [
+    "register_expression_tools",
+    "register_reference_tools",
+    "register_search_fetch_tools",
+]
