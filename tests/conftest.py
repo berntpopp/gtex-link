@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
+import respx
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
@@ -33,6 +34,16 @@ from .fixtures.gtex_api_responses import (
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Generator
+
+
+GTEX_BASE = "https://test.gtexportal.org/api/v2"  # matches test_api_config.base_url
+
+
+@pytest.fixture
+def respx_mock() -> Generator[respx.MockRouter, None, None]:
+    """Yield a respx router intercepting all httpx calls in the test."""
+    with respx.mock(assert_all_called=False) as router:
+        yield router
 
 
 @pytest.fixture(scope="session")
