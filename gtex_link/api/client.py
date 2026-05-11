@@ -5,11 +5,10 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 from urllib.parse import urljoin
 
 import httpx
-from typing_extensions import Self
 
 from gtex_link.exceptions import (
     GTExAPIError,

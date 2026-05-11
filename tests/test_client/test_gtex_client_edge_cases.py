@@ -19,9 +19,11 @@ class TestTokenBucketRateLimiterEdgeCases:
         """Test current_rate calculation with very close timestamps."""
         limiter = TokenBucketRateLimiter(rate=5.0, burst=10)
 
-        # Add timestamps very close together (but not identical due to float precision)
+        # Timestamps very close together but not identical (current_rate
+        # returns 0.0 when time_window == 0, so the oldest must be slightly
+        # earlier than `now`)
         now = time.time()
-        limiter.request_times = [now, now, now]
+        limiter.request_times = [now - 1e-6, now - 5e-7, now]
 
         # Should return a high rate when timestamps are very close
         rate = limiter.current_rate()

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import functools
 import hashlib
 import json
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel
@@ -55,7 +55,7 @@ def _make_hashable_key(*args: Any, **kwargs: Any) -> str:
     key_json = json.dumps(key_data, sort_keys=True, default=str)
 
     # Create a shorter hash for use as cache key
-    return hashlib.md5(key_json.encode()).hexdigest()
+    return hashlib.md5(key_json.encode(), usedforsecurity=False).hexdigest()
 
 
 class CacheManager:
@@ -124,10 +124,7 @@ class CacheManager:
                 nonlocal hits, misses
 
                 # Skip 'self' parameter for method calls
-                if args and hasattr(args[0], func.__name__):
-                    cache_args = args[1:]  # Skip 'self'
-                else:
-                    cache_args = args
+                cache_args = args[1:] if args and hasattr(args[0], func.__name__) else args
 
                 # Create a hashable key from the arguments
                 hash_key = _make_hashable_key(*cache_args, **kwargs)

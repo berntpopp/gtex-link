@@ -8,7 +8,6 @@ from gtex_link.models import (
     PaginatedGeneResponse,
     PaginatedMedianGeneExpressionResponse,
     ServiceInfo,
-    TissueSiteDetailId,
 )
 from gtex_link.services.gtex_service import GTExService
 
@@ -376,7 +375,6 @@ class TestGTExServiceMissingCoverage:
     ):
         """Test that logger.info calls are executed for coverage of missing lines."""
         from gtex_link.models import (
-            Chromosome,
             DatasetSampleRequest,
             GeneExpressionRequest,
             SubjectRequest,

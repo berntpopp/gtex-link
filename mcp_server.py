@@ -32,6 +32,7 @@ def main() -> None:
             try:
                 import anyio
 
+                assert mcp_app is not None  # None case sys.exit's above
                 anyio.run(mcp_app.run_async)
             except Exception as e2:
                 print(f"Alternative approach failed: {e2}", file=sys.stderr)

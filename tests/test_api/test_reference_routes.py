@@ -1,7 +1,7 @@
 """Tests for reference data API routes."""
 
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
 
 class TestGeneSearchRoutes:

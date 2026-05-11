@@ -1,7 +1,7 @@
 """Test Pydantic model validation."""
 
-from pydantic import ValidationError
 import pytest
+from pydantic import ValidationError
 
 from gtex_link.models import (
     Chromosome,

@@ -11,9 +11,9 @@ import logging.handlers
 import sys
 from typing import TYPE_CHECKING, Any
 
+import structlog
 from rich.console import Console
 from rich.logging import RichHandler
-import structlog
 
 from .config import settings
 
