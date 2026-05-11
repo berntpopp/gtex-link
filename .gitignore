@@ -171,6 +171,14 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# Hatchling / dist artifacts
+dist/
+build/
+
+# Local IDE state
+.idea/
+.vscode/
+
 # PyPI configuration file
 .pypirc
 
@@ -181,9 +189,9 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-# claude files
-.claude/
-CLAUDE.md
+# claude local state — keep .claude/skills/ tracked
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
 PLAN.md
 TODO.md
 
