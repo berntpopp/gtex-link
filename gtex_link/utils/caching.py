@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from pydantic import BaseModel
 
 from gtex_link.logging_config import log_cache_operation
+from gtex_link.observability.metrics import record_cache_event
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable
@@ -85,15 +86,17 @@ class CacheManager:
             "cached_functions": len(self._cached_functions),
         }
 
-    def _log_cache_hit(self, key: str) -> None:
+    def _log_cache_hit(self, key: str, cache_name: str) -> None:
         """Log cache hit."""
         self._cache_stats["hits"] += 1
+        record_cache_event(cache=cache_name, hit=True)
         if self.logger:
             self.logger.debug("Cache hit", cache_key=key)
 
-    def _log_cache_miss(self, key: str) -> None:
+    def _log_cache_miss(self, key: str, cache_name: str) -> None:
         """Log cache miss."""
         self._cache_stats["misses"] += 1
+        record_cache_event(cache=cache_name, hit=False)
         if self.logger:
             self.logger.debug("Cache miss", cache_key=key)
 
@@ -134,6 +137,7 @@ class CacheManager:
                     display_key = f"{key_pattern}:{hash_key[:8]}..."  # Show first 8 chars of hash
                 else:
                     display_key = f"{func.__name__}:{hash_key[:8]}..."
+                cache_name = key_pattern or func.__name__
 
                 # start_time = time.time()  # Unused for now
                 was_cache_hit = False
@@ -165,9 +169,9 @@ class CacheManager:
 
                 # Log cache operation
                 if was_cache_hit:
-                    self._log_cache_hit(display_key)
+                    self._log_cache_hit(display_key, cache_name)
                 else:
-                    self._log_cache_miss(display_key)
+                    self._log_cache_miss(display_key, cache_name)
 
                 # Log performance metrics if logger is available
                 if self.logger:

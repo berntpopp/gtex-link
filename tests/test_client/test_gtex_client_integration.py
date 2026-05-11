@@ -1,5 +1,8 @@
 """Integration tests for GTEx API client with real-world scenarios."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -12,12 +15,16 @@ from gtex_link.exceptions import (
     RateLimitError,
     ServiceUnavailableError,
 )
+from tests.conftest import GTEX_BASE
+
+if TYPE_CHECKING:
+    import respx
 
 
 class TestGTExClientInitialization:
     """Test GTEx client initialization and configuration."""
 
-    def test_client_initialization_with_config(self, test_api_config):
+    def test_client_initialization_with_config(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test client initialization with configuration."""
         logger = AsyncMock()
         client = GTExClient(config=test_api_config, logger=logger)
@@ -27,7 +34,7 @@ class TestGTExClientInitialization:
         assert client._rate_limiter is not None
         assert client._session is None  # Not initialized until first use
 
-    def test_client_initialization_defaults(self):
+    def test_client_initialization_defaults(self) -> None:
         """Test client initialization with default configuration."""
         config = GTExAPIConfigModel()
         client = GTExClient(config=config)
@@ -37,14 +44,14 @@ class TestGTExClientInitialization:
         assert client.config.timeout == 30
         assert client.config.rate_limit_per_second == 5.0
 
-    def test_client_custom_user_agent(self):
+    def test_client_custom_user_agent(self) -> None:
         """Test client with custom user agent."""
         config = GTExAPIConfigModel(user_agent="Custom-GTEx-Client/1.0.0")
         client = GTExClient(config=config)
 
         assert client.config.user_agent == "Custom-GTEx-Client/1.0.0"
 
-    def test_client_rate_limiting_configuration(self):
+    def test_client_rate_limiting_configuration(self) -> None:
         """Test client rate limiting configuration."""
         config = GTExAPIConfigModel(rate_limit_per_second=10.0, burst_size=50)
         client = GTExClient(config=config)
@@ -57,7 +64,7 @@ class TestGTExClientSessionManagement:
     """Test client session management and lifecycle."""
 
     @pytest.mark.asyncio
-    async def test_session_creation_and_cleanup(self, test_api_config):
+    async def test_session_creation_and_cleanup(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test session creation and proper cleanup."""
         logger = AsyncMock()
         client = GTExClient(config=test_api_config, logger=logger)
@@ -75,7 +82,7 @@ class TestGTExClientSessionManagement:
         assert client._session is None
 
     @pytest.mark.asyncio
-    async def test_session_reuse(self, test_api_config):
+    async def test_session_reuse(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test that session is reused across multiple calls."""
         logger = AsyncMock()
         client = GTExClient(config=test_api_config, logger=logger)
@@ -88,7 +95,7 @@ class TestGTExClientSessionManagement:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_session_headers_configuration(self, test_api_config):
+    async def test_session_headers_configuration(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test that session has correct headers."""
         client = GTExClient(config=test_api_config)
         session = await client._get_session()
@@ -104,7 +111,9 @@ class TestGTExClientRateLimiting:
     """Test client rate limiting functionality."""
 
     @pytest.mark.asyncio
-    async def test_rate_limiting_with_multiple_requests(self, test_api_config):
+    async def test_rate_limiting_with_multiple_requests(
+        self, test_api_config: GTExAPIConfigModel
+    ) -> None:
         """Test that rate limiting works with multiple requests."""
         # Configure very low rate limit for testing
         config = GTExAPIConfigModel(
@@ -113,7 +122,8 @@ class TestGTExClientRateLimiting:
 
         client = GTExClient(config=config)
 
-        # Mock successful responses
+        # Mock successful responses at the high-level method to focus this test
+        # on the rate-limited bucket coordination rather than HTTP plumbing.
         with patch.object(client, "_make_request") as mock_request:
             mock_request.return_value = {"data": []}
 
@@ -136,7 +146,7 @@ class TestGTExClientRateLimiting:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_rate_limit_statistics(self, test_api_config):
+    async def test_rate_limit_statistics(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test rate limit statistics tracking."""
         client = GTExClient(config=test_api_config)
 
@@ -150,7 +160,9 @@ class TestGTExClientRateLimiting:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_rate_limiter_token_replenishment(self, test_api_config):
+    async def test_rate_limiter_token_replenishment(
+        self, test_api_config: GTExAPIConfigModel
+    ) -> None:
         """Test that rate limiter tokens are replenished over time."""
         import asyncio
 
@@ -192,76 +204,75 @@ class TestGTExClientErrorHandling:
     """Test client error handling and retry logic."""
 
     @pytest.mark.asyncio
-    async def test_http_error_handling(self, test_api_config):
+    async def test_http_error_handling(
+        self,
+        test_api_config: GTExAPIConfigModel,
+        respx_mock: respx.MockRouter,
+    ) -> None:
         """Test handling of HTTP errors."""
         client = GTExClient(config=test_api_config)
 
-        # Mock HTTP error response
-        with patch.object(client, "_get_session") as mock_session:
-            mock_response = AsyncMock()
-            # Set status_code as a simple integer attribute, not a mock
-            type(mock_response).status_code = 404
-            mock_response.json.return_value = {"detail": "Not found"}
-            mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-                "404 Not Found", request=AsyncMock(), response=mock_response
-            )
+        respx_mock.get(f"{GTEX_BASE}/reference/geneSearch").respond(
+            404, json={"detail": "Not found"}
+        )
 
-            # The client uses session.request(), not session.get()
-            mock_session.return_value.request.return_value = mock_response
+        with pytest.raises(GTExAPIError) as exc_info:
+            await client.search_genes(query="NONEXISTENT")
 
-            with pytest.raises(GTExAPIError) as exc_info:
-                await client.search_genes(query="NONEXISTENT")
-
-            assert "404" in str(exc_info.value)
+        assert "404" in str(exc_info.value)
 
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_rate_limit_error_handling(self, test_api_config):
+    async def test_rate_limit_error_handling(
+        self,
+        test_api_config: GTExAPIConfigModel,
+        respx_mock: respx.MockRouter,
+    ) -> None:
         """Test handling of rate limit errors from server."""
         client = GTExClient(config=test_api_config)
 
-        # Mock rate limit response
-        with patch.object(client, "_get_session") as mock_session:
-            mock_response = AsyncMock()
-            type(mock_response).status_code = 429
-            mock_response.headers = {"Retry-After": "60"}
-            mock_response.json.return_value = {"detail": "Rate limit exceeded"}
-            mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-                "429 Too Many Requests", request=AsyncMock(), response=mock_response
-            )
+        respx_mock.get(f"{GTEX_BASE}/reference/geneSearch").respond(
+            429,
+            json={"detail": "Rate limit exceeded"},
+            headers={"Retry-After": "60"},
+        )
 
-            mock_session.return_value.request.return_value = mock_response
+        with pytest.raises(RateLimitError) as exc_info:
+            await client.search_genes(query="BRCA1")
 
-            with pytest.raises(RateLimitError) as exc_info:
-                await client.search_genes(query="BRCA1")
-
-            assert "Rate limit exceeded" in str(exc_info.value)
-            assert exc_info.value.retry_after == 60
+        assert "Rate limit exceeded" in str(exc_info.value)
+        assert exc_info.value.retry_after == 60
 
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_network_timeout_handling(self, test_api_config):
+    async def test_network_timeout_handling(
+        self,
+        test_api_config: GTExAPIConfigModel,
+        respx_mock: respx.MockRouter,
+    ) -> None:
         """Test handling of network timeouts."""
         client = GTExClient(config=test_api_config)
 
-        # Mock timeout error
-        with patch.object(client, "_get_session") as mock_session:
-            mock_session.return_value.request.side_effect = httpx.TimeoutException(
-                "Request timed out"
-            )
+        respx_mock.get(f"{GTEX_BASE}/reference/geneSearch").mock(
+            side_effect=httpx.TimeoutException("Request timed out")
+        )
 
-            with pytest.raises(GTExAPIError) as exc_info:
-                await client.search_genes(query="BRCA1")
+        with pytest.raises(GTExAPIError) as exc_info:
+            await client.search_genes(query="BRCA1")
 
-            assert "timed out" in str(exc_info.value).lower()
+        assert "timed out" in str(exc_info.value).lower()
 
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_retry_logic_on_server_errors(self, test_api_config):
-        """Test retry logic on server errors."""
+    async def test_retry_logic_on_server_errors(
+        self,
+        test_api_config: GTExAPIConfigModel,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        """Test retry logic on transient network errors."""
         config = GTExAPIConfigModel(
             base_url=test_api_config.base_url,
             max_retries=2,
@@ -270,54 +281,48 @@ class TestGTExClientErrorHandling:
 
         client = GTExClient(config=config)
 
-        # Mock network error followed by success (server errors aren't retried)
-        with patch.object(client, "_get_session") as mock_session:
-            # Create success response mock with non-async json method
-            from unittest.mock import MagicMock
-
-            mock_success_response = MagicMock()
-            mock_success_response.status_code = 200
-            mock_success_response.json.return_value = {"data": []}
-            mock_success_response.raise_for_status.return_value = None
-
-            # First call raises network error, second call succeeds
-            mock_session.return_value.request.side_effect = [
-                httpx.RequestError("Network error"),  # This will be retried
-                mock_success_response,  # Success response
+        # First request fails with a network error (retryable); second succeeds.
+        # Server errors are NOT retried per the client implementation.
+        route = respx_mock.get(f"{GTEX_BASE}/reference/geneSearch").mock(
+            side_effect=[
+                httpx.RequestError("Network error"),
+                httpx.Response(200, json={"data": []}),
             ]
+        )
 
-            # Should succeed after retry
-            result = await client.search_genes(query="BRCA1")
-            assert result == {"data": []}
+        # Should succeed after retry
+        result = await client.search_genes(query="BRCA1")
+        assert result == {"data": []}
 
-            # Should have made 2 requests (initial + 1 retry)
-            assert mock_session.return_value.request.call_count == 2
+        # Should have made 2 requests (initial + 1 retry)
+        assert route.call_count == 2
 
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_max_retries_exceeded(self, test_api_config):
-        """Test behavior when max retries are exceeded."""
+    async def test_max_retries_exceeded(
+        self,
+        test_api_config: GTExAPIConfigModel,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        """Test behavior on server errors - not retried."""
         config = GTExAPIConfigModel(
             base_url=test_api_config.base_url, max_retries=1, retry_delay=0.1
         )
 
         client = GTExClient(config=config)
 
-        # Mock persistent server error - server errors raise ServiceUnavailableError and are NOT retried
-        with patch.object(client, "_get_session") as mock_session:
-            mock_response = AsyncMock()
-            type(mock_response).status_code = 500
-            mock_response.text = "Internal Server Error"
+        # Persistent server error - server errors raise ServiceUnavailableError
+        # and are NOT retried.
+        route = respx_mock.get(f"{GTEX_BASE}/reference/geneSearch").respond(
+            500, text="Internal Server Error"
+        )
 
-            mock_session.return_value.request.return_value = mock_response
+        with pytest.raises(ServiceUnavailableError):
+            await client.search_genes(query="BRCA1")
 
-            # Server errors raise ServiceUnavailableError, not GTExAPIError
-            with pytest.raises(ServiceUnavailableError):
-                await client.search_genes(query="BRCA1")
-
-            # Server errors are NOT retried - should have made only 1 request
-            assert mock_session.return_value.request.call_count == 1
+        # Server errors are NOT retried - should have made only 1 request
+        assert route.call_count == 1
 
         await client.close()
 
@@ -326,7 +331,11 @@ class TestGTExClientAPIOperations:
     """Test client API operations with mocked responses."""
 
     @pytest.mark.asyncio
-    async def test_search_genes_success(self, test_api_config, gene_search_response):
+    async def test_search_genes_success(
+        self,
+        test_api_config: GTExAPIConfigModel,
+        gene_search_response: dict[str, Any],
+    ) -> None:
         """Test successful gene search operation."""
         client = GTExClient(config=test_api_config)
 
@@ -353,7 +362,11 @@ class TestGTExClientAPIOperations:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_get_median_expression_success(self, test_api_config, median_expression_response):
+    async def test_get_median_expression_success(
+        self,
+        test_api_config: GTExAPIConfigModel,
+        median_expression_response: dict[str, Any],
+    ) -> None:
         """Test successful median expression retrieval."""
         client = GTExClient(config=test_api_config)
 
@@ -374,23 +387,22 @@ class TestGTExClientAPIOperations:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_parameter_validation(self, test_api_config):
+    async def test_parameter_validation(
+        self,
+        test_api_config: GTExAPIConfigModel,
+        respx_mock: respx.MockRouter,
+    ) -> None:
         """Test parameter validation - GTEx client relies on service layer for validation."""
         client = GTExClient(config=test_api_config)
 
         # Mock server response for invalid parameters - client passes through params
-        with patch.object(client, "_get_session") as mock_session:
-            mock_response = AsyncMock()
-            type(mock_response).status_code = 422
-            mock_response.text = "Validation Error"
+        respx_mock.get(f"{GTEX_BASE}/reference/geneSearch").respond(422, text="Validation Error")
 
-            mock_session.return_value.request.return_value = mock_response
+        # Client should pass through and return server validation error as GTExAPIError
+        with pytest.raises(GTExAPIError) as exc_info:
+            await client.search_genes(query="BRCA1", page_size=1001)
 
-            # Client should pass through and return server validation error as GTExAPIError
-            with pytest.raises(GTExAPIError) as exc_info:
-                await client.search_genes(query="BRCA1", page_size=1001)
-
-            assert "422" in str(exc_info.value)
+        assert "422" in str(exc_info.value)
 
         await client.close()
 
@@ -399,7 +411,11 @@ class TestGTExClientStatistics:
     """Test client statistics tracking."""
 
     @pytest.mark.asyncio
-    async def test_statistics_tracking(self, test_api_config):
+    async def test_statistics_tracking(
+        self,
+        test_api_config: GTExAPIConfigModel,
+        respx_mock: respx.MockRouter,
+    ) -> None:
         """Test that client tracks statistics correctly."""
         client = GTExClient(config=test_api_config)
 
@@ -408,48 +424,46 @@ class TestGTExClientStatistics:
         assert initial_stats["total_requests"] == 0
         assert initial_stats["successful_requests"] == 0
 
-        # Mock successful request at the HTTP level to trigger stats tracking
-        with patch.object(client, "_get_session") as mock_session:
-            mock_response = AsyncMock()
-            type(mock_response).status_code = 200
-            mock_response.json.return_value = {"data": []}
-            mock_response.raise_for_status.return_value = None
+        # Successful HTTP response to trigger stats tracking
+        respx_mock.get(f"{GTEX_BASE}/reference/geneSearch").respond(200, json={"data": []})
 
-            mock_session.return_value.request.return_value = mock_response
+        await client.search_genes(query="BRCA1")
 
-            await client.search_genes(query="BRCA1")
-
-            # Check updated stats
-            updated_stats = client.stats
-            assert updated_stats["total_requests"] == 1
-            assert updated_stats["successful_requests"] == 1
-            assert updated_stats["success_rate"] == 1.0
+        # Check updated stats
+        updated_stats = client.stats
+        assert updated_stats["total_requests"] == 1
+        assert updated_stats["successful_requests"] == 1
+        assert updated_stats["success_rate"] == 1.0
 
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_statistics_with_failures(self, test_api_config):
+    async def test_statistics_with_failures(
+        self,
+        test_api_config: GTExAPIConfigModel,
+        respx_mock: respx.MockRouter,
+    ) -> None:
         """Test statistics tracking with failures."""
         client = GTExClient(config=test_api_config)
 
-        # Mock failed request at HTTP level to trigger stats tracking
-        with patch.object(client, "_get_session") as mock_session:
-            # Mock network error that gets tracked in stats
-            mock_session.return_value.request.side_effect = httpx.RequestError("Network error")
+        # Persistent network error - exhausts retries then fails.
+        respx_mock.get(f"{GTEX_BASE}/reference/geneSearch").mock(
+            side_effect=httpx.RequestError("Network error")
+        )
 
-            with pytest.raises(GTExAPIError):
-                await client.search_genes(query="BRCA1")
+        with pytest.raises(GTExAPIError):
+            await client.search_genes(query="BRCA1")
 
-            # Check stats reflect failure - failed requests still increment total_requests
-            stats = client.stats
-            assert stats["total_requests"] == 1
-            assert stats["successful_requests"] == 0
-            assert stats["success_rate"] == 0.0
+        # Check stats reflect failure - failed requests still increment total_requests
+        stats = client.stats
+        assert stats["total_requests"] == 1
+        assert stats["successful_requests"] == 0
+        assert stats["success_rate"] == 0.0
 
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_response_time_tracking(self, test_api_config):
+    async def test_response_time_tracking(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test response time tracking."""
         client = GTExClient(config=test_api_config)
 
@@ -470,7 +484,7 @@ class TestGTExClientConcurrency:
     """Test client behavior under concurrent load."""
 
     @pytest.mark.asyncio
-    async def test_concurrent_requests(self, test_api_config):
+    async def test_concurrent_requests(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test handling of concurrent requests."""
         client = GTExClient(config=test_api_config)
 
@@ -480,7 +494,7 @@ class TestGTExClientConcurrency:
             # Make multiple concurrent requests
             import asyncio
 
-            async def make_request(gene):
+            async def make_request(gene: str) -> dict[str, Any]:
                 return await client.search_genes(query=gene)
 
             genes = ["BRCA1", "BRCA2", "TP53", "EGFR", "MYC"]
@@ -499,14 +513,14 @@ class TestGTExClientConcurrency:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_concurrent_session_safety(self, test_api_config):
+    async def test_concurrent_session_safety(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test that session sharing is thread-safe."""
         client = GTExClient(config=test_api_config)
 
         # Create multiple concurrent tasks that create sessions
         import asyncio
 
-        async def get_session_task():
+        async def get_session_task() -> httpx.AsyncClient:
             return await client._get_session()
 
         tasks = [get_session_task() for _ in range(10)]
@@ -521,7 +535,7 @@ class TestGTExClientConcurrency:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    async def test_high_concurrency_load(self, test_api_config):
+    async def test_high_concurrency_load(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test client under high concurrent load."""
         # Use valid rate limits within GTExAPIConfigModel constraints
         config = GTExAPIConfigModel(
@@ -538,7 +552,7 @@ class TestGTExClientConcurrency:
             # Make many concurrent requests
             import asyncio
 
-            async def make_request(i):
+            async def make_request(i: int) -> dict[str, Any]:
                 return await client.search_genes(query=f"GENE{i}")
 
             tasks = [make_request(i) for i in range(25)]  # Reduced to match burst size
@@ -559,7 +573,7 @@ class TestGTExClientCleanup:
     """Test client cleanup and resource management."""
 
     @pytest.mark.asyncio
-    async def test_context_manager_cleanup(self, test_api_config):
+    async def test_context_manager_cleanup(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test client cleanup when used as context manager."""
         session_ref = None
 
@@ -572,7 +586,7 @@ class TestGTExClientCleanup:
         assert session_ref.is_closed
 
     @pytest.mark.asyncio
-    async def test_explicit_close(self, test_api_config):
+    async def test_explicit_close(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test explicit client close."""
         client = GTExClient(config=test_api_config)
         session = await client._get_session()
@@ -585,7 +599,7 @@ class TestGTExClientCleanup:
         assert client._session is None
 
     @pytest.mark.asyncio
-    async def test_double_close_safety(self, test_api_config):
+    async def test_double_close_safety(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test that double close is safe."""
         client = GTExClient(config=test_api_config)
         await client._get_session()
@@ -597,7 +611,7 @@ class TestGTExClientCleanup:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_close_without_session(self, test_api_config):
+    async def test_close_without_session(self, test_api_config: GTExAPIConfigModel) -> None:
         """Test closing client that never created session."""
         client = GTExClient(config=test_api_config)
 

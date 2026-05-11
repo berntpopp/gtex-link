@@ -6,9 +6,10 @@ import asyncio
 import json
 import time
 from typing import TYPE_CHECKING, Any, Self
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
+from asgi_correlation_id import correlation_id as _correlation_id_ctx
 
 from gtex_link.exceptions import (
     GTExAPIError,
@@ -16,6 +17,20 @@ from gtex_link.exceptions import (
     ServiceUnavailableError,
 )
 from gtex_link.logging_config import log_api_request, log_error_with_context
+from gtex_link.observability.metrics import (
+    record_rate_limit_wait,
+    record_upstream_call,
+)
+
+
+def _inject_correlation_header(headers: dict[str, str] | None) -> dict[str, str]:
+    """Add the current correlation ID to outbound headers when available."""
+    out = dict(headers) if headers else {}
+    cid = _correlation_id_ctx.get()
+    if cid and "X-Request-ID" not in out:
+        out["X-Request-ID"] = cid
+    return out
+
 
 if TYPE_CHECKING:
     import types
@@ -167,6 +182,12 @@ class GTExClient:
             raise RuntimeError("Session not initialized. Call _get_session() first.")
         return self._session
 
+    def _endpoint_label(self, url: str) -> str:
+        """Reduce a full URL to a label suitable for a Prometheus counter."""
+        path = urlsplit(url).path
+        parts = [p for p in path.split("/") if p]
+        return "/".join(parts[-3:]) if parts else "unknown"
+
     async def close(self) -> None:
         """Close HTTP client."""
         if self._session is not None:
@@ -212,12 +233,16 @@ class GTExClient:
         # Apply rate limiting
         wait_time = await self._rate_limiter.acquire()
         if wait_time > 0:
+            record_rate_limit_wait(wait_s=wait_time)
             if self.logger:
                 self.logger.debug("Rate limit applied", wait_time=wait_time)
             await asyncio.sleep(wait_time)
 
         # Construct full URL
         url = urljoin(self.config.base_url, endpoint)
+
+        # Build per-request headers; propagate inbound correlation ID if present.
+        headers = _inject_correlation_header(None)
 
         # Get session (lazy initialization)
         session = await self._get_session()
@@ -227,13 +252,17 @@ class GTExClient:
         start_time = time.time()
 
         for attempt in range(self.config.max_retries + 1):
+            attempt_start = time.time()
+            status_for_metric = 0
             try:
                 response = await session.request(
                     method=method,
                     url=url,
                     params=params,
                     json=data,
+                    headers=headers,
                 )
+                status_for_metric = response.status_code
 
                 response_time = time.time() - start_time
 
@@ -327,6 +356,12 @@ class GTExClient:
                         self.config.retry_delay * (2**attempt)
                     )  # Exponential backoff
                     continue
+            finally:
+                record_upstream_call(
+                    endpoint=self._endpoint_label(url),
+                    status=status_for_metric,
+                    duration_s=time.time() - attempt_start,
+                )
 
         # All retries exhausted
         self.total_requests += 1

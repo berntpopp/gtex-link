@@ -48,3 +48,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Tracked `.env` file (replaced by `.env.example`).
 - Generated artifacts in repo (`coverage.xml`, `htmlcov/`, `gtex_link.egg-info/`).
 - Root-level stale `PLAN.md` (relocated to `docs/superpowers/plans/archive/`).
+
+### Added (Phase 2 — Observability & tests)
+
+- `gtex_link/observability/` package: correlation IDs (asgi-correlation-id), Prometheus collectors, `/metrics` endpoint.
+- ASGI middleware: `CorrelationIdMiddleware`, `MetricsMiddleware`.
+- Structlog processors: `bind_correlation_id_processor` and `_add_static_fields` injecting `correlation_id`, `service=gtex-link`, `version` into every log event.
+- Outbound `X-Request-ID` propagation in `GTExClient` (inbound correlation ID echoed on upstream calls).
+- Prometheus collectors: HTTP request count/duration, upstream request count/duration, cache hits/misses, rate-limit waits, MCP tool calls (populated in Phase 3).
+- `respx_mock` fixture and `GTEX_BASE` constant in `tests/conftest.py`.
+- `tests/test_observability/` covering correlation echo, generated ID, `/metrics` endpoint, request counter, upstream call helper, cache hit/miss helper.
+- `.gitattributes` pins `.py`/`.toml`/`.yml`/`.md`/`.json`/`.sh`/`Makefile`/`Dockerfile` to LF in the working tree so `ruff format --check` is stable on Windows checkouts.
+
+### Changed (Phase 2)
+
+- Package and FastAPI version bumped to `0.2.0` (matches pyproject.toml).
+- Route, client, and edge-case HTTP-mocking tests migrated from `unittest.mock.patch("httpx.AsyncClient.request", ...)` to `respx` route registrations.
+- `make test-fast` runs the suite under `pytest-xdist -n auto`; coverage gate stays at 90%.
+- Cache hit/miss metrics emitted at the `CacheManager` decorator layer rather than per-service wrapping, so every cached service method automatically gets a Prometheus label derived from its `key_pattern`.
+
+### Notes
+
+- No external API or MCP tool contract changes. The MCP tool counter is wired but only populated by Phase 3.
