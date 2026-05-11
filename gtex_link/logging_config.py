@@ -15,10 +15,18 @@ import structlog
 from rich.console import Console
 from rich.logging import RichHandler
 
+from . import __version__ as _gtex_link_version
 from .config import settings
 
 if TYPE_CHECKING:
     from structlog.typing import FilteringBoundLogger
+
+
+def _add_static_fields(_logger: Any, _name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+    """Add static `service` and `version` fields to every log event."""
+    event_dict.setdefault("service", "gtex-link")
+    event_dict.setdefault("version", _gtex_link_version)
+    return event_dict
 
 
 def configure_stdlib_logging() -> None:
@@ -80,6 +88,8 @@ def configure_third_party_loggers() -> None:
 
 def configure_structlog() -> None:
     """Configure structlog for structured logging."""
+    from gtex_link.observability.correlation import bind_correlation_id_processor
+
     # Shared processors
     shared_processors = [
         structlog.stdlib.filter_by_level,
@@ -88,6 +98,8 @@ def configure_structlog() -> None:
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
+        bind_correlation_id_processor,
+        _add_static_fields,
     ]
 
     is_debug = settings.log_level == "DEBUG"
