@@ -128,28 +128,28 @@ class TestCacheManager:
     def test_log_cache_hit_without_logger(self):
         """Test logging cache hit without logger."""
         manager = CacheManager()
-        manager._log_cache_hit("test_key")
+        manager._log_cache_hit("test_key", "test_cache")
         assert manager._cache_stats["hits"] == 1
 
     def test_log_cache_hit_with_logger(self):
         """Test logging cache hit with logger."""
         mock_logger = Mock()
         manager = CacheManager(mock_logger)
-        manager._log_cache_hit("test_key")
+        manager._log_cache_hit("test_key", "test_cache")
         assert manager._cache_stats["hits"] == 1
         mock_logger.debug.assert_called_once_with("Cache hit", cache_key="test_key")
 
     def test_log_cache_miss_without_logger(self):
         """Test logging cache miss without logger."""
         manager = CacheManager()
-        manager._log_cache_miss("test_key")
+        manager._log_cache_miss("test_key", "test_cache")
         assert manager._cache_stats["misses"] == 1
 
     def test_log_cache_miss_with_logger(self):
         """Test logging cache miss with logger."""
         mock_logger = Mock()
         manager = CacheManager(mock_logger)
-        manager._log_cache_miss("test_key")
+        manager._log_cache_miss("test_key", "test_cache")
         assert manager._cache_stats["misses"] == 1
         mock_logger.debug.assert_called_once_with("Cache miss", cache_key="test_key")
 
