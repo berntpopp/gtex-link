@@ -33,7 +33,7 @@ class TestAppCreation:
 
         # Verify app properties
         assert test_app.title == "GTEx-Link"
-        assert test_app.version == "0.1.0"
+        assert test_app.version == "0.2.0"
         assert test_app.docs_url == "/docs"
         assert test_app.redoc_url == "/redoc"
         assert test_app.openapi_url == "/openapi.json"
@@ -49,9 +49,10 @@ class TestAppCreation:
             assert response.status_code == 200
             data = response.json()
             assert data["name"] == "GTEx-Link"
-            assert data["version"] == "0.1.0"
+            assert data["version"] == "0.2.0"
             assert data["docs"] == "/docs"
             assert data["health"] == "/api/health"
+            assert data["metrics"] == "/metrics"
             assert data["mcp_endpoint"] == "/mcp"
 
     @pytest.mark.asyncio
