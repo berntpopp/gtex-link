@@ -55,8 +55,8 @@ WORKDIR /app
 COPY --from=builder /app/.venv .venv
 COPY --chown=gtex:gtex . .
 
-# Ensure new entry points are executable and verify venv
-RUN chmod +x mcp_http_server.py mcp_server.py server.py \
+# Ensure entry points are executable and verify venv
+RUN chmod +x mcp_server.py server.py \
     && ls -la /app/.venv/bin/python \
     && /app/.venv/bin/python --version
 
@@ -64,10 +64,8 @@ RUN chmod +x mcp_http_server.py mcp_server.py server.py \
 USER gtex
 
 # Healthcheck is defined per-service in compose, not here.
-# Why: the same image runs both the API (port 8000, /api/health/) and the MCP server
-# (port 8001, no plain HTTP probe possible). A single image-level HEALTHCHECK can only
-# match one of them, and Compose silently inherits the image probe when a service
-# doesn't define its own — see issues #1, #3.
+# The unified server exposes FastAPI (and MCP at /mcp) on a single port; the compose
+# service-level healthcheck probes /api/health/ over HTTP.
 
 # Expose port
 EXPOSE 8000
