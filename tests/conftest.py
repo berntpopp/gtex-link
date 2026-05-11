@@ -87,7 +87,7 @@ def test_settings(
     settings = ServerSettings(
         host="127.0.0.1",
         port=8000,
-        transport_mode="http",
+        transport="http",
         log_level="DEBUG",
         log_format="console",
     )
