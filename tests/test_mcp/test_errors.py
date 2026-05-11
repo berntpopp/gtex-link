@@ -43,3 +43,20 @@ def test_unknown_exception_maps_to_generic_message() -> None:
     err = RuntimeError("internal traceback should not leak")
     msg = map_to_mcp_error_message(err)
     assert "internal traceback" not in msg
+
+
+def test_pydantic_validation_error_maps_to_invalid_input() -> None:
+    from pydantic import BaseModel
+    from pydantic import ValidationError as PydanticValidationError
+
+    class _Probe(BaseModel):
+        x: int
+
+    try:
+        _Probe.model_validate({"x": "not-an-int"})
+    except PydanticValidationError as exc:
+        msg = map_to_mcp_error_message(exc)
+        assert "Invalid input" in msg
+        assert "x" in msg
+    else:
+        raise AssertionError("Expected PydanticValidationError")

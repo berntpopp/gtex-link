@@ -73,7 +73,7 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 payload: dict[str, object] = {
                     "geneId": gene_id,
                     "page": 0,
-                    "itemsPerPage": len(gene_id) or 1,
+                    "itemsPerPage": len(gene_id),
                 }
                 if gencode_version is not None:
                     payload["gencodeVersion"] = gencode_version

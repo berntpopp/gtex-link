@@ -6,6 +6,8 @@ HTTP detail or stack-trace contents from leaking to MCP clients.
 
 from __future__ import annotations
 
+from pydantic import ValidationError as PydanticValidationError
+
 from gtex_link.exceptions import (
     GTExAPIError,
     RateLimitError,
@@ -20,6 +22,10 @@ def map_to_mcp_error_message(exc: Exception) -> str:
         return "GTEx Portal rate limit exceeded. Try again shortly."
     if isinstance(exc, ServiceUnavailableError):
         return "GTEx Portal is temporarily unavailable. Try again later."
+    if isinstance(exc, PydanticValidationError):
+        first = exc.errors()[0]
+        loc = ".".join(str(p) for p in first["loc"]) or "input"
+        return f"Invalid input -- `{loc}`: {first['msg']}"
     if isinstance(exc, ValidationError):
         field = f"`{exc.field}`: " if exc.field else ""
         return f"Invalid input -- {field}{exc.message}"

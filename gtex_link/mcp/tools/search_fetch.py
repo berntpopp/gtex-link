@@ -15,7 +15,6 @@ from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.resources import GTEX_PORTAL_URL
 from gtex_link.mcp.service_adapters import get_gtex_service
 from gtex_link.models import GeneRequest, MedianGeneExpressionRequest
-from gtex_link.models.gtex import DatasetId, TissueSiteDetailId
 from gtex_link.observability.metrics import record_mcp_tool_call
 
 if TYPE_CHECKING:
@@ -110,12 +109,14 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
 
                 expression_text: list[str] = []
                 try:
-                    expression_request = MedianGeneExpressionRequest(
-                        gencodeId=[gencode_id],
-                        tissueSiteDetailId=TissueSiteDetailId.ALL,
-                        datasetId=DatasetId.GTEX_V8,
-                        page=0,
-                        itemsPerPage=50,
+                    expression_request = MedianGeneExpressionRequest.model_validate(
+                        {
+                            "gencodeId": [gencode_id],
+                            "tissueSiteDetailId": "",  # empty string = ALL via TissueSiteDetailId enum
+                            "datasetId": "gtex_v8",
+                            "page": 0,
+                            "itemsPerPage": 50,
+                        }
                     )
                     expression_result = await service.get_median_gene_expression(expression_request)
                     if expression_result.data:
