@@ -1,216 +1,92 @@
-"""Tests for server manager module to achieve 90%+ coverage."""
+"""Tests for UnifiedServerManager."""
+
+from __future__ import annotations
 
 import os
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from gtex_link.server_manager import ServerManager
+from gtex_link.server_manager import UnifiedServerManager
 
 
-class TestServerManager:
-    """Test ServerManager class."""
+class TestUnifiedServerManager:
+    """Test UnifiedServerManager initialization and lifecycle."""
 
-    def test_init_without_logger(self):
-        """Test initialization without logger."""
-        manager = ServerManager()
+    def test_init_without_logger(self) -> None:
+        manager = UnifiedServerManager()
         assert manager.logger is None
+        assert manager._uvicorn_server is None
 
-    def test_init_with_logger(self):
-        """Test initialization with logger."""
+    def test_init_with_logger(self) -> None:
         mock_logger = MagicMock()
-        manager = ServerManager(logger=mock_logger)
+        manager = UnifiedServerManager(logger=mock_logger)
         assert manager.logger is mock_logger
+        assert manager._uvicorn_server is None
+
+    def test_configure_stdio_environment_sets_expected_vars(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify stdio environment vars are set so non-JSON output cannot
+        corrupt the JSON-RPC stream on stdout."""
+        for key in (
+            "PYTHONUNBUFFERED",
+            "GTEX_LINK_TRANSPORT",
+            "FASTMCP_DISABLE_BANNER",
+            "FASTMCP_NO_BANNER",
+            "FASTMCP_QUIET",
+            "NO_COLOR",
+            "FORCE_COLOR",
+            "TERM",
+            "PYTHONWARNINGS",
+        ):
+            monkeypatch.delenv(key, raising=False)
+
+        UnifiedServerManager._configure_stdio_environment()
+
+        assert os.environ["PYTHONUNBUFFERED"] == "1"
+        assert os.environ["GTEX_LINK_TRANSPORT"] == "stdio"
+        assert os.environ["FASTMCP_DISABLE_BANNER"] == "1"
+        assert os.environ["FASTMCP_NO_BANNER"] == "1"
+        assert os.environ["FASTMCP_QUIET"] == "1"
+        assert os.environ["NO_COLOR"] == "1"
+        assert os.environ["FORCE_COLOR"] == "0"
+        assert os.environ["TERM"] == "dumb"
+        assert os.environ["PYTHONWARNINGS"] == "ignore"
+
+    def test_configure_stdio_environment_does_not_overwrite(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Pre-set env vars are preserved (`setdefault`, not `[]=`)."""
+        monkeypatch.setenv("NO_COLOR", "custom-value")
+        UnifiedServerManager._configure_stdio_environment()
+        assert os.environ["NO_COLOR"] == "custom-value"
 
     @pytest.mark.asyncio
-    async def test_start_server_http_mode(self):
-        """Test starting server in HTTP mode."""
-        with (
-            patch("gtex_link.server_manager.uvicorn.Config") as mock_config,
-            patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
-        ):
-            mock_logger = MagicMock()
-            manager = ServerManager(logger=mock_logger)
-
-            # Mock server instance
-            mock_server = AsyncMock()
-            mock_server.serve = AsyncMock()
-            mock_server_class.return_value = mock_server
-
-            await manager.start_server(host="127.0.0.1", port=8000, mode="http", reload=False)
-
-            # Verify config was created correctly
-            mock_config.assert_called_once()
-            config_call = mock_config.call_args
-            assert config_call[1]["host"] == "127.0.0.1"
-            assert config_call[1]["port"] == 8000
-            assert config_call[1]["reload"] is False
-
-            # Verify server was created and serve called
-            mock_server_class.assert_called_once()
-            mock_server.serve.assert_called_once()
+    async def test_shutdown_is_safe_without_running_server(self) -> None:
+        """shutdown() handles the case where no uvicorn server has been started."""
+        manager = UnifiedServerManager()
+        await manager.shutdown()
+        assert manager._uvicorn_server is None
 
     @pytest.mark.asyncio
-    async def test_start_server_stdio_mode(self):
-        """Test starting server in stdio mode."""
-        with (
-            patch("gtex_link.server_manager.mcp_app") as mock_mcp_app,
-            patch.dict("os.environ", {}, clear=True),
-        ):
-            mock_logger = MagicMock()
-            manager = ServerManager(logger=mock_logger)
+    async def test_shutdown_signals_uvicorn_when_running(self) -> None:
+        """shutdown() flips `should_exit` on the uvicorn server so its loop ends."""
+        mock_server = MagicMock()
+        mock_server.should_exit = False
+        manager = UnifiedServerManager()
+        manager._uvicorn_server = mock_server
 
-            # Mock MCP app run method
-            mock_mcp_app.run = AsyncMock()
+        await manager.shutdown()
 
-            await manager.start_server(host="127.0.0.1", port=8000, mode="stdio", reload=True)
-
-            # Verify environment variable was set and MCP app was called
-            assert os.environ["TRANSPORT"] == "stdio"
-            mock_mcp_app.run.assert_called_once()
+        assert mock_server.should_exit is True
 
     @pytest.mark.asyncio
-    async def test_start_server_http_mode_alternate(self):
-        """Test starting server in http mode (alternate test)."""
-        with (
-            patch("gtex_link.server_manager.uvicorn.Config") as mock_config,
-            patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
-        ):
-            mock_logger = MagicMock()
-            manager = ServerManager(logger=mock_logger)
-
-            # Mock server instance
-            mock_server = AsyncMock()
-            mock_server.serve = AsyncMock()
-            mock_server_class.return_value = mock_server
-
-            await manager.start_server(host="0.0.0.0", port=9000, mode="http", reload=False)
-
-            # Verify config was created correctly for HTTP server
-            mock_config.assert_called_once()
-            config_call = mock_config.call_args
-            assert config_call[1]["host"] == "0.0.0.0"
-            assert config_call[1]["port"] == 9000
-            assert config_call[1]["reload"] is False
-
-    @pytest.mark.asyncio
-    async def test_start_server_default_parameters(self):
-        """Test starting server with default parameters."""
-        with (
-            patch("gtex_link.server_manager.uvicorn.Config") as mock_config,
-            patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
-            patch.dict("os.environ", {}, clear=False),
-        ):
-            manager = ServerManager()
-
-            # Mock server instance
-            mock_server = AsyncMock()
-            mock_server.serve = AsyncMock()
-            mock_server_class.return_value = mock_server
-
-            await manager.start_server()
-
-            # Verify default values were used
-            mock_config.assert_called_once()
-            config_call = mock_config.call_args
-            assert config_call[1]["host"] == "127.0.0.1"
-            assert config_call[1]["port"] == 8000
-            assert config_call[1]["reload"] is False
-
-    @pytest.mark.asyncio
-    async def test_start_server_with_reload_option(self):
-        """Test starting server with reload option."""
-        with (
-            patch("gtex_link.server_manager.uvicorn.Config") as mock_config,
-            patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
-            patch.dict("os.environ", {}, clear=False),
-        ):
-            manager = ServerManager()
-
-            # Mock server instance
-            mock_server = AsyncMock()
-            mock_server.serve = AsyncMock()
-            mock_server_class.return_value = mock_server
-
-            await manager.start_server(reload=True)
-
-            # Verify reload was set
-            mock_config.assert_called_once()
-            config_call = mock_config.call_args
-            assert config_call[1]["reload"] is True
-
-    @pytest.mark.asyncio
-    async def test_start_server_different_modes(self):
-        """Test starting server with different mode values."""
-        manager = ServerManager()
-
-        # Test valid modes
-        with (
-            patch("gtex_link.server_manager.uvicorn.Config") as mock_config,
-            patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
-            patch.dict("os.environ", {}, clear=False),
-        ):
-            mock_server = AsyncMock()
-            mock_server.serve = AsyncMock()
-            mock_server_class.return_value = mock_server
-
-            # Test HTTP mode
-            await manager.start_server(mode="http")
-            mock_config.assert_called_once()
-
-            # Test stdio mode
-            mock_config.reset_mock()
-            with patch("gtex_link.server_manager.mcp_app") as mock_mcp_app:
-                mock_mcp_app.run = AsyncMock()
-                await manager.start_server(mode="stdio")
-                mock_mcp_app.run.assert_called_once()
-
-        # Test invalid mode should raise ValueError
-        with pytest.raises(ValueError, match="Unknown server mode: invalid_mode"):
-            await manager.start_server(mode="invalid_mode")
-
-    def test_manager_attributes(self):
-        """Test manager attributes and properties."""
-        # Test without logger
-        manager1 = ServerManager()
-        assert hasattr(manager1, "logger")
-        assert manager1.logger is None
-
-        # Test with logger
+    async def test_shutdown_logs_when_logger_present(self) -> None:
+        """When a logger is wired, shutdown emits a structured info event."""
         mock_logger = MagicMock()
-        manager2 = ServerManager(logger=mock_logger)
-        assert manager2.logger is mock_logger
-        assert hasattr(manager2, "start_server")
+        manager = UnifiedServerManager(logger=mock_logger)
 
-    @pytest.mark.asyncio
-    async def test_start_server_error_handling(self):
-        """Test server startup error handling."""
-        with (
-            patch("gtex_link.server_manager.uvicorn.Config"),
-            patch("gtex_link.server_manager.uvicorn.Server") as mock_server_class,
-            patch.dict("os.environ", {}, clear=False),
-        ):
-            manager = ServerManager()
+        await manager.shutdown()
 
-            # Mock server to raise an exception during serve
-            mock_server = AsyncMock()
-            mock_server.serve = AsyncMock(side_effect=Exception("Server failed to start"))
-            mock_server_class.return_value = mock_server
-
-            # The exception should propagate
-            with pytest.raises(Exception, match="Server failed to start"):
-                await manager.start_server()
-
-    def test_import_dependencies(self):
-        """Test that all required dependencies are importable."""
-        # Test that the module imports work
-        import uvicorn
-
-        from gtex_link.app import app, mcp_app
-        from gtex_link.server_manager import ServerManager
-
-        # Verify classes and functions exist
-        assert ServerManager is not None
-        assert app is not None
-        assert mcp_app is not None
-        assert uvicorn is not None
+        mock_logger.info.assert_called_with("Shutdown complete")
