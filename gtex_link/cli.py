@@ -13,7 +13,7 @@ from rich.table import Table
 
 from .config import get_api_config, get_cache_config
 from .logging_config import configure_logging
-from .server_manager import ServerManager
+from .server_manager import UnifiedServerManager
 
 # Initialize rich console
 console = Console()
@@ -168,9 +168,9 @@ def create_parser() -> argparse.ArgumentParser:
     server_parser.add_argument("--port", type=int, default=8000, help="Server port (default: 8000)")
     server_parser.add_argument(
         "--mode",
-        choices=["http", "stdio"],
-        default="http",
-        help="Server mode (default: http)",
+        choices=["unified", "http", "stdio"],
+        default="unified",
+        help="Server transport mode (default: unified)",
     )
     server_parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
 
@@ -193,16 +193,25 @@ def create_parser() -> argparse.ArgumentParser:
 async def run_server(
     host: str = "127.0.0.1",
     port: int = 8000,
-    mode: str = "http",
+    mode: str = "unified",
     *,
-    reload: bool = False,
+    reload: bool = False,  # retained for CLI backwards compatibility
 ) -> None:
-    """Run the server."""
+    """Run the server in the requested transport mode."""
+    _ = reload  # explicit no-op; auto-reload is now an env-based concern
     logger = configure_logging()
-    server_manager = ServerManager(logger=logger)
+    server_manager = UnifiedServerManager(logger=logger)
 
     try:
-        await server_manager.start_server(host=host, port=port, mode=mode, reload=reload)
+        if mode == "unified":
+            await server_manager.start_unified_server(host=host, port=port)
+        elif mode == "http":
+            await server_manager.start_http_only_server(host=host, port=port)
+        elif mode == "stdio":
+            await server_manager.start_stdio_server()
+        else:
+            msg = f"Unknown server mode: {mode}"
+            raise ValueError(msg)
     except KeyboardInterrupt:
         console.print("\n[bold yellow]Server stopped by user")
     except (OSError, RuntimeError) as e:
@@ -214,6 +223,8 @@ async def run_server(
             ),
         )
         sys.exit(1)
+    finally:
+        await server_manager.shutdown()
 
 
 def main() -> None:
