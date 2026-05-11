@@ -111,6 +111,7 @@ def create_mcp_app() -> FastMCP:
         RouteMap(pattern=r"^/docs$", mcp_type=MCPType.EXCLUDE),
         RouteMap(pattern=r"^/openapi.json$", mcp_type=MCPType.EXCLUDE),
         RouteMap(pattern=r"^/redoc$", mcp_type=MCPType.EXCLUDE),
+        RouteMap(pattern=r"^/metrics$", mcp_type=MCPType.EXCLUDE),
     ]
 
     # Create FastMCP instance with proper configuration
