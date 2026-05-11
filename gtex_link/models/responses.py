@@ -9,33 +9,6 @@ from pydantic.json_schema import GenerateJsonSchema, JsonSchemaValue
 from pydantic_core import core_schema
 
 # Import original enums for runtime validation but use Literal types for schema
-from .gtex import (
-    Chromosome as _Chromosome,
-)
-from .gtex import (
-    DatasetId as _DatasetId,
-)
-from .gtex import (
-    DonorSex as _DonorSex,
-)
-from .gtex import (
-    GencodeVersion as _GencodeVersion,
-)
-from .gtex import (
-    GenomeBuild as _GenomeBuild,
-)
-from .gtex import (
-    HardyScale as _HardyScale,
-)
-from .gtex import (
-    Sex as _Sex,
-)
-from .gtex import (
-    Strand as _Strand,
-)
-from .gtex import (
-    TissueSiteDetailId as _TissueSiteDetailId,
-)
 
 # Define Literal types for MCP compatibility
 Chromosome = Literal[
@@ -205,7 +178,7 @@ class PaginationInfo(BaseResponse):
     total_number_of_items: int = Field(alias="totalNumberOfItems")
 
 
-class PaginatedResponse(BaseResponse, Generic[T]):
+class PaginatedResponse(BaseResponse, Generic[T]):  # noqa: UP046
     """Generic paginated response wrapper."""
 
     data: list[T]

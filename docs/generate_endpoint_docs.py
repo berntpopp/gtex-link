@@ -18,9 +18,9 @@ Example:
 
 import json
 import os
-from pathlib import Path
 import sys
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any
 
 
 def sanitize_filename(path: str, method: str) -> str:

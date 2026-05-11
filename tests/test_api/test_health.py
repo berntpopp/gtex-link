@@ -2,9 +2,9 @@
 
 from unittest.mock import AsyncMock
 
+import httpx
 from fastapi import status
 from fastapi.testclient import TestClient
-import httpx
 
 from gtex_link.models.responses import HealthResponse
 

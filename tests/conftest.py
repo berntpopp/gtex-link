@@ -6,10 +6,10 @@ import asyncio
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
-from fastapi.testclient import TestClient
-from httpx import AsyncClient
 import pytest
 import pytest_asyncio
+from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 from gtex_link.api.client import GTExClient
 from gtex_link.app import create_app

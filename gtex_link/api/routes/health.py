@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import time
 from typing import TYPE_CHECKING, Any
 
-from fastapi import APIRouter
 import httpx
+from fastapi import APIRouter
 
 from gtex_link.config import settings
 from gtex_link.models.responses import HealthResponse
@@ -36,7 +35,7 @@ async def health_check(
     overall_status = "healthy"
     try:
         await client.get_service_info()
-    except (httpx.HTTPError, asyncio.TimeoutError) as e:
+    except (TimeoutError, httpx.HTTPError) as e:
         logger.warning("GTEx API health check failed", error=str(e))
         gtex_status = "unavailable"
         overall_status = "degraded"

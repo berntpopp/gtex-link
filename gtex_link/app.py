@@ -272,7 +272,7 @@ def _add_chatgpt_tools(mcp: FastMCP) -> None:
                 {
                     "id": id,
                     "title": "Error Retrieving Resource",
-                    "text": f"An error occurred while retrieving the resource: {str(e)}",
+                    "text": f"An error occurred while retrieving the resource: {e!s}",
                     "url": "https://gtexportal.org/",
                     "metadata": {"source": "GTEx Portal", "type": "error", "error": str(e)},
                 }
@@ -288,5 +288,5 @@ try:
 except Exception as e:
     import warnings
 
-    warnings.warn(f"MCP app creation failed: {e}", UserWarning)
+    warnings.warn(f"MCP app creation failed: {e}", UserWarning, stacklevel=2)
     mcp_app = None

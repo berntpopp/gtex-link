@@ -3,8 +3,8 @@
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
 from gtex_link.app import _add_chatgpt_tools, app, create_app, create_mcp_app, lifespan
 from gtex_link.models import Gene, MedianGeneExpression, PaginatedResponse

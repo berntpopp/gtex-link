@@ -4,8 +4,8 @@ import asyncio
 from typing import Any
 from unittest.mock import Mock, patch
 
-from pydantic import BaseModel
 import pytest
+from pydantic import BaseModel
 
 from gtex_link.utils.caching import (
     CacheManager,
