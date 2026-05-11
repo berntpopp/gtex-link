@@ -1,101 +1,133 @@
-.PHONY: help install lint format typecheck test test-cov clean dev-setup check-all fix server mcp mcp-http cli-help setup docker-npm docker-npm-bg docker-logs-npm
+.PHONY: help install lock upgrade sync \
+        format format-check lint lint-ci lint-fix \
+        typecheck typecheck-fast typecheck-stop typecheck-fresh \
+        test test-fast test-unit test-integration test-cov test-all \
+        check ci-local precommit clean \
+        dev mcp-serve mcp-serve-http \
+        docker-build docker-up docker-down docker-logs docker-prod-config docker-npm-config \
+        setup info
 
-help:  ## Show this help message
-	@echo "GTEx-Link Development Commands:"
-	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
-	@echo ""
-	@echo "Quick start: make dev-setup && make server"
+DOCKER_COMPOSE := $(shell if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; else echo "docker compose"; fi)
 
-install:  ## Install dependencies using uv
-	export UV_LINK_MODE=copy UV_CACHE_DIR=/tmp/uv-cache && uv sync --group dev
+.DEFAULT_GOAL := help
 
-lint:  ## Run ruff linting only
-	uv run ruff check .
+help: ## Display this help message
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-format:  ## Run ruff formatting
-	uv run ruff format .
+install: ## Install project and development dependencies with uv
+	uv sync --group dev
 
-typecheck:  ## Run mypy type checking
-	uv run mypy gtex_link/
+sync: install ## Alias for install
 
-fix:  ## Auto-fix linting and formatting issues
-	uv run ruff check --fix .
-	uv run ruff format .
+lock: ## Resolve and update uv.lock
+	uv lock
 
-test:  ## Run tests
-	uv run pytest
+upgrade: ## Upgrade locked dependencies
+	uv lock --upgrade
 
-test-cov:  ## Run tests with coverage report
-	uv run pytest --cov=gtex_link --cov-report=html --cov-report=term-missing
+format: ## Format Python code
+	uv run ruff format gtex_link tests server.py mcp_server.py
 
-check-all: lint typecheck test  ## Run all quality checks
+format-check: ## Check formatting without writing
+	uv run ruff format --check gtex_link tests server.py mcp_server.py
 
-dev-setup: install  ## Complete development environment setup
-	uv run pre-commit install
+lint: ## Lint Python code
+	uv run ruff check gtex_link tests server.py mcp_server.py
 
-setup:  ## Run comprehensive setup for Docker + NPM deployment
-	./setup_gtex_link.sh
+lint-ci: ## Lint Python code with GitHub-Actions output
+	uv run ruff check gtex_link tests server.py mcp_server.py --output-format=github
 
-server:  ## Start development HTTP server
+lint-fix: ## Lint and apply safe fixes
+	uv run ruff check gtex_link tests server.py mcp_server.py --fix
+
+typecheck: ## Type check package
+	uv run mypy gtex_link server.py mcp_server.py
+
+typecheck-fast: ## Type check with mypy daemon and fallback
+	@tmp_log=$$(mktemp); \
+	if uv run dmypy run -- gtex_link server.py mcp_server.py >$$tmp_log 2>&1; then \
+		cat $$tmp_log; \
+	elif grep -Eq "Daemon crashed!|INTERNAL ERROR" $$tmp_log; then \
+		echo "dmypy crashed; retrying with a fresh daemon..."; \
+		uv run dmypy stop >/dev/null 2>&1 || true; \
+		if uv run dmypy run -- gtex_link server.py mcp_server.py >$$tmp_log 2>&1; then \
+			cat $$tmp_log; \
+		else \
+			cat $$tmp_log; \
+			echo "Falling back to plain mypy..."; \
+			uv run dmypy stop >/dev/null 2>&1 || true; \
+			uv run mypy gtex_link server.py mcp_server.py; \
+		fi; \
+	else \
+		cat $$tmp_log; \
+		rm -f $$tmp_log; \
+		exit 1; \
+	fi; \
+	rm -f $$tmp_log
+
+typecheck-stop: ## Stop mypy daemon
+	uv run dmypy stop
+
+typecheck-fresh: ## Clear mypy cache and run typecheck
+	rm -rf .mypy_cache
+	uv run mypy gtex_link server.py mcp_server.py
+
+test: ## Run tests quickly
+	uv run pytest tests -q
+
+test-fast: ## Run tests in parallel with pytest-xdist
+	uv run pytest tests -q -n auto
+
+test-unit: ## Run unit tests in parallel
+	uv run pytest tests -q -n auto -m "not integration and not slow"
+
+test-integration: ## Run integration tests serially
+	uv run pytest tests -q -m "integration"
+
+test-cov: ## Run tests with coverage
+	uv run pytest tests --cov=gtex_link --cov-report=term-missing --cov-report=html
+
+test-all: test-cov ## Alias for full test run with coverage
+
+check: format lint ## Format and lint
+
+ci-local: format-check lint-ci typecheck-fast test-fast ## Fast local CI-equivalent checks
+
+precommit: ci-local ## Run checks expected before commit
+
+clean: ## Remove local caches and generated reports
+	rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage coverage.xml dist build
+
+dev: ## Start development HTTP server (legacy until Phase 3 unifies transport)
 	uv run python server.py
 
-mcp:  ## Start MCP server (STDIO transport)
+mcp-serve: ## Start local stdio MCP server
 	uv run python mcp_server.py
 
-mcp-http:  ## Start MCP server with HTTP transport
-	uv run python mcp_http_server.py
+mcp-serve-http: ## Start unified server (placeholder until Phase 3)
+	uv run python server.py
 
+docker-build: ## Build Docker image
+	$(DOCKER_COMPOSE) -f docker/docker-compose.yml build
 
-clean:  ## Clean cache and temporary files
-	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage
+docker-up: ## Start Docker development stack
+	$(DOCKER_COMPOSE) -f docker/docker-compose.yml up -d
 
-info:  ## Show project information
+docker-down: ## Stop Docker development stack
+	$(DOCKER_COMPOSE) -f docker/docker-compose.yml down
+
+docker-logs: ## Follow Docker logs
+	$(DOCKER_COMPOSE) -f docker/docker-compose.yml logs -f
+
+docker-prod-config: ## Render production Compose configuration
+	$(DOCKER_COMPOSE) -f docker/docker-compose.yml config
+
+docker-npm-config: ## Render NPM Compose configuration
+	$(DOCKER_COMPOSE) -f docker/docker-compose.npm.yml --env-file .env.docker.example config
+
+setup: ## Run comprehensive setup for Docker + NPM deployment
+	./setup_gtex_link.sh
+
+info: ## Show project information
 	@echo "Project: GTEx-Link"
-	@echo "uv: $(shell uv --version)"
-
-# Docker operations
-docker-build:  ## Build Docker image
-	docker compose -f docker/docker-compose.yml build
-
-docker-dev:  ## Start development environment with Docker Compose (foreground)
-	docker compose -f docker/docker-compose.dev.yml down 2>/dev/null || true
-	docker compose -f docker/docker-compose.dev.yml up --build
-
-docker-dev-bg:  ## Start development environment with Docker Compose (background)
-	docker compose -f docker/docker-compose.dev.yml down 2>/dev/null || true
-	docker compose -f docker/docker-compose.dev.yml up --build -d
-
-
-docker-prod:  ## Start production environment with Docker Compose
-	docker compose -f docker/docker-compose.yml up -d
-
-docker-mcp:  ## Start MCP services with Docker Compose
-	docker compose -f docker/docker-compose.mcp.yml up -d --build
-
-docker-npm:  ## Start NPM production environment (foreground)
-	docker compose -f docker/docker-compose.npm.yml --env-file .env.docker up --build
-
-docker-npm-bg:  ## Start NPM production environment (background)
-	docker compose -f docker/docker-compose.npm.yml --env-file .env.docker up -d --build
-
-docker-stop:  ## Stop all Docker services
-	docker compose -f docker/docker-compose.yml down
-	docker compose -f docker/docker-compose.dev.yml down
-	docker compose -f docker/docker-compose.mcp.yml down
-	docker compose -f docker/docker-compose.npm.yml --env-file .env.docker down 2>/dev/null || true
-
-docker-logs:  ## Show Docker logs (production)
-	docker compose -f docker/docker-compose.yml logs -f
-
-docker-logs-dev:  ## Show Docker logs (development)
-	docker compose -f docker/docker-compose.dev.yml logs -f
-
-docker-logs-npm:  ## Show Docker logs (NPM production)
-	docker compose -f docker/docker-compose.npm.yml --env-file .env.docker logs -f
-
-docker-clean:  ## Clean Docker resources
-	docker compose -f docker/docker-compose.yml down -v --rmi all
-	docker compose -f docker/docker-compose.dev.yml down -v --rmi all
-	docker compose -f docker/docker-compose.mcp.yml down -v --rmi all
-	docker compose -f docker/docker-compose.npm.yml --env-file .env.docker down -v --rmi all 2>/dev/null || true
+	@echo "uv: $(shell uv --version 2>/dev/null || echo 'not installed')"
