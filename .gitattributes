@@ -1,2 +1,16 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Force LF line endings in working tree for files where tooling pins LF
+# (matches pyproject.toml ruff format line-ending = "lf"). Without this,
+# `core.autocrlf=true` on Windows produces CRLF working trees that fail
+# `ruff format --check` even though committed blobs are LF.
+*.py text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.sh text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
