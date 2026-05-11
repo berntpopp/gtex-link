@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -332,7 +332,9 @@ class TestGTExClientAPIOperations:
 
     @pytest.mark.asyncio
     async def test_search_genes_success(
-        self, test_api_config: GTExAPIConfigModel, gene_search_response: dict
+        self,
+        test_api_config: GTExAPIConfigModel,
+        gene_search_response: dict[str, Any],
     ) -> None:
         """Test successful gene search operation."""
         client = GTExClient(config=test_api_config)
@@ -361,7 +363,9 @@ class TestGTExClientAPIOperations:
 
     @pytest.mark.asyncio
     async def test_get_median_expression_success(
-        self, test_api_config: GTExAPIConfigModel, median_expression_response: dict
+        self,
+        test_api_config: GTExAPIConfigModel,
+        median_expression_response: dict[str, Any],
     ) -> None:
         """Test successful median expression retrieval."""
         client = GTExClient(config=test_api_config)
@@ -490,7 +494,7 @@ class TestGTExClientConcurrency:
             # Make multiple concurrent requests
             import asyncio
 
-            async def make_request(gene: str) -> dict:
+            async def make_request(gene: str) -> dict[str, Any]:
                 return await client.search_genes(query=gene)
 
             genes = ["BRCA1", "BRCA2", "TP53", "EGFR", "MYC"]
@@ -548,7 +552,7 @@ class TestGTExClientConcurrency:
             # Make many concurrent requests
             import asyncio
 
-            async def make_request(i: int) -> dict:
+            async def make_request(i: int) -> dict[str, Any]:
                 return await client.search_genes(query=f"GENE{i}")
 
             tasks = [make_request(i) for i in range(25)]  # Reduced to match burst size

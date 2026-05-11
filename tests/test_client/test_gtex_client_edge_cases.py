@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -98,9 +98,8 @@ class TestGTExClientJSONErrorHandling:
         # Verify error message contains JSON parsing information
         assert "Invalid JSON response" in str(exc_info.value)
 
-        # Verify logger was called for JSON parsing error
-        assert client.logger is not None
-        client.logger.error.assert_called()
+        # Verify logger was called for JSON parsing error (logger is a MagicMock)
+        cast(MagicMock, client.logger).error.assert_called()
 
     @pytest.mark.asyncio
     async def test_json_decode_error_without_logger(
@@ -258,10 +257,10 @@ class TestGTExClientRetryLogging:
 
         result = await client._make_request("GET", "test/endpoint")
 
-        # Verify retry warning was logged
-        assert client.logger is not None
-        client.logger.warning.assert_called()
-        warning_calls = client.logger.warning.call_args_list
+        # Verify retry warning was logged (logger is a MagicMock in this test)
+        logger_mock = cast(MagicMock, client.logger)
+        logger_mock.warning.assert_called()
+        warning_calls = logger_mock.warning.call_args_list
         retry_warnings = [
             call
             for call in warning_calls
@@ -289,9 +288,8 @@ class TestGTExClientRetryLogging:
         with pytest.raises(GTExAPIError):
             await client._make_request("GET", "test/endpoint")
 
-        # Verify error was logged
-        assert client.logger is not None
-        client.logger.error.assert_called()
+        # Verify error was logged (logger is a MagicMock in this test)
+        cast(MagicMock, client.logger).error.assert_called()
 
 
 class TestGTExClientEndpointMethods:
@@ -406,7 +404,7 @@ class TestGTExClientContextManager:
             pass  # Expected
 
         # Verify close was called even with exception
-        client.close.assert_called_once()  # type: ignore[attr-defined]
+        client.close.assert_called_once()
 
 
 class TestGTExClientSessionProperties:
