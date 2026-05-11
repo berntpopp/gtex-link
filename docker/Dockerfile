@@ -1,5 +1,5 @@
 # Multi-stage build for GTEx-Link
-FROM python:3.11-slim as builder
+FROM python:3.12-slim AS builder
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -19,8 +19,9 @@ ENV PATH="/root/.local/bin:$PATH"
 # Set work directory
 WORKDIR /app
 
-# Copy project files
-COPY pyproject.toml uv.lock ./
+# Copy project files (README required by hatchling at build time)
+COPY pyproject.toml uv.lock README.md ./
+COPY gtex_link ./gtex_link
 
 # Install dependencies with uv and verify venv
 RUN uv sync --frozen \
@@ -28,7 +29,7 @@ RUN uv sync --frozen \
     && /app/.venv/bin/python --version
 
 # Production stage
-FROM python:3.11-slim as production
+FROM python:3.12-slim AS production
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
