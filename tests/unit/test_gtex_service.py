@@ -384,48 +384,45 @@ class TestGTExServiceMissingCoverage:
         )
 
         service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
+        empty_paginated_response = {
+            "data": [],
+            "pagingInfo": {
+                "numberOfPages": 0,
+                "page": 0,
+                "maxItemsPerPage": 250,
+                "totalNumberOfItems": 0,
+            },
+        }
+        mock_gtex_client.get_gene_expression.return_value = empty_paginated_response
+        mock_gtex_client.get_tissue_site_details.return_value = empty_paginated_response
+        mock_gtex_client.get_subjects.return_value = empty_paginated_response
+        mock_gtex_client.get_samples.return_value = empty_paginated_response
+        mock_gtex_client.get_variants.return_value = empty_paginated_response
+        mock_gtex_client.get_variants_by_location.return_value = empty_paginated_response
 
         # Test gene expression logging (line 232)
-        try:
-            request = GeneExpressionRequest(gencode_id=["ENSG00000012048.20"])
-            await service._get_gene_expression_impl(request)
-        except Exception:
-            pass  # We only care about the logging call
+        request = GeneExpressionRequest(gencode_id=["ENSG00000012048.20"])
+        await service._get_gene_expression_impl(request)
 
         # Test tissue site details logging (lines 259-262)
-        try:
-            request = TissueSiteDetailRequest()
-            await service._get_tissue_site_details_impl(request)
-        except Exception:
-            pass
+        request = TissueSiteDetailRequest()
+        await service._get_tissue_site_details_impl(request)
 
         # Test subjects logging (lines 270)
-        try:
-            request = SubjectRequest()
-            await service._get_subjects_impl(request)
-        except Exception:
-            pass
+        request = SubjectRequest()
+        await service._get_subjects_impl(request)
 
         # Test samples logging (lines 279)
-        try:
-            request = DatasetSampleRequest()
-            await service._get_samples_impl(request)
-        except Exception:
-            pass
+        request = DatasetSampleRequest()
+        await service._get_samples_impl(request)
 
         # Test variants logging (lines 286)
-        try:
-            request = VariantRequest()
-            await service._get_variants_impl(request)
-        except Exception:
-            pass
+        request = VariantRequest()
+        await service._get_variants_impl(request)
 
         # Test variants by location logging (lines 295-298)
-        try:
-            request = VariantByLocationRequest(chromosome="chr17", start=1000, end=2000)
-            await service._get_variants_by_location_impl(request)
-        except Exception:
-            pass
+        request = VariantByLocationRequest(chromosome="chr17", start=1000, end=2000)
+        await service._get_variants_by_location_impl(request)
 
         # Verify logger was called multiple times (covers all the missing logging lines)
         assert mock_logger.info.call_count >= 6

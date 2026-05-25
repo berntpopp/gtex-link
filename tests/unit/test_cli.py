@@ -1,7 +1,6 @@
 """Comprehensive tests for CLI functionality - simplified approach."""
 
 import argparse
-import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -123,6 +122,7 @@ class TestMainFunction:
         with (
             patch("sys.argv", ["gtex-link", "server"]),
             patch("gtex_link.cli.create_parser") as mock_create_parser,
+            patch("gtex_link.cli.run_server", new_callable=MagicMock) as mock_run_server,
             patch("asyncio.run") as mock_asyncio_run,
         ):
             # Mock parser
@@ -135,6 +135,7 @@ class TestMainFunction:
             mock_args.reload = False
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
+            mock_run_server.return_value = object()
 
             # Test main with server command
             main()
@@ -146,6 +147,7 @@ class TestMainFunction:
         with (
             patch("sys.argv", ["gtex-link", "test"]),
             patch("gtex_link.cli.create_parser") as mock_create_parser,
+            patch("gtex_link.cli.test_connection", new_callable=MagicMock) as mock_test_connection,
             patch("asyncio.run") as mock_asyncio_run,
         ):
             # Mock parser
@@ -154,6 +156,7 @@ class TestMainFunction:
             mock_args.command = "test"
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
+            mock_test_connection.return_value = object()
 
             # Mock asyncio.run to return True (success)
             mock_asyncio_run.return_value = True
@@ -169,6 +172,7 @@ class TestMainFunction:
         with (
             patch("sys.argv", ["gtex-link", "test"]),
             patch("gtex_link.cli.create_parser") as mock_create_parser,
+            patch("gtex_link.cli.test_connection", new_callable=MagicMock) as mock_test_connection,
             patch("asyncio.run") as mock_asyncio_run,
         ):
             # Mock parser
@@ -177,6 +181,7 @@ class TestMainFunction:
             mock_args.command = "test"
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
+            mock_test_connection.return_value = object()
 
             # Mock asyncio.run to return False (failure)
             mock_asyncio_run.return_value = False
@@ -192,6 +197,7 @@ class TestMainFunction:
         with (
             patch("sys.argv", ["gtex-link", "search", "BRCA1"]),
             patch("gtex_link.cli.create_parser") as mock_create_parser,
+            patch("gtex_link.cli.search_genes", new_callable=MagicMock) as mock_search_genes,
             patch("asyncio.run") as mock_asyncio_run,
         ):
             # Mock parser
@@ -202,6 +208,7 @@ class TestMainFunction:
             mock_args.limit = 10
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
+            mock_search_genes.return_value = object()
 
             # Test main with search command
             main()
@@ -252,6 +259,7 @@ class TestMainFunction:
         with (
             patch("sys.argv", ["gtex-link", "server"]),
             patch("gtex_link.cli.create_parser") as mock_create_parser,
+            patch("gtex_link.cli.run_server", new_callable=MagicMock) as mock_run_server,
             patch("asyncio.run") as mock_asyncio_run,
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -265,6 +273,7 @@ class TestMainFunction:
             mock_args.reload = False
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
+            mock_run_server.return_value = object()
 
             # Mock asyncio.run to raise KeyboardInterrupt
             mock_asyncio_run.side_effect = KeyboardInterrupt()
@@ -279,6 +288,7 @@ class TestMainFunction:
         with (
             patch("sys.argv", ["gtex-link", "server"]),
             patch("gtex_link.cli.create_parser") as mock_create_parser,
+            patch("gtex_link.cli.run_server", new_callable=MagicMock) as mock_run_server,
             patch("asyncio.run") as mock_asyncio_run,
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -292,6 +302,7 @@ class TestMainFunction:
             mock_args.reload = False
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
+            mock_run_server.return_value = object()
 
             # Mock asyncio.run to raise ValueError
             mock_asyncio_run.side_effect = ValueError("Invalid argument")
@@ -306,6 +317,7 @@ class TestMainFunction:
         with (
             patch("sys.argv", ["gtex-link", "server"]),
             patch("gtex_link.cli.create_parser") as mock_create_parser,
+            patch("gtex_link.cli.run_server", new_callable=MagicMock) as mock_run_server,
             patch("asyncio.run") as mock_asyncio_run,
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -319,6 +331,7 @@ class TestMainFunction:
             mock_args.reload = False
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
+            mock_run_server.return_value = object()
 
             # Mock asyncio.run to raise RuntimeError
             mock_asyncio_run.side_effect = RuntimeError("Runtime error")
@@ -333,6 +346,7 @@ class TestMainFunction:
         with (
             patch("sys.argv", ["gtex-link", "server"]),
             patch("gtex_link.cli.create_parser") as mock_create_parser,
+            patch("gtex_link.cli.run_server", new_callable=MagicMock) as mock_run_server,
             patch("asyncio.run") as mock_asyncio_run,
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -346,6 +360,7 @@ class TestMainFunction:
             mock_args.reload = False
             mock_parser.parse_args.return_value = mock_args
             mock_create_parser.return_value = mock_parser
+            mock_run_server.return_value = object()
 
             # Mock asyncio.run to raise OSError
             mock_asyncio_run.side_effect = OSError("OS error")
@@ -466,16 +481,12 @@ async def test_connection_success():
         mock_configure.return_value = mock_logger
         mock_get_config.return_value = MagicMock()
 
-        # Mock the import inside the function
-        with patch.dict("sys.modules", {"gtex_link.api.client": MagicMock()}):
-            mock_gtex_client = AsyncMock()
+        with patch("gtex_link.api.client.GTExClient") as mock_gtex_client_class:
+            mock_gtex_client = MagicMock()
             mock_gtex_client.get_service_info = AsyncMock(return_value={"version": "2.0"})
             mock_gtex_client.__aenter__ = AsyncMock(return_value=mock_gtex_client)
             mock_gtex_client.__aexit__ = AsyncMock(return_value=None)
-
-            sys.modules["gtex_link.api.client"].GTExClient = MagicMock(
-                return_value=mock_gtex_client
-            )
+            mock_gtex_client_class.return_value = mock_gtex_client
 
             # Test the function - it should succeed
             result = await test_connection()
@@ -498,29 +509,22 @@ async def test_search_genes_function():
         mock_get_config.return_value = MagicMock()
         mock_get_cache_config.return_value = MagicMock()
 
-        # Mock the imports inside the function
-        with patch.dict(
-            "sys.modules",
-            {"gtex_link.api.client": MagicMock(), "gtex_link.services.gtex_service": MagicMock()},
+        with (
+            patch("gtex_link.api.client.GTExClient") as mock_gtex_client_class,
+            patch("gtex_link.services.gtex_service.GTExService") as mock_gtex_service_class,
         ):
-            import sys
-
             # Mock GTExClient
-            mock_gtex_client = AsyncMock()
+            mock_gtex_client = MagicMock()
             mock_gtex_client.__aenter__ = AsyncMock(return_value=mock_gtex_client)
             mock_gtex_client.__aexit__ = AsyncMock(return_value=None)
-            sys.modules["gtex_link.api.client"].GTExClient = MagicMock(
-                return_value=mock_gtex_client
-            )
+            mock_gtex_client_class.return_value = mock_gtex_client
 
             # Mock GTExService and results
-            mock_service = AsyncMock()
+            mock_service = MagicMock()
             mock_result = MagicMock()
             mock_result.data = []  # Empty results to test no-results path
             mock_service.search_genes = AsyncMock(return_value=mock_result)
-            sys.modules["gtex_link.services.gtex_service"].GTExService = MagicMock(
-                return_value=mock_service
-            )
+            mock_gtex_service_class.return_value = mock_service
 
             # Test the function
             await search_genes("TEST", 10)

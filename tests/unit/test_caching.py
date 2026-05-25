@@ -14,7 +14,7 @@ from gtex_link.utils.caching import (
 )
 
 
-class TestModel(BaseModel):
+class CacheKeyModel(BaseModel):
     """Test Pydantic model for cache key generation."""
 
     name: str
@@ -43,7 +43,7 @@ class TestMakeHashableKey:
 
     def test_pydantic_model_serialization(self):
         """Test Pydantic model serialization in cache key."""
-        model = TestModel(name="test", value=42)
+        model = CacheKeyModel(name="test", value=42)
         key = _make_hashable_key(model)
         assert isinstance(key, str)
 
@@ -65,7 +65,7 @@ class TestMakeHashableKey:
     def test_nested_structures(self):
         """Test nested data structures."""
         nested_data = {
-            "models": [TestModel(name="test1", value=1), TestModel(name="test2", value=2)],
+            "models": [CacheKeyModel(name="test1", value=1), CacheKeyModel(name="test2", value=2)],
             "lists": [[1, 2], [3, 4]],
             "sets": [{1, 2}, {3, 4}],
         }
@@ -74,7 +74,7 @@ class TestMakeHashableKey:
 
     def test_key_consistency(self):
         """Test that same input produces same key."""
-        model = TestModel(name="test", value=42)
+        model = CacheKeyModel(name="test", value=42)
         key1 = _make_hashable_key(model, extra="data")
         key2 = _make_hashable_key(model, extra="data")
         assert key1 == key2
@@ -437,14 +437,14 @@ class TestCacheIntegration:
         call_count = 0
 
         @manager.cached(maxsize=10, ttl=60)
-        async def process_model(model: TestModel) -> str:
+        async def process_model(model: CacheKeyModel) -> str:
             nonlocal call_count
             call_count += 1
             return f"{model.name}_{model.value}"
 
-        model1 = TestModel(name="test", value=42)
-        model2 = TestModel(name="test", value=42)  # Same values
-        model3 = TestModel(name="different", value=42)  # Different values
+        model1 = CacheKeyModel(name="test", value=42)
+        model2 = CacheKeyModel(name="test", value=42)  # Same values
+        model3 = CacheKeyModel(name="different", value=42)  # Different values
 
         # First call with model1
         result1 = await process_model(model1)
@@ -469,13 +469,13 @@ class TestCacheIntegration:
 
         @manager.cached(maxsize=10, ttl=60)
         async def complex_func(
-            models: list[TestModel], metadata: dict[str, Any], tags: set[str]
+            models: list[CacheKeyModel], metadata: dict[str, Any], tags: set[str]
         ) -> str:
             nonlocal call_count
             call_count += 1
             return f"processed_{len(models)}_{len(metadata)}_{len(tags)}"
 
-        models = [TestModel(name="test1", value=1), TestModel(name="test2", value=2)]
+        models = [CacheKeyModel(name="test1", value=1), CacheKeyModel(name="test2", value=2)]
         metadata = {"key1": "value1", "key2": {"nested": "value"}}
         tags = {"tag1", "tag2", "tag3"}
 
