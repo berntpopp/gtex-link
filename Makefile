@@ -50,7 +50,7 @@ typecheck-fast: ## Type check with mypy daemon and fallback
 	@tmp_log=$$(mktemp); \
 	if uv run dmypy run -- gtex_link server.py mcp_server.py >$$tmp_log 2>&1; then \
 		cat $$tmp_log; \
-	elif grep -Eq "Daemon crashed!|INTERNAL ERROR" $$tmp_log; then \
+	elif grep -Eq "Daemon crashed!|INTERNAL ERROR|No data received" $$tmp_log; then \
 		echo "dmypy crashed; retrying with a fresh daemon..."; \
 		uv run dmypy stop >/dev/null 2>&1 || true; \
 		if uv run dmypy run -- gtex_link server.py mcp_server.py >$$tmp_log 2>&1; then \

@@ -48,7 +48,7 @@ class ServerManager:
 
             # Start MCP server in stdio mode
             if mcp_app is not None:
-                await mcp_app.run()  # type: ignore[func-returns-value]
+                mcp_app.run()
             else:
                 raise RuntimeError("MCP app not available - cannot start in stdio mode")
             return
@@ -85,7 +85,12 @@ class ServerManager:
                 )
 
             try:
-                await mcp_app.run(transport="streamable-http", host=host, port=port, path="/mcp")  # type: ignore[func-returns-value]
+                mcp_app.run(
+                    transport="streamable-http",
+                    host=host,
+                    port=port,
+                    path="/mcp",
+                )
             except Exception as e:
                 if self.logger:
                     self.logger.error("Failed to start MCP HTTP server", error=str(e))
