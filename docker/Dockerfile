@@ -1,76 +1,65 @@
-# Multi-stage build for GTEx-Link
+# syntax=docker/dockerfile:1
+# Multi-stage Dockerfile for GTEx-Link.
+
 FROM python:3.12-slim AS builder
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-# Install system dependencies and uv
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Add uv to PATH
-ENV PATH="/root/.local/bin:$PATH"
-
-# Set work directory
-WORKDIR /app
-
-# Copy project files (README required by hatchling at build time)
-COPY pyproject.toml uv.lock README.md ./
-COPY gtex_link ./gtex_link
-
-# Install dependencies with uv and verify venv
-RUN uv sync --frozen \
-    && ls -la /app/.venv/bin/python \
-    && /app/.venv/bin/python --version
-
-# Production stage
-FROM python:3.12-slim AS production
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    GTEX_LINK_HOST=0.0.0.0 \
-    GTEX_LINK_PORT=8000 \
-    PATH="/app/.venv/bin:$PATH" \
-    UV_CACHE_DIR=/tmp/uv-cache \
-    UV_LINK_MODE=copy
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+    ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app user
-RUN groupadd -r gtex && useradd --no-log-init -r -g gtex gtex
+RUN python -m venv /opt/venv
+ENV VIRTUAL_ENV="/opt/venv" \
+    PATH="/opt/venv/bin:$PATH"
 
-# Set work directory
-WORKDIR /app
+WORKDIR /home/app/web
+COPY uv.lock pyproject.toml README.md ./
 
-# Copy virtual environment and code from builder
-COPY --from=builder /app/.venv .venv
-COPY --chown=gtex:gtex . .
+RUN pip install --upgrade pip uv && \
+    uv sync --frozen --no-dev --active --no-install-project
 
-# Ensure new entry points are executable and verify venv
-RUN chmod +x mcp_http_server.py mcp_server.py server.py \
-    && ls -la /app/.venv/bin/python \
-    && /app/.venv/bin/python --version
 
-# Switch to non-root user
-USER gtex
+FROM python:3.12-slim AS production
 
-# Healthcheck is defined per-service in compose, not here.
-# Why: the same image runs both the API (port 8000, /api/health/) and the MCP server
-# (port 8001, no plain HTTP probe possible). A single image-level HEALTHCHECK can only
-# match one of them, and Compose silently inherits the image probe when a service
-# doesn't define its own — see issues #1, #3.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH="/home/app/web" \
+    GTEX_LINK_HOST=0.0.0.0 \
+    GTEX_LINK_PORT=8000 \
+    TMPDIR=/tmp/gtex-link
 
-# Expose port
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+RUN groupadd --system app && \
+    useradd --system --gid app --home /home/app --create-home app && \
+    mkdir -p /tmp/gtex-link /var/cache/gtex-link && \
+    chown -R app:app /tmp/gtex-link /var/cache/gtex-link /home/app
+
+COPY --from=builder /opt/venv /opt/venv
+
+WORKDIR /home/app/web
+
+COPY --chown=app:app ./gtex_link ./gtex_link
+COPY --chown=app:app ./server.py ./mcp_server.py ./mcp_http_server.py ./pyproject.toml ./README.md ./
+COPY --chown=app:app ./docker/gunicorn_conf.py ./
+
+RUN /opt/venv/bin/pip install . --no-deps
+
+USER app
+
 EXPOSE 8000
 
-# Default command - HTTP server
-CMD ["/app/.venv/bin/python", "server.py"]
+CMD ["gtex-link", "server", "--host", "0.0.0.0", "--port", "8000"]

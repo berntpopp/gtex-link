@@ -5,8 +5,11 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      target: production
     container_name: gtex-link-api-npm
     # NO direct ports exposed - NPM handles all routing
+    expose:
+      - "8000"
     environment:
       - GTEX_LINK_HOST=0.0.0.0
       - GTEX_LINK_PORT=8000
@@ -21,8 +24,7 @@ services:
       - GTEX_LINK_CORS_ORIGINS=["https://gtex-link.example.com"]
       - GTEX_LINK_CORS_ALLOW_CREDENTIALS=true
     # env_file is specified via --env-file flag for consistency with phentrieve
-    # Use Python server.py for FastAPI only
-    command: ["python", "server.py"]
+    command: ["gunicorn", "-c", "gunicorn_conf.py", "gtex_link.app:app"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
       interval: 30s
@@ -30,6 +32,9 @@ services:
       retries: 5
       start_period: 60s
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp/gtex-link:rw,noexec,nosuid,size=64m,mode=1777
     networks:
       - gtex_link_internal_net
       - npm_proxy_network
@@ -39,6 +44,7 @@ services:
         limits:
           memory: ${GTEX_API_MEMORY_LIMIT:-512m}
           cpus: ${GTEX_API_CPU_LIMIT:-0.5}
+          pids: 256
         reservations:
           memory: 128m
           cpus: 0.25
@@ -52,13 +58,20 @@ services:
     # Security options
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    init: true
 
   gtex_link_mcp:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      target: production
     container_name: gtex-link-mcp-npm
     # NO direct ports exposed - NPM handles all routing
+    expose:
+      - "8001"
     environment:
       - GTEX_LINK_HOST=0.0.0.0
       - GTEX_LINK_MCP_PORT=8001
@@ -81,6 +94,9 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp/gtex-link:rw,noexec,nosuid,size=64m,mode=1777
     networks:
       - gtex_link_internal_net
       - npm_proxy_network
@@ -90,6 +106,7 @@ services:
         limits:
           memory: ${GTEX_MCP_MEMORY_LIMIT:-512m}
           cpus: ${GTEX_MCP_CPU_LIMIT:-0.5}
+          pids: 256
         reservations:
           memory: 128m
           cpus: 0.25
@@ -103,6 +120,10 @@ services:
     # Security options
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    init: true
 
 networks:
   gtex_link_internal_net:

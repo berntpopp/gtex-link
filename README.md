@@ -76,12 +76,20 @@ uv run gtex-link config
 ### Docker Usage
 
 ```bash
-# Production deployment
-docker-compose -f docker/docker-compose.yml up -d
+# Local REST API on non-standard host port 8020
+docker compose -f docker/docker-compose.yml up -d --build
+curl http://localhost:8020/api/health/
 
-# Development with hot reload
-docker-compose -f docker/docker-compose.dev.yml up
+# MCP HTTP endpoint on non-standard host port 8021
+docker compose -f docker/docker-compose.mcp.yml up -d --build
+
+# Development with hot reload on host port 8020
+docker compose -f docker/docker-compose.dev.yml up --build
 ```
+
+Docker publishes GTEx-Link on `8020` for REST and `8021` for MCP by default so
+it can run beside sibling projects that commonly use `8000` and `8001`.
+Override with `GTEX_LINK_HOST_PORT` and `GTEX_LINK_MCP_HOST_PORT`.
 
 ## API Endpoints
 

@@ -9,7 +9,7 @@ services:
       target: production
     container_name: gtex-link-mcp-http
     ports:
-      - "8001:8001"
+      - "${GTEX_LINK_MCP_HOST_PORT:-8021}:8001"
     environment:
       - GTEX_LINK_HOST=0.0.0.0
       - GTEX_LINK_MCP_PORT=8001
@@ -17,7 +17,7 @@ services:
       - GTEX_LINK_MCP_PATH=/mcp
       - GTEX_LINK_LOG_LEVEL=INFO
       - GTEX_LINK_LOG_FORMAT=json
-    command: ["/app/.venv/bin/python", "mcp_http_server.py"]
+    command: ["python", "mcp_http_server.py"]
     healthcheck:
       # MCP Streamable HTTP requires session-aware POSTs; GET /mcp returns 406 by spec.
       # Probe the TCP listener instead — confirms the server is bound and accepting.
@@ -29,6 +29,15 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp/gtex-link:rw,noexec,nosuid,size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    init: true
     networks:
       - gtex-mcp-network
 

@@ -1,139 +1,163 @@
-# GTEx-Link Docker Configurations
+# GTEx-Link Docker Deployment
 
-This directory contains multiple Docker Compose configurations for different deployment scenarios.
+Production-ready Docker setup for GTEx-Link with multi-stage builds, non-root
+runtime containers, and Compose overlays for local, production, MCP-only, and
+Nginx Proxy Manager deployments.
 
-## Available Configurations
-
-
-### 🌐 NPM Production
-**File**: `docker-compose.npm.yml`
-**Purpose**: Production deployment with Nginx Proxy Manager
-**Containers**: 2 separate containers (API + MCP)
-**Ports**: None (NPM handles all routing)
-**Features**: Dual-container architecture, NPM network integration, resource limits
-
-**Architecture**:
-- `gtex_link_api` (port 8000): FastAPI server for `/api/*` endpoints
-- `gtex_link_mcp` (port 8001): MCP HTTP server for `/mcp` endpoint
-
-**Prerequisites**:
-- Copy `.env.docker.example` to `.env.docker` and configure your domain
-- NPM network must exist (`npm_default`)
-- **Recommended**: Run `make setup` or `../setup_gtex_link.sh` for automated setup
+## Quick Start
 
 ```bash
-# Automated setup (recommended)
-../setup_gtex_link.sh
-
-# OR manual setup:
-cp ../.env.docker.example ../.env.docker
-# Edit .env.docker with your domain
-
-# Deploy both containers
-docker-compose -f docker-compose.npm.yml --env-file ../.env.docker up -d --build
-
-# Test (replace with your domain)
-curl https://gtex-link.example.com/api/health/
-curl https://gtex-link.example.com/mcp
+make docker-build
+make docker-up
+curl http://localhost:8020/api/health/
+make docker-down
 ```
 
-**NPM Configuration Required**:
+GTEx-Link intentionally publishes non-standard host ports for local development
+so it can run beside sibling projects with similar stacks:
 
-1. **Main Proxy Host**:
-   - Domain: `gtex-link.yourdomain.com`
-   - Forward to: `gtex_link_api:8000`
-   - SSL: Let's Encrypt with Force SSL
+- REST API: `8020:8000`
+- MCP HTTP: `8021:8001`
 
-2. **Custom Location** (Required for MCP):
-   - Location: `/mcp`
-   - Proxy Pass: `http://gtex_link_mcp:8001`
-
-   **⚠️ Without the `/mcp` custom location, MCP endpoints won't work!**
-
-### 🚀 Standalone Production
-**File**: `docker-compose.yml`
-**Purpose**: Direct production deployment
-**Ports**: 8000:8000
-**Features**: Health checks, JSON logging, isolated network
+Override them when needed:
 
 ```bash
-# Basic production deployment
-docker-compose up -d
-
-# Test
-curl http://localhost:8000/api/health/
+GTEX_LINK_HOST_PORT=8120 make docker-up
+GTEX_LINK_MCP_HOST_PORT=8121 docker compose -f docker/docker-compose.mcp.yml up -d
 ```
 
-### 📈 Enhanced Production
-**Files**: `docker-compose.yml` + `docker-compose.prod.yml`
-**Purpose**: Production with enhanced settings
-**Features**: Resource limits, log rotation, optimized caching
+Container-internal ports stay standard (`8000` for REST, `8001` for MCP), which
+keeps reverse-proxy and container-to-container routing predictable.
+
+## Compose Files
+
+- `docker-compose.yml` - base REST API service, published on host port 8020.
+- `docker-compose.dev.yml` - development service with bind mounts and reload.
+- `docker-compose.prod.yml` - production hardening overlay with no host ports.
+- `docker-compose.mcp.yml` - MCP HTTP-only service, published on host port 8021.
+- `docker-compose.npm.yml` - Nginx Proxy Manager deployment with separate API
+  and MCP containers and no host ports.
+
+Layer overlays explicitly:
 
 ```bash
-# Enhanced production deployment
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml config
 ```
 
-### 🔌 MCP-Only Server
-**File**: `docker-compose.mcp.yml`
-**Purpose**: Standalone MCP server
-**Ports**: 8001:8001
-**Features**: HTTP transport, MCP-only endpoint
+## Local Development
 
 ```bash
-# MCP-only server
-docker-compose -f docker-compose.mcp.yml up -d
-
-# Test MCP endpoint
-curl http://localhost:8001/mcp
+docker compose -f docker/docker-compose.dev.yml up --build
+curl http://localhost:8020/api/health/
 ```
 
-## Configuration Summary
+The development compose file mounts `gtex_link/`, tests, and entrypoint scripts
+into the container and starts the CLI server with reload enabled.
 
-| Configuration | Port | Use Case | Network | Features |
-|---------------|------|----------|---------|----------|
-| `npm.yml` | None | NPM Production | NPM shared | No ports, proxy ready |
-| `yml` | 8000 | Standalone Prod | Isolated | Basic production |
-| `yml` + `prod.yml` | 8000 | Enhanced Prod | Isolated | Resource limits, logging |
-| `mcp.yml` | 8001 | MCP Only | Isolated | MCP HTTP transport |
-
-## Quick Commands
+## Standalone REST API
 
 ```bash
-# NPM Production (recommended)
-docker-compose -f docker-compose.npm.yml --env-file ../.env.docker up -d --build
-
-# Standalone Production
-docker-compose up -d
-
-# MCP Only
-docker-compose -f docker-compose.mcp.yml up -d
-
-# Stop any configuration
-docker-compose -f [config-file] down
-
-# View logs
-docker-compose -f [config-file] logs -f
+docker compose -f docker/docker-compose.yml up -d --build
+curl http://localhost:8020/api/health/
+docker compose -f docker/docker-compose.yml logs -f
 ```
 
-## Environment Variables
-
-All configurations support environment variables. For NPM deployment, copy and configure:
+## Production Overlay
 
 ```bash
-cp ../.env.docker.example ../.env.docker
-# Edit .env.docker with your settings
+docker compose \
+  -f docker/docker-compose.yml \
+  -f docker/docker-compose.prod.yml \
+  up -d --build
 ```
 
-## Health Checks
+The production overlay follows the sibling repository pattern:
 
-All configurations include health check endpoints:
-- **API Health**: `/api/health/`
-- **MCP Health**: `/mcp` (for MCP-enabled configs)
+- no published host ports by default,
+- read-only root filesystem,
+- writable tmpfs for `/tmp/gtex-link`,
+- `no-new-privileges`,
+- Linux capabilities dropped,
+- PID limit and init process,
+- resource limits and JSON log rotation,
+- Gunicorn with Uvicorn workers for the REST API service.
+
+Publish a port for local production testing by using only `docker-compose.yml`,
+or by adding a local override file that publishes the desired host port.
+
+## MCP HTTP-Only
+
+```bash
+docker compose -f docker/docker-compose.mcp.yml up -d --build
+curl -v http://localhost:8021/mcp
+```
+
+The MCP streamable HTTP endpoint is session-aware, so simple `GET /mcp` probes
+can return protocol errors. Compose health checks probe the TCP listener instead.
+
+## Nginx Proxy Manager
+
+1. Copy and edit the Docker environment file:
+
+```bash
+cp .env.docker.example .env.docker
+```
+
+2. Ensure the external NPM network exists. The default is `npm_default`; change
+   `NPM_SHARED_NETWORK_NAME` in `.env.docker` if your deployment uses another
+   network.
+
+3. Start the API and MCP containers:
+
+```bash
+docker compose \
+  --env-file .env.docker \
+  -f docker/docker-compose.npm.yml \
+  up -d --build
+```
+
+4. In Nginx Proxy Manager:
+
+- Proxy `/api`, `/docs`, `/openapi.json`, `/redoc`, and `/metrics` to
+  `gtex-link-api-npm:8000`.
+- Proxy `/mcp` to `gtex-link-mcp-npm:8001`.
+- Enable Websockets Support, Block Common Exploits, and Force SSL after
+  certificate issuance.
+
+## Image Build Notes
+
+The Dockerfile uses a multi-stage `uv` build:
+
+- builder stage installs production dependencies into `/opt/venv`,
+- runtime stage copies only the virtual environment and required application
+  files,
+- runtime user is non-root (`app`),
+- package installs use the checked-in `uv.lock`.
+
+No secrets are copied into the image. Pass environment-specific settings through
+Compose `env_file` or environment variables at runtime.
 
 ## Troubleshooting
 
-- **Port conflicts**: Use different configurations or check `API_PORT_HOST` in `.env.docker`
-- **NPM network missing**: Ensure NPM is running or create network manually
-- **Build issues**: Run `docker-compose build --no-cache`
-- **Permission issues**: Check file permissions and Docker daemon access
+**Port conflicts**
+
+Set `GTEX_LINK_HOST_PORT` or `GTEX_LINK_MCP_HOST_PORT` to another free port.
+
+**NPM network missing**
+
+```bash
+docker network ls
+docker network create npm_default
+```
+
+**Build cache issues**
+
+```bash
+docker compose -f docker/docker-compose.yml build --no-cache
+```
+
+**Health checks**
+
+- REST API: `curl http://localhost:8020/api/health/`
+- MCP HTTP: TCP listener probe in Compose; use an MCP client for protocol-level
+  verification.
