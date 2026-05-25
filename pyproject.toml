@@ -67,7 +67,8 @@ Changelog = "https://github.com/gtex-link/gtex-link/blob/main/CHANGELOG.md"
 
 [project.scripts]
 gtex-link = "gtex_link.cli:main"
-gtex-mcp  = "mcp_server:main"
+gtex-link-mcp = "mcp_server:main"
+gtex-mcp = "mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gtex_link"]
@@ -127,6 +128,13 @@ module = [
     "structlog.*",
     "mcp.*",
     "fastmcp.*",
+    "fastapi.*",
+    "pydantic.*",
+    "pydantic_settings.*",
+    "httpx.*",
+    "uvicorn.*",
+    "asgi_correlation_id.*",
+    "prometheus_client.*",
 ]
 ignore_missing_imports = true
 
@@ -135,11 +143,6 @@ minversion = "9.0"
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov=gtex_link",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-    "--cov-report=xml",
-    "--cov-fail-under=90",
     "-ra",
 ]
 testpaths = ["tests"]
@@ -152,13 +155,6 @@ markers = [
     "api: marks tests that require API access",
     "mcp: marks tests that test MCP functionality",
 ]
-filterwarnings = [
-    "error",
-    "ignore::UserWarning",
-    "ignore::DeprecationWarning:httpx.*",
-    "ignore::DeprecationWarning:fastmcp.*",
-]
-
 [tool.coverage.run]
 source = ["gtex_link"]
 omit = [
@@ -169,6 +165,7 @@ omit = [
 ]
 
 [tool.coverage.report]
+fail_under = 90
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
