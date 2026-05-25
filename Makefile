@@ -1,5 +1,5 @@
 .PHONY: help install lock upgrade sync \
-        format format-check lint lint-ci lint-fix \
+        format format-check lint lint-ci lint-fix lint-loc \
         typecheck typecheck-fast typecheck-stop typecheck-fresh \
         test test-fast test-unit test-integration test-cov test-all \
         check ci-local precommit clean \
@@ -39,6 +39,9 @@ lint-ci: ## Lint Python code with GitHub-Actions output
 
 lint-fix: ## Lint and apply safe fixes
 	uv run ruff check gtex_link tests server.py mcp_server.py --fix
+
+lint-loc: ## Enforce per-file line budget (see AGENTS.md "File Size Discipline")
+	uv run python scripts/check_file_size.py
 
 typecheck: ## Type check package
 	uv run mypy gtex_link server.py mcp_server.py
@@ -91,7 +94,7 @@ test-all: test-cov ## Alias for full test run with coverage
 
 check: format lint ## Format and lint
 
-ci-local: format-check lint-ci typecheck-fast test-fast ## Fast local CI-equivalent checks
+ci-local: format-check lint-ci lint-loc typecheck-fast test-fast ## Fast local CI-equivalent checks
 
 precommit: ci-local ## Run checks expected before commit
 
