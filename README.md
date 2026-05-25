@@ -19,19 +19,16 @@ GTEx-Link is a production-ready server that provides both REST API and Model Con
 ### Installation
 
 ```bash
-# Install uv (if not already installed)
+# Install uv if needed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Clone and setup project
+# Clone and install
 git clone https://github.com/gtex-link/gtex-link.git
 cd gtex-link
-make dev-setup
+make install
 
-# Run development server
-make server
-
-# Run all quality checks
-make check-all
+# Run local CI-equivalent checks
+make ci-local
 ```
 
 ### Basic Usage
@@ -39,8 +36,8 @@ make check-all
 #### HTTP Server
 
 ```bash
-# Start development server
-make server
+# Start the development HTTP server
+make dev
 
 # Start HTTP server with custom options
 uv run gtex-link server --host 127.0.0.1 --port 8000
@@ -52,11 +49,15 @@ uv run gtex-link server --reload
 #### MCP Server
 
 ```bash
-# Start MCP server for Claude Desktop
-make mcp
+# Start MCP stdio server
+make mcp-serve
 
-# Or run directly with uv
-uv run gtex-mcp
+# Start hosted MCP endpoint with REST API
+make mcp-serve-http
+
+# Direct console scripts
+uv run gtex-link-mcp
+uv run gtex-mcp  # compatibility alias
 ```
 
 #### Test Connection
@@ -124,7 +125,7 @@ Add to your Claude Desktop configuration:
 {
   "mcpServers": {
     "gtex-link": {
-      "command": "gtex-mcp",
+      "command": "gtex-link-mcp",
       "env": {
         "GTEX_LINK_LOG_LEVEL": "INFO"
       }
@@ -132,6 +133,8 @@ Add to your Claude Desktop configuration:
   }
 }
 ```
+
+Existing configurations that use `gtex-mcp` continue to work as a compatibility alias.
 
 ## Configuration
 
@@ -166,38 +169,44 @@ GTEx-Link can be configured via environment variables or `.env` file:
 git clone https://github.com/gtex-link/gtex-link.git
 cd gtex-link
 
-# Install in development mode
-pip install -e ".[dev]"
+# Install project and development dependencies
+make install
 
 # Install pre-commit hooks
-pre-commit install
+uv run pre-commit install
 ```
 
 ### Run Tests
 
 ```bash
-# Run all tests
-pytest
+# Run tests
+make test
+
+# Run fast parallel tests
+make test-fast
 
 # Run with coverage
-pytest --cov=gtex_link --cov-report=html
+make test-cov
 
 # Run specific test categories
-pytest -m "not integration"  # Skip integration tests
-pytest -m "unit"             # Run only unit tests
+uv run pytest -m "not integration"
+uv run pytest -m "unit"
 ```
 
 ### Code Quality
 
 ```bash
 # Format code
-ruff format .
+make format
 
 # Lint code
-ruff check .
+make lint
 
 # Type check
-mypy gtex_link/
+make typecheck
+
+# Full local CI-equivalent check
+make ci-local
 ```
 
 ## Architecture
