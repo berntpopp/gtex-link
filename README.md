@@ -78,7 +78,7 @@ uv run gtex-link config
 ```bash
 # Local unified server (REST + MCP at /mcp) on non-standard host port 8020
 docker compose -f docker/docker-compose.yml up -d --build
-curl http://localhost:8020/api/health/
+curl http://localhost:8020/api/health
 curl http://localhost:8020/mcp
 
 # Development with hot reload on host port 8020
