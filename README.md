@@ -76,16 +76,16 @@ uv run gtex-link config
 ### Docker Usage
 
 ```bash
-# Local unified server (REST + MCP at /mcp) on non-standard host port 8020
+# Local unified server (REST + MCP at /mcp) on non-standard host port 8765
 docker compose -f docker/docker-compose.yml up -d --build
-curl http://localhost:8020/api/health
-curl http://localhost:8020/mcp
+curl http://localhost:8765/api/health
+curl http://localhost:8765/mcp
 
-# Development with hot reload on host port 8020
+# Development with hot reload on host port 8765
 docker compose -f docker/docker-compose.dev.yml up --build
 ```
 
-Docker publishes GTEx-Link on `8020` (mapped to container port `8000`) by
+Docker publishes GTEx-Link on `8765` (mapped to container port `8000`) by
 default so it can run beside sibling projects that commonly use `8000`/`8001`.
 The unified server exposes both REST and MCP (`/mcp`) on that single port.
 Override the host port with `GTEX_LINK_HOST_PORT`.
