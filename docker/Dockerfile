@@ -53,7 +53,7 @@ COPY --from=builder /opt/venv /opt/venv
 WORKDIR /home/app/web
 
 COPY --chown=app:app ./gtex_link ./gtex_link
-COPY --chown=app:app ./server.py ./mcp_server.py ./mcp_http_server.py ./pyproject.toml ./README.md ./
+COPY --chown=app:app ./server.py ./mcp_server.py ./pyproject.toml ./README.md ./
 COPY --chown=app:app ./docker/gunicorn_conf.py ./
 
 RUN /opt/venv/bin/pip install . --no-deps
@@ -62,4 +62,5 @@ USER app
 
 EXPOSE 8000
 
+# Unified transport: FastAPI on / and MCP on /mcp via a single port.
 CMD ["gtex-link", "server", "--host", "0.0.0.0", "--port", "8000"]

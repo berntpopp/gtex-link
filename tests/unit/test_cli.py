@@ -377,24 +377,20 @@ async def test_run_server_success():
     """Test successful server startup using functional approach."""
     with (
         patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.ServerManager") as mock_server_manager_class,
+        patch("gtex_link.cli.UnifiedServerManager") as mock_manager_class,
     ):
-        # Setup mocks
         from gtex_link.cli import run_server
 
         mock_logger = MagicMock()
         mock_configure.return_value = mock_logger
 
-        mock_server_manager = AsyncMock()
-        mock_server_manager_class.return_value = mock_server_manager
-        mock_server_manager.start_server = AsyncMock()
+        mock_manager = AsyncMock()
+        mock_manager_class.return_value = mock_manager
 
-        # Test run_server
         await run_server(host="127.0.0.1", port=8000, mode="http", reload=False)
 
-        mock_server_manager.start_server.assert_called_once_with(
-            host="127.0.0.1", port=8000, mode="http", reload=False
-        )
+        mock_manager.start_http_only_server.assert_called_once_with(host="127.0.0.1", port=8000)
+        mock_manager.shutdown.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -402,20 +398,19 @@ async def test_run_server_keyboard_interrupt():
     """Test server runner handles KeyboardInterrupt."""
     with (
         patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.ServerManager") as mock_server_manager_class,
+        patch("gtex_link.cli.UnifiedServerManager") as mock_manager_class,
     ):
         from gtex_link.cli import run_server
 
-        # Setup mocks
         mock_logger = MagicMock()
         mock_configure.return_value = mock_logger
 
-        mock_server_manager = AsyncMock()
-        mock_server_manager_class.return_value = mock_server_manager
-        mock_server_manager.start_server = AsyncMock(side_effect=KeyboardInterrupt())
+        mock_manager = AsyncMock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.start_unified_server = AsyncMock(side_effect=KeyboardInterrupt())
 
-        # Test run_server with KeyboardInterrupt
         await run_server()
+        mock_manager.shutdown.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -423,20 +418,18 @@ async def test_run_server_os_error():
     """Test server runner handles OSError."""
     with (
         patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.ServerManager") as mock_server_manager_class,
+        patch("gtex_link.cli.UnifiedServerManager") as mock_manager_class,
         pytest.raises(SystemExit) as exc_info,
     ):
         from gtex_link.cli import run_server
 
-        # Setup mocks
         mock_logger = MagicMock()
         mock_configure.return_value = mock_logger
 
-        mock_server_manager = AsyncMock()
-        mock_server_manager_class.return_value = mock_server_manager
-        mock_server_manager.start_server = AsyncMock(side_effect=OSError("Port already in use"))
+        mock_manager = AsyncMock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.start_unified_server = AsyncMock(side_effect=OSError("Port already in use"))
 
-        # Test run_server with OSError
         await run_server()
 
     assert exc_info.value.code == 1
@@ -447,20 +440,18 @@ async def test_run_server_runtime_error():
     """Test server runner handles RuntimeError."""
     with (
         patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.ServerManager") as mock_server_manager_class,
+        patch("gtex_link.cli.UnifiedServerManager") as mock_manager_class,
         pytest.raises(SystemExit) as exc_info,
     ):
         from gtex_link.cli import run_server
 
-        # Setup mocks
         mock_logger = MagicMock()
         mock_configure.return_value = mock_logger
 
-        mock_server_manager = AsyncMock()
-        mock_server_manager_class.return_value = mock_server_manager
-        mock_server_manager.start_server = AsyncMock(side_effect=RuntimeError("Server error"))
+        mock_manager = AsyncMock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.start_unified_server = AsyncMock(side_effect=RuntimeError("Server error"))
 
-        # Test run_server with RuntimeError
         await run_server()
 
     assert exc_info.value.code == 1

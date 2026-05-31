@@ -76,9 +76,9 @@ Useful focused commands:
 
 ## File Size Discipline
 
-Hard cap: **600 lines per Python module** in `gtex_link/`, `server.py`,
-`mcp_server.py`, and `mcp_http_server.py` while it remains. Enforced by
-`make lint-loc`, which is wired into `make ci-local`. Tests are exempt.
+Hard cap: **600 lines per Python module** in `gtex_link/`, `server.py`, and
+`mcp_server.py`. Enforced by `make lint-loc`, which is wired into
+`make ci-local`. Tests are exempt.
 
 Why: large modules concentrate complexity, slow static analysis, and make
 LLM-assisted changes riskier. When a file approaches 500 lines, plan a cohesive

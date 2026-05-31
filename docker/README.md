@@ -1,42 +1,40 @@
 # GTEx-Link Docker Deployment
 
 Production-ready Docker setup for GTEx-Link with multi-stage builds, non-root
-runtime containers, and Compose overlays for local, production, MCP-only, and
-Nginx Proxy Manager deployments.
+runtime containers, and Compose overlays for local, development, production, and
+Nginx Proxy Manager deployments. The server runs a single **unified** process
+that exposes the REST API on `/` and the MCP endpoint on `/mcp` over one port.
 
 ## Quick Start
 
 ```bash
 make docker-build
 make docker-up
-curl http://localhost:8020/api/health/
+curl http://localhost:8020/api/health
 make docker-down
 ```
 
-GTEx-Link intentionally publishes non-standard host ports for local development
+GTEx-Link intentionally publishes a non-standard host port for local development
 so it can run beside sibling projects with similar stacks:
 
-- REST API: `8020:8000`
-- MCP HTTP: `8021:8001`
+- Unified server (REST + MCP at `/mcp`): `8020:8000`
 
-Override them when needed:
+Override it when needed:
 
 ```bash
 GTEX_LINK_HOST_PORT=8120 make docker-up
-GTEX_LINK_MCP_HOST_PORT=8121 docker compose -f docker/docker-compose.mcp.yml up -d
 ```
 
-Container-internal ports stay standard (`8000` for REST, `8001` for MCP), which
-keeps reverse-proxy and container-to-container routing predictable.
+The container-internal port stays standard (`8000`), which keeps reverse-proxy
+and container-to-container routing predictable.
 
 ## Compose Files
 
-- `docker-compose.yml` - base REST API service, published on host port 8020.
+- `docker-compose.yml` - base unified service, published on host port 8020.
 - `docker-compose.dev.yml` - development service with bind mounts and reload.
 - `docker-compose.prod.yml` - production hardening overlay with no host ports.
-- `docker-compose.mcp.yml` - MCP HTTP-only service, published on host port 8021.
-- `docker-compose.npm.yml` - Nginx Proxy Manager deployment with separate API
-  and MCP containers and no host ports.
+- `docker-compose.npm.yml` - Nginx Proxy Manager deployment with a single
+  unified container and no host ports.
 
 Layer overlays explicitly:
 
@@ -48,17 +46,18 @@ docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml co
 
 ```bash
 docker compose -f docker/docker-compose.dev.yml up --build
-curl http://localhost:8020/api/health/
+curl http://localhost:8020/api/health
 ```
 
 The development compose file mounts `gtex_link/`, tests, and entrypoint scripts
 into the container and starts the CLI server with reload enabled.
 
-## Standalone REST API
+## Standalone Unified Server
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d --build
-curl http://localhost:8020/api/health/
+curl http://localhost:8020/api/health
+curl http://localhost:8020/mcp
 docker compose -f docker/docker-compose.yml logs -f
 ```
 
@@ -80,20 +79,15 @@ The production overlay follows the sibling repository pattern:
 - Linux capabilities dropped,
 - PID limit and init process,
 - resource limits and JSON log rotation,
-- Gunicorn with Uvicorn workers for the REST API service.
+- unified Uvicorn server serving REST and MCP on a single port.
 
 Publish a port for local production testing by using only `docker-compose.yml`,
 or by adding a local override file that publishes the desired host port.
 
-## MCP HTTP-Only
-
-```bash
-docker compose -f docker/docker-compose.mcp.yml up -d --build
-curl -v http://localhost:8021/mcp
-```
-
-The MCP streamable HTTP endpoint is session-aware, so simple `GET /mcp` probes
-can return protocol errors. Compose health checks probe the TCP listener instead.
+The MCP streamable HTTP endpoint at `/mcp` is session-aware, so simple
+`GET /mcp` probes can return protocol errors. The Compose health check probes
+`/api/health` over HTTP instead; use an MCP client for protocol-level
+verification.
 
 ## Nginx Proxy Manager
 
@@ -107,7 +101,7 @@ cp .env.docker.example .env.docker
    `NPM_SHARED_NETWORK_NAME` in `.env.docker` if your deployment uses another
    network.
 
-3. Start the API and MCP containers:
+3. Start the unified container:
 
 ```bash
 docker compose \
@@ -116,13 +110,9 @@ docker compose \
   up -d --build
 ```
 
-4. In Nginx Proxy Manager:
-
-- Proxy `/api`, `/docs`, `/openapi.json`, `/redoc`, and `/metrics` to
-  `gtex-link-api-npm:8000`.
-- Proxy `/mcp` to `gtex-link-mcp-npm:8001`.
-- Enable Websockets Support, Block Common Exploits, and Force SSL after
-  certificate issuance.
+4. In Nginx Proxy Manager, proxy `/api`, `/docs`, `/openapi.json`, `/redoc`,
+   `/metrics`, and `/mcp` to `gtex-link-npm:8000`. Enable Websockets Support,
+   Block Common Exploits, and Force SSL after certificate issuance.
 
 ## Image Build Notes
 
@@ -141,7 +131,7 @@ Compose `env_file` or environment variables at runtime.
 
 **Port conflicts**
 
-Set `GTEX_LINK_HOST_PORT` or `GTEX_LINK_MCP_HOST_PORT` to another free port.
+Set `GTEX_LINK_HOST_PORT` to another free port.
 
 **NPM network missing**
 
@@ -158,6 +148,6 @@ docker compose -f docker/docker-compose.yml build --no-cache
 
 **Health checks**
 
-- REST API: `curl http://localhost:8020/api/health/`
-- MCP HTTP: TCP listener probe in Compose; use an MCP client for protocol-level
+- Unified server: `curl http://localhost:8020/api/health`
+- MCP endpoint: session-aware at `/mcp`; use an MCP client for protocol-level
   verification.

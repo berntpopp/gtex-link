@@ -1,99 +1,141 @@
-"""Server management for GTEx-Link."""
+"""Unified server manager for HTTP, stdio, and unified (HTTP+MCP) transports."""
 
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from contextlib import AsyncExitStack, asynccontextmanager
+from typing import TYPE_CHECKING, Any
 
 import uvicorn
 
-from .app import app, mcp_app
-
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from fastapi import FastAPI
     from structlog.typing import FilteringBoundLogger
 
 
-class ServerManager:
-    """Server manager for HTTP and MCP modes."""
+class UnifiedServerManager:
+    """Orchestrate startup of GTEx-Link in any transport mode."""
 
     def __init__(self, logger: FilteringBoundLogger | None = None) -> None:
-        """Initialize server manager.
+        """Build a manager.
 
         Args:
-            logger: Optional logger instance
+            logger: Optional structlog logger for lifecycle events.
         """
         self.logger = logger
+        self._uvicorn_server: uvicorn.Server | None = None
 
-    async def start_server(
-        self,
-        host: str = "127.0.0.1",
-        port: int = 8000,
-        mode: str = "http",
-        reload: bool = False,
-    ) -> None:
-        """Start server in specified mode.
+    # --- Transports -----------------------------------------------------
 
-        Args:
-            host: Server host
-            port: Server port
-            mode: Server mode (http, stdio, streamable-http)
-            reload: Enable auto-reload
+    async def start_unified_server(self, host: str, port: int) -> None:
+        """Start FastAPI + MCP (streamable-http transport) on the same port.
+
+        fastmcp 3.x integration note:
+            The plan body referenced `mcp.mount_to_fastapi(app, path="/mcp")`,
+            which does not exist on fastmcp 3.x. The supported pattern is
+            `mcp.http_app(path=...)` which returns a `StarletteWithLifespan`
+            ASGI app. We mount that sub-app onto the FastAPI host and combine
+            both lifespans so the MCP session manager starts and stops
+            cleanly. See https://gofastmcp.com/integrations/fastapi for the
+            recommended integration approach.
         """
         if self.logger:
-            self.logger.info("Starting server", mode=mode, host=host, port=port)
-
-        if mode == "stdio":
-            # Set environment variable for MCP/STDIO mode
-            os.environ["TRANSPORT"] = "stdio"
-
-            # Start MCP server in stdio mode
-            if mcp_app is not None:
-                mcp_app.run()
-            else:
-                raise RuntimeError("MCP app not available - cannot start in stdio mode")
-            return
-
-        elif mode == "http":
-            # Start HTTP server only
-            config = uvicorn.Config(
-                app=app,
+            self.logger.info(
+                "Starting unified server",
                 host=host,
                 port=port,
-                reload=reload,
-                log_config=None,  # Use our custom logging
+                mcp_path="/mcp",
             )
-            server = uvicorn.Server(config)
-            await server.serve()
 
-        elif mode == "streamable-http":
-            # Start MCP server with Streamable HTTP transport
-            await self._start_streamable_http_mcp(host, port)
+        from gtex_link.app import app as fastapi_app
+        from gtex_link.config import settings
+        from gtex_link.mcp.facade import create_gtex_mcp
 
-        else:
-            msg = f"Unknown server mode: {mode}"
-            raise ValueError(msg)
+        mcp = create_gtex_mcp()
+        mcp_asgi = mcp.http_app(path=settings.mcp_path)
 
-    async def _start_streamable_http_mcp(self, host: str, port: int) -> None:
-        """Start MCP server with Streamable HTTP transport."""
-        if mcp_app is not None:
-            if self.logger:
-                self.logger.info(
-                    "Starting MCP server with Streamable HTTP transport",
-                    host=host,
-                    port=port,
-                    endpoint="/mcp",
-                )
+        # Compose the FastAPI lifespan with the MCP ASGI app's lifespan so
+        # the streamable-http session manager is initialised when uvicorn
+        # starts the combined app.
+        original_lifespan = fastapi_app.router.lifespan_context
 
-            try:
-                mcp_app.run(
-                    transport="streamable-http",
-                    host=host,
-                    port=port,
-                    path="/mcp",
-                )
-            except Exception as e:
-                if self.logger:
-                    self.logger.error("Failed to start MCP HTTP server", error=str(e))
-                raise RuntimeError(f"MCP HTTP server failed to start: {e}") from e
-        else:
-            raise RuntimeError("MCP app not available - cannot start in streamable-http mode")
+        @asynccontextmanager
+        async def combined_lifespan(app: FastAPI) -> AsyncIterator[None]:
+            async with AsyncExitStack() as stack:
+                await stack.enter_async_context(original_lifespan(app))
+                await stack.enter_async_context(mcp_asgi.router.lifespan_context(app))
+                yield
+
+        fastapi_app.router.lifespan_context = combined_lifespan
+        # Mount the MCP ASGI sub-app at the project root: the MCP path
+        # itself ("/mcp") is already baked into the StarletteWithLifespan
+        # routes returned by `http_app(path=...)`.
+        fastapi_app.mount("/", mcp_asgi)
+
+        config = uvicorn.Config(
+            app=fastapi_app,
+            host=host,
+            port=port,
+            log_config=None,
+            lifespan="on",
+        )
+        self._uvicorn_server = uvicorn.Server(config)
+        await self._uvicorn_server.serve()
+
+    async def start_http_only_server(self, host: str, port: int) -> None:
+        """Start FastAPI only (no MCP)."""
+        if self.logger:
+            self.logger.info("Starting HTTP-only server", host=host, port=port)
+        from gtex_link.app import app as fastapi_app
+
+        config = uvicorn.Config(
+            app=fastapi_app,
+            host=host,
+            port=port,
+            log_config=None,
+            lifespan="on",
+        )
+        self._uvicorn_server = uvicorn.Server(config)
+        await self._uvicorn_server.serve()
+
+    async def start_stdio_server(self) -> None:
+        """Start FastMCP stdio transport (for Claude Desktop)."""
+        self._configure_stdio_environment()
+        if self.logger:
+            self.logger.info("Starting stdio MCP server")
+        from gtex_link.mcp.facade import create_gtex_mcp
+
+        mcp = create_gtex_mcp()
+        # `show_banner=False` is critical: any non-JSON bytes on stdout
+        # would corrupt the JSON-RPC protocol stream.
+        await mcp.run_async(transport="stdio", show_banner=False)
+
+    # --- Lifecycle ------------------------------------------------------
+
+    async def shutdown(self) -> None:
+        """Gracefully stop any running server."""
+        if self._uvicorn_server is not None:
+            self._uvicorn_server.should_exit = True
+        if self.logger:
+            self.logger.info("Shutdown complete")
+
+    # --- Helpers --------------------------------------------------------
+
+    @staticmethod
+    def _configure_stdio_environment() -> None:
+        """Suppress non-JSON output that would corrupt stdio MCP framing."""
+        env_defaults: dict[str, Any] = {
+            "PYTHONUNBUFFERED": "1",
+            "GTEX_LINK_TRANSPORT": "stdio",
+            "FASTMCP_DISABLE_BANNER": "1",
+            "FASTMCP_NO_BANNER": "1",
+            "FASTMCP_QUIET": "1",
+            "NO_COLOR": "1",
+            "FORCE_COLOR": "0",
+            "TERM": "dumb",
+            "PYTHONWARNINGS": "ignore",
+        }
+        for key, value in env_defaults.items():
+            os.environ.setdefault(key, value)

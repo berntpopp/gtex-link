@@ -5,14 +5,13 @@ services:
   gtex-link:
     # Production-specific environment variables
     environment:
+      GTEX_LINK_TRANSPORT: unified
       GTEX_LINK_LOG_LEVEL: INFO
       GTEX_LINK_LOG_FORMAT: json
       GTEX_LINK_RELOAD: "false"
       GTEX_LINK_CACHE_SIZE: 2000
       GTEX_LINK_CACHE_TTL: 7200
       GTEX_LINK_API_RATE_LIMIT_PER_SECOND: 5.0
-      GUNICORN_WORKERS: 2
-      GUNICORN_LOG_LEVEL: warning
 
     # Remove development volume mounts
     volumes: []
@@ -30,8 +29,8 @@ services:
     pids_limit: 256
     init: true
 
-    # Use Gunicorn for the HTTP production service.
-    command: ["gunicorn", "-c", "gunicorn_conf.py", "gtex_link.app:app"]
+    # Unified server (FastAPI on / and MCP on /mcp via the same port).
+    command: ["gtex-link", "server", "--host", "0.0.0.0", "--port", "8000"]
 
     # Production resource limits
     deploy:
@@ -53,7 +52,7 @@ services:
 
     # Enhanced health check for production
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 20s
       timeout: 5s
       retries: 5

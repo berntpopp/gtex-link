@@ -101,14 +101,14 @@ precommit: ci-local ## Run checks expected before commit
 clean: ## Remove local caches and generated reports
 	rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage coverage.xml dist build
 
-dev: ## Start development HTTP server (legacy until Phase 3 unifies transport)
-	uv run python server.py
+dev: ## Start unified REST + MCP development server
+	uv run python server.py --transport unified --host 127.0.0.1 --port 8000
 
 mcp-serve: ## Start local stdio MCP server
 	uv run python mcp_server.py
 
-mcp-serve-http: ## Start unified server (placeholder until Phase 3)
-	uv run python server.py
+mcp-serve-http: ## Alias for `dev` (unified REST + MCP)
+	uv run python server.py --transport unified --host 127.0.0.1 --port 8000
 
 docker-build: ## Build Docker image
 	$(DOCKER_COMPOSE) -f docker/docker-compose.yml build

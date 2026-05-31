@@ -1,49 +1,41 @@
 #!/usr/bin/env python3
-"""MCP server entry point for GTEx-Link."""
+"""Stdio MCP entry point for Claude Desktop and similar clients.
 
+Preserves the `gtex-mcp` console script. For HTTP transport use
+`server.py --transport unified` or `--transport http`.
+"""
+
+from __future__ import annotations
+
+import asyncio
 import os
 import sys
 
 
 def main() -> None:
-    """Run the MCP server."""
+    """Run the GTEx-Link MCP server on the stdio transport."""
+    # Configure environment BEFORE importing anything that may print.
+    os.environ.setdefault("GTEX_LINK_TRANSPORT", "stdio")
+    os.environ.setdefault("PYTHONUNBUFFERED", "1")
+    os.environ.setdefault("FASTMCP_DISABLE_BANNER", "1")
+    os.environ.setdefault("FASTMCP_QUIET", "1")
+    os.environ.setdefault("NO_COLOR", "1")
+
     try:
-        # Set environment variables before importing
-        os.environ.setdefault("GTEX_LINK_TRANSPORT_MODE", "stdio")
+        from gtex_link.logging_config import configure_logging
+        from gtex_link.server_manager import UnifiedServerManager
+    except Exception as exc:
+        print(f"ERROR: gtex_link import failed: {exc}", file=sys.stderr)
+        sys.exit(1)
 
-        # Import here to avoid import issues
-        from gtex_link.app import mcp_app
-
-        if mcp_app is None:
-            print("ERROR: MCP app failed to initialize", file=sys.stderr)
-            sys.exit(1)
-
-        print("Starting GTEx-Link MCP server...", file=sys.stderr)
-
-        # Use the direct run method - FastMCP should handle this correctly
-        mcp_app.run()
-
-    except RuntimeError as e:
-        if "Already running asyncio in this thread" in str(e):
-            print(
-                "ERROR: Asyncio conflict detected. Trying alternative approach...", file=sys.stderr
-            )
-            # Try using anyio directly
-            try:
-                import anyio
-
-                assert mcp_app is not None  # None case sys.exit's above
-                anyio.run(mcp_app.run_async)
-            except Exception as e2:
-                print(f"Alternative approach failed: {e2}", file=sys.stderr)
-                sys.exit(1)
-        else:
-            raise
-    except Exception as e:
-        print(f"ERROR: Failed to start MCP server: {e}", file=sys.stderr)
-        import traceback
-
-        traceback.print_exc(file=sys.stderr)
+    logger = configure_logging()
+    manager = UnifiedServerManager(logger=logger)
+    try:
+        asyncio.run(manager.start_stdio_server())
+    except KeyboardInterrupt:
+        logger.info("MCP stdio server shutdown requested")
+    except Exception as exc:
+        logger.error("MCP stdio server error", error=str(exc))
         sys.exit(1)
 
 

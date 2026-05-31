@@ -10,7 +10,6 @@ CHECK_PATHS = [
     ROOT / "gtex_link",
     ROOT / "server.py",
     ROOT / "mcp_server.py",
-    ROOT / "mcp_http_server.py",
 ]
 ALLOWLIST_PATH = ROOT / ".loc-allowlist"
 

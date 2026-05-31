@@ -76,20 +76,19 @@ uv run gtex-link config
 ### Docker Usage
 
 ```bash
-# Local REST API on non-standard host port 8020
+# Local unified server (REST + MCP at /mcp) on non-standard host port 8020
 docker compose -f docker/docker-compose.yml up -d --build
-curl http://localhost:8020/api/health/
-
-# MCP HTTP endpoint on non-standard host port 8021
-docker compose -f docker/docker-compose.mcp.yml up -d --build
+curl http://localhost:8020/api/health
+curl http://localhost:8020/mcp
 
 # Development with hot reload on host port 8020
 docker compose -f docker/docker-compose.dev.yml up --build
 ```
 
-Docker publishes GTEx-Link on `8020` for REST and `8021` for MCP by default so
-it can run beside sibling projects that commonly use `8000` and `8001`.
-Override with `GTEX_LINK_HOST_PORT` and `GTEX_LINK_MCP_HOST_PORT`.
+Docker publishes GTEx-Link on `8020` (mapped to container port `8000`) by
+default so it can run beside sibling projects that commonly use `8000`/`8001`.
+The unified server exposes both REST and MCP (`/mcp`) on that single port.
+Override the host port with `GTEX_LINK_HOST_PORT`.
 
 ## API Endpoints
 
@@ -158,7 +157,9 @@ GTEx-Link can be configured via environment variables or `.env` file:
 ### Server Configuration
 - `GTEX_LINK_HOST` - Server host (default: 127.0.0.1)
 - `GTEX_LINK_PORT` - Server port (default: 8000)
-- `GTEX_LINK_TRANSPORT_MODE` - Transport mode: http/stdio (default: http)
+- `GTEX_LINK_TRANSPORT` - Transport mode: unified/http/stdio (default: unified)
+- `GTEX_LINK_MCP_PROFILE` - MCP tool profile: full/lite (default: full)
+- `GTEX_LINK_MCP_PATH` - MCP endpoint path (default: /mcp)
 
 ### Caching Configuration
 - `GTEX_LINK_CACHE_SIZE` - Maximum cached items (default: 1000)
