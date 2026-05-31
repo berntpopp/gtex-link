@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Chromosome(str, Enum):
+class Chromosome(StrEnum):
     """Chromosome enumeration."""
 
     CHR1 = "chr1"
@@ -35,7 +35,7 @@ class Chromosome(str, Enum):
     CHR_M = "chrM"
 
 
-class DatasetId(str, Enum):
+class DatasetId(StrEnum):
     """Dataset ID enumeration."""
 
     GTEX_V8 = "gtex_v8"
@@ -43,7 +43,7 @@ class DatasetId(str, Enum):
     GTEX_V10 = "gtex_v10"
 
 
-class GencodeVersion(str, Enum):
+class GencodeVersion(StrEnum):
     """Gencode version enumeration."""
 
     V19 = "v19"
@@ -52,7 +52,7 @@ class GencodeVersion(str, Enum):
     V43 = "v43"
 
 
-class GenomeBuild(str, Enum):
+class GenomeBuild(StrEnum):
     """Genome build enumeration."""
 
     GRCH37 = "GRCh37"
@@ -60,28 +60,28 @@ class GenomeBuild(str, Enum):
     GRCH38_HG38 = "GRCh38/hg38"  # GTEx API format
 
 
-class Strand(str, Enum):
+class Strand(StrEnum):
     """Strand enumeration."""
 
     POSITIVE = "+"
     NEGATIVE = "-"
 
 
-class Sex(str, Enum):
+class Sex(StrEnum):
     """Sex enumeration."""
 
     MALE = "Male"
     FEMALE = "Female"
 
 
-class DonorSex(str, Enum):
+class DonorSex(StrEnum):
     """Donor sex enumeration."""
 
     M = "M"
     F = "F"
 
 
-class TissueSiteDetailId(str, Enum):
+class TissueSiteDetailId(StrEnum):
     """Tissue site detail ID enumeration.
 
     Organized with most commonly used tissues first for better UX.
@@ -149,14 +149,14 @@ class TissueSiteDetailId(str, Enum):
     VAGINA = "Vagina"
 
 
-class SortDirection(str, Enum):
+class SortDirection(StrEnum):
     """Sort direction enumeration."""
 
     ASC = "asc"
     DESC = "desc"
 
 
-class SortBy(str, Enum):
+class SortBy(StrEnum):
     """General sort by enumeration."""
 
     GENE_SYMBOL = "geneSymbol"
@@ -165,7 +165,7 @@ class SortBy(str, Enum):
     END = "end"
 
 
-class VariantSortBy(str, Enum):
+class VariantSortBy(StrEnum):
     """Variant sort by enumeration."""
 
     CHROMOSOME = "chromosome"
@@ -175,7 +175,7 @@ class VariantSortBy(str, Enum):
     ALT = "alt"
 
 
-class MaterialType(str, Enum):
+class MaterialType(StrEnum):
     """Material type enumeration."""
 
     DNA = "DNA"
@@ -183,7 +183,7 @@ class MaterialType(str, Enum):
     PROTEIN = "Protein"
 
 
-class HardyScale(str, Enum):
+class HardyScale(StrEnum):
     """Hardy scale enumeration."""
 
     ZERO = "0"
@@ -193,7 +193,7 @@ class HardyScale(str, Enum):
     FOUR = "4"
 
 
-class DataType(str, Enum):
+class DataType(StrEnum):
     """Data type enumeration."""
 
     RNA_SEQ = "RNA-seq"

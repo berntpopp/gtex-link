@@ -61,7 +61,7 @@ class TestServerManager:
             manager = ServerManager(logger=mock_logger)
 
             # Mock MCP app run method
-            mock_mcp_app.run = AsyncMock()
+            mock_mcp_app.run = MagicMock()
 
             await manager.start_server(host="127.0.0.1", port=8000, mode="stdio", reload=True)
 
@@ -161,7 +161,7 @@ class TestServerManager:
             # Test stdio mode
             mock_config.reset_mock()
             with patch("gtex_link.server_manager.mcp_app") as mock_mcp_app:
-                mock_mcp_app.run = AsyncMock()
+                mock_mcp_app.run = MagicMock()
                 await manager.start_server(mode="stdio")
                 mock_mcp_app.run.assert_called_once()
 
