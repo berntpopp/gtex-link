@@ -10,14 +10,14 @@ that exposes the REST API on `/` and the MCP endpoint on `/mcp` over one port.
 ```bash
 make docker-build
 make docker-up
-curl http://localhost:8020/api/health
+curl http://localhost:8765/api/health
 make docker-down
 ```
 
 GTEx-Link intentionally publishes a non-standard host port for local development
 so it can run beside sibling projects with similar stacks:
 
-- Unified server (REST + MCP at `/mcp`): `8020:8000`
+- Unified server (REST + MCP at `/mcp`): `8765:8000`
 
 Override it when needed:
 
@@ -30,7 +30,7 @@ and container-to-container routing predictable.
 
 ## Compose Files
 
-- `docker-compose.yml` - base unified service, published on host port 8020.
+- `docker-compose.yml` - base unified service, published on host port 8765.
 - `docker-compose.dev.yml` - development service with bind mounts and reload.
 - `docker-compose.prod.yml` - production hardening overlay with no host ports.
 - `docker-compose.npm.yml` - Nginx Proxy Manager deployment with a single
@@ -46,7 +46,7 @@ docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml co
 
 ```bash
 docker compose -f docker/docker-compose.dev.yml up --build
-curl http://localhost:8020/api/health
+curl http://localhost:8765/api/health
 ```
 
 The development compose file mounts `gtex_link/`, tests, and entrypoint scripts
@@ -56,8 +56,8 @@ into the container and starts the CLI server with reload enabled.
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d --build
-curl http://localhost:8020/api/health
-curl http://localhost:8020/mcp
+curl http://localhost:8765/api/health
+curl http://localhost:8765/mcp
 docker compose -f docker/docker-compose.yml logs -f
 ```
 
@@ -148,6 +148,6 @@ docker compose -f docker/docker-compose.yml build --no-cache
 
 **Health checks**
 
-- Unified server: `curl http://localhost:8020/api/health`
+- Unified server: `curl http://localhost:8765/api/health`
 - MCP endpoint: session-aware at `/mcp`; use an MCP client for protocol-level
   verification.
