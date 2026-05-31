@@ -159,6 +159,8 @@ class BaseResponse(BaseModel):
         ref_template: str = "#/$defs/{model}",
         schema_generator: type[GenerateJsonSchema] = MCPCompatibleJsonSchema,
         mode: Literal["validation", "serialization"] = "validation",
+        *,
+        union_format: Literal["any_of", "primitive_type_array"] = "any_of",
     ) -> dict[str, Any]:
         """Generate JSON schema using MCP-compatible generator by default."""
         return super().model_json_schema(
@@ -166,6 +168,7 @@ class BaseResponse(BaseModel):
             ref_template=ref_template,
             schema_generator=schema_generator,
             mode=mode,
+            union_format=union_format,
         )
 
 

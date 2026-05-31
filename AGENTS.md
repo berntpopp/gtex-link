@@ -49,6 +49,7 @@ Useful focused commands:
 - `make format`
 - `make lint`
 - `make lint-fix`
+- `make lint-loc`
 - `make typecheck`
 - `make typecheck-fast`
 - `make test`
@@ -73,12 +74,30 @@ Useful focused commands:
   covered by unit tests.
 - Use `respx` to mock outbound httpx calls in tests.
 
+## File Size Discipline
+
+Hard cap: **600 lines per Python module** in `gtex_link/`, `server.py`, and
+`mcp_server.py`. Enforced by `make lint-loc`, which is wired into
+`make ci-local`. Tests are exempt.
+
+Why: large modules concentrate complexity, slow static analysis, and make
+LLM-assisted changes riskier. When a file approaches 500 lines, plan a cohesive
+split before adding more behavior.
+
+How:
+
+- New files MUST stay under 600 lines.
+- No current source file needs an allowlist.
+- If a future file must be grandfathered, add `.loc-allowlist` with
+  `<repo-relative path>:<ceiling LOC>` and document the split plan.
+- Prefer cohesive splits by responsibility, not random partitioning.
+
 ## Testing Notes
 
 - `make test` is the fast default.
 - `make test-fast` runs in parallel via pytest-xdist.
 - `make test-cov` runs coverage; gate is 90%.
-- `make ci-local` runs formatting, linting, type checking, and tests.
+- `make ci-local` runs formatting, linting, file-size checks, type checking, and tests.
 - Treat failing checks as real issues unless you have clear evidence otherwise.
 
 ## GTEx Domain Notes

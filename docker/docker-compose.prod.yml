@@ -5,6 +5,7 @@ services:
   gtex-link:
     # Production-specific environment variables
     environment:
+      GTEX_LINK_TRANSPORT: unified
       GTEX_LINK_LOG_LEVEL: INFO
       GTEX_LINK_LOG_FORMAT: json
       GTEX_LINK_RELOAD: "false"
@@ -14,8 +15,21 @@ services:
 
     # Remove development volume mounts
     volumes: []
+    ports: !reset []
 
-    # Use the production command
+    read_only: true
+    tmpfs:
+      - /tmp/gtex-link:rw,noexec,nosuid,size=64m,mode=1777
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    pids_limit: 256
+    init: true
+
+    # Unified server (FastAPI on / and MCP on /mcp via the same port).
     command: ["gtex-link", "server", "--host", "0.0.0.0", "--port", "8000"]
 
     # Production resource limits
@@ -24,13 +38,14 @@ services:
         limits:
           memory: 1G
           cpus: '1.0'
+          pids: 256
         reservations:
           memory: 512M
           cpus: '0.5'
 
       # Production restart policy
       restart_policy:
-        condition: any
+        condition: on-failure
         delay: 5s
         max_attempts: 3
         window: 120s

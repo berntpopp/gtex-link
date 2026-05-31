@@ -8,7 +8,7 @@ services:
       target: production
     container_name: gtex-link-api-dev
     ports:
-      - "${API_PORT_HOST:-8002}:8000"  # Use 8002 to avoid conflicts with phentrieve (8001)
+      - "${GTEX_LINK_HOST_PORT:-8020}:8000"
     environment:
       - GTEX_LINK_HOST=0.0.0.0
       - GTEX_LINK_PORT=8000
@@ -22,11 +22,15 @@ services:
       - GTEX_LINK_CORS_ALLOW_CREDENTIALS=true
     volumes:
       # Mount source code for development (read-write for hot reload)
-      - ../gtex_link:/app/gtex_link
-      - ../tests:/app/tests
-      - ../server.py:/app/server.py
-      - ../mcp_server.py:/app/mcp_server.py
-    command: ["/app/.venv/bin/python", "server.py"]
+      - ../gtex_link:/home/app/web/gtex_link
+      - ../tests:/home/app/web/tests
+      - ../server.py:/home/app/web/server.py:ro
+      - ../mcp_server.py:/home/app/web/mcp_server.py:ro
+      - ../pyproject.toml:/home/app/web/pyproject.toml:ro
+      - ../README.md:/home/app/web/README.md:ro
+    command: ["gtex-link", "server", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    user: root
+    working_dir: /home/app/web
     restart: unless-stopped
     networks:
       - gtex_link_dev_network
