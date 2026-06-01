@@ -20,7 +20,8 @@ All claims below were independently verified in this design pass:
   alphabetical all-zeros `fetch`, silent empty on symbol input, `numSamples:
   null`).
 - **Root-caused in source** at file:line (see Current Baseline).
-- **Best practices** confirmed against the MCP spec (2025-06-18), Anthropic
+- **Best practices** confirmed against the MCP spec (2025-11-25, current
+  revision), Anthropic
   "Writing effective tools for AI agents", the OpenAI deep-research `search`/
   `fetch` contract, and Google Gemini function-calling guidance.
 - **Sibling conventions** extracted from `../gnomad-link` (v2.0.0, reference),
@@ -106,10 +107,11 @@ and a citation surface.
 
 Adopt the **gnomad-link "Family A" base plus two autopvs1-link refinements**:
 
-- Tools return a plain `dict[str, Any]` (never `json.dumps`). FastMCP serializes
-  once and emits `structuredContent`. (MCP spec: lead with `structuredContent` +
-  `outputSchema`; also keep a serialized copy in a text block for legacy
-  clients.)
+- Tools return a typed Pydantic response model (never `json.dumps`); FastMCP
+  serializes once, emits `structuredContent`, and derives `output_schema`. (MCP
+  spec: lead with `structuredContent` + `outputSchema`; also keep a serialized
+  copy in a text block for legacy/ChatGPT clients.) See MCP Semantics for how
+  envelope injection and schema relaxation reconcile.
 - A shared `run_mcp_tool(name, call, context=...)` boundary injects
   `success`/`_meta`, classifies exceptions into the error taxonomy, and attaches
   `next_commands`. Mirrors `../gnomad-link/gnomad_link/mcp/errors.py:469`.
@@ -126,6 +128,54 @@ New `mcp/` modules to add: `envelope.py` (or `run_mcp_tool` in `errors.py`),
 `annotations.py`, `next_commands.py`, `headline.py`, `metadata.py` (capabilities
 tool), and an expanded `resources.py`. All cohesive and well under the 600-line
 cap.
+
+## MCP Semantics (explicit decisions)
+
+These resolve ambiguities raised in review; they bind the executor.
+
+- **Typed outputs, not bare dicts.** Each tool returns a Pydantic response model
+  (e.g. `MedianExpressionResult`) - the single source of truth for both the
+  serialized payload and the `output_schema`. `run_mcp_tool` `model_dump`s it and
+  injects envelope fields (`success`, `headline`, `_meta`), so the published
+  `output_schema` is the model's schema **relaxed** to permit those injected keys
+  (mirror `../gnomad-link/.../mcp/schema_relax.py`). This reconciles "no
+  `json.dumps`", real `structuredContent`, and the MCP rule that structured
+  results MUST conform to a provided `output_schema`. The hand-built dicts in
+  "Response Shape" illustrate those models' serialization, not raw dict returns.
+- **Error transport: `success:false` in `structuredContent`, `isError` left
+  false.** Following the gnomad-link reference, `run_mcp_tool` returns a normal
+  result whose structured payload carries `{success:false, error_code, ...}`; the
+  serialized text copy ensures the error still reaches the model for
+  self-correction. We deliberately do NOT raise to force protocol `isError:true`,
+  because FastMCP drops `structuredContent` on a raised error. (autopvs1-link
+  takes the opposite tradeoff - `isError:true` via a raised envelope without
+  `structuredContent`; we prefer preserving the structured error.) Document this
+  convention in capabilities so strict MCP clients agree on what "error" means.
+- **Two distinct `_meta`.** Our `_meta` (`next_commands`,
+  `unsafe_for_clinical_use`, `gtex_release`) is an **application field inside
+  `structuredContent`**, matching gnomad-link - NOT the MCP protocol-level result
+  `_meta`. If we ever attach protocol-level `_meta`, keys must be reverse-DNS
+  namespaced and must avoid the reserved `modelcontextprotocol.io/` prefix.
+- **Tool names stay bare** (`search`, `fetch`, `get_median_expression_levels`,
+  ...). `search`/`fetch` MUST be bare to satisfy the OpenAI deep-research
+  contract; client-side server prefixing (`mcp__gtex-link__...`) already
+  disambiguates. This matches the gnomad-link reference, which is also unprefixed
+  (the family is mixed: pubtator-link/hnf1b prefix, gnomad-link/gtex-link do not).
+- **`fetch.text` is ChatGPT's only channel.** OpenAI deep-research reads `text` +
+  `id/title/url/metadata`, not `structuredContent`. Un-double-encoding must keep
+  `text` rich and magnitude-sorted (serves ChatGPT); `structuredContent`
+  additionally serves Claude/MCP-aware clients.
+- **Result pagination is page-based, and that is fine.** MCP's opaque
+  `cursor`/`nextCursor` is a utility for list operations (`tools/list`, ...), not
+  a requirement for tool-result payloads. We keep `page`/`page_size`; the binding
+  correctness rule is *never split one gene's tissues across a page* (PR3).
+- **Protocol version.** Target MCP revision **2025-11-25**; capabilities reports
+  `mcp_protocol_version: "2025-11-25"`. Nothing we rely on
+  (`structuredContent`/`outputSchema`/annotations/result shape) changed from
+  2025-06-18. Forward option, NOT committed: task-augmented execution for the
+  opt-in `include_spread` / high-volume `get_individual_expression_data` paths if
+  the client advertises support - evaluate during PR2, do not build
+  speculatively.
 
 ## Response Shape (target)
 
@@ -177,17 +227,31 @@ Each phase is one independently shippable PR, gated by `make ci-local`. Skills
 Goal: the advertised `search` -> `fetch` research path stops misleading agents,
 and no tool returns a silent false negative.
 
-- Introduce `run_mcp_tool` + envelope infra; convert every tool to return
-  `dict[str, Any]` (drop all `json.dumps`). Add `structuredContent` via FastMCP;
-  keep a serialized text copy for legacy clients.
+- Introduce `run_mcp_tool` + envelope infra; convert every tool to return a
+  **typed Pydantic response model** (drop all `json.dumps`; see MCP Semantics).
+  FastMCP emits `structuredContent` + a derived `output_schema`; keep a
+  serialized text copy for legacy/ChatGPT clients.
+- Ship a **forward-compatible minimal error envelope** now (`success:false`,
+  `error_code`, `message`) so PR2's richer taxonomy (`retryable`,
+  `recovery_action`, `field_errors`) extends it without changing the shape.
 - `fetch`: sort tissues by descending median; show top N (default ~10) plus
   "...N more at <=X TPM"; never alphabetical. Accept a bare GENCODE id as an
   alias for `gene:<id>`.
-- `search`: port `../genereviews-link` `recall_terms` tokenizer (3+ char tokens,
-  stop-words removed); match tokens against gene symbol + description; union and
-  rank by `match_quality` (`exact_symbol` > `exact_ensembl_id` > `prefix` >
-  `substring`, per `../gnomad-link/.../tools/search.py`). Stop swallowing errors
-  to empty; return a structured error instead.
+- `search` (natural language, identifier-recall only): the GTEx `geneSearch`
+  endpoint matches **only** a `gene_id` (symbol / GENCODE / Ensembl) - there is
+  no description or free-text search upstream, and we build no local corpus
+  (Non-Goals). So recall is identifier-based: port `../genereviews-link`
+  `recall_terms` tokenizer (3+ char tokens, stop-words removed), drop tokens that
+  cannot be gene identifiers, **bound to K candidate tokens** (each is one
+  upstream call; respect the 5 req/s token-bucket - K small, e.g. <=5), call
+  `geneSearch` per token, union + dedup, and rank by identifier `match_quality`
+  (`exact_symbol` > `exact_ensembl_id` > `prefix`/`substring`, per
+  `../gnomad-link/.../tools/search.py`). The returned `Gene.description` is used
+  only as a secondary tie-break **rank** signal, never for recall. Stop
+  swallowing errors to `[]`; on zero resolution return a structured
+  `no_results`/clarification envelope (never a silent empty). For the worked
+  example, `umod` resolves to UMOD; `kidney`/`expression` resolve to nothing -
+  the correct result is still UMOD.
 - `get_median_expression_levels` / `get_individual_expression_data`: auto-resolve
   gene symbols to GENCODE IDs (reuse the `get_gene_information` resolution path);
   if unresolved, return `invalid_input` with the offending token - never a silent
@@ -204,7 +268,11 @@ Goal: every median carries the sample count behind it; failures are structured.
   dataset, build a `{tissueSiteDetailId: rnaSeqSampleSummary.totalCount}` map,
   cache it (existing `get_tissue_site_details` at `client.py:462` + 1h
   `CacheConfig`). Populate `num_samples` at serialization. Zero per-query round
-  trips. Verified gene-independent: `totalCount` == `len(geneExpression.data)`.
+  trips. Semantics: `n` is the tissue's RNA-seq **sample denominator**
+  (gene-independent - the sample set GTEx pooled to compute the median), sourced
+  authoritatively from `rnaSeqSampleSummary.totalCount`. `include_spread`'s
+  `len(data)` is an **expected cross-check**, not a strict invariant; treat any
+  per-gene mismatch as quantification missingness, not a bug.
 - Opt-in `include_spread` (default `false`): when true, pull
   `expression/geneExpression` per-sample arrays and derive `min/max/q1/median/q3/
   iqr`; use `len(data)` as an `n` cross-check. Off by default to protect latency;
@@ -305,6 +373,16 @@ entries are anticipated.
 - Use `respx` to mock outbound httpx calls (including the `tissueSiteDetail` and
   `geneExpression` enrichment calls).
 - Maintain the 90% coverage gate (`make test-cov`).
+- **Checked-in eval artifact** (Anthropic's "build evaluations"): this spec was
+  born from an agentic eval, so codify it. Add a smoke/eval script under `tests/`
+  (e.g. `tests/eval/test_mcp_surface_eval.py`) that runs the PKD1/UMOD task and
+  the reviewer's 17-call matrix against the in-process MCP, asserting correctness
+  (NL `search` returns UMOD; `fetch`'s top tissue is Kidney_Medulla, not a
+  0.00-TPM alphabetical head; symbol input never silent-empties; median rows
+  carry `n`; `_meta.next_commands` is present and directly callable) and token/
+  byte budgets (compact payload size; payload is structured, not a stringified
+  blob). This is the durable guardrail against regressing toward 5/10 and makes
+  the dimension scores repeatable.
 
 ## Verification
 
@@ -327,8 +405,11 @@ the exact command and failure.
 
 ## References
 
-- MCP spec 2025-06-18: Tools (`structuredContent`/`outputSchema`), Pagination
-  (opaque `cursor`/`nextCursor`), `_meta` (vendor-prefixed), ToolAnnotations.
+- MCP spec 2025-11-25 (current): Tools (`structuredContent`/`outputSchema`),
+  ToolAnnotations, protocol-level `_meta` (reverse-DNS namespacing; reserved
+  `modelcontextprotocol.io/`). Opaque `cursor`/`nextCursor` pagination is a
+  list-operation utility, NOT required for tool-result payloads - we use
+  page-based result pagination (see MCP Semantics).
 - Anthropic, "Writing effective tools for AI agents" (response_format concise
   default ~1/3 tokens; high-signal fields; consolidate calls; default
   truncation with explicit signaling).
