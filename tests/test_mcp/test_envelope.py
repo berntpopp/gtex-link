@@ -90,3 +90,12 @@ async def test_pydantic_error_lists_field_errors() -> None:
     assert result["error_code"] == "invalid_input"
     assert isinstance(result["field_errors"], list)
     assert result["field_errors"][0]["field"]
+
+
+@pytest.mark.asyncio
+async def test_success_meta_includes_recommended_citation() -> None:
+    async def call() -> dict[str, object]:
+        return {"data": []}
+
+    result = await run_mcp_tool("demo", call)
+    assert "GTEx Consortium" in result["_meta"]["recommended_citation"]

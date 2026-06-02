@@ -23,13 +23,14 @@ from gtex_link.exceptions import (
     ServiceUnavailableError,
     ValidationError,
 )
-from gtex_link.mcp.resources import GTEX_DATA_RELEASE
+from gtex_link.mcp.resources import GTEX_DATA_RELEASE, RECOMMENDED_CITATION
 
 logger = logging.getLogger(__name__)
 
 _BASE_META: dict[str, Any] = {
     "unsafe_for_clinical_use": True,
     "gtex_release": GTEX_DATA_RELEASE,
+    "recommended_citation": RECOMMENDED_CITATION,
 }
 
 
