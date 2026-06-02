@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from gtex_link.mcp.errors import map_to_mcp_error_message
+from gtex_link.mcp.envelope import McpErrorContext, run_mcp_tool
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.service_adapters import get_gtex_service
 from gtex_link.models import GeneRequest, TranscriptRequest
@@ -33,9 +32,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             query: str,
             page: int = 0,
             page_size: int = 20,
-        ) -> str:
-            success = False
-            try:
+        ) -> dict[str, Any]:
+            async def call() -> dict[str, Any]:
                 service = get_gtex_service()
                 result = await service.search_genes(
                     query=query,
@@ -44,10 +42,15 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     page=page,
                     page_size=page_size,
                 )
-                success = True
-                return json.dumps(result.model_dump(by_alias=True))
-            except Exception as exc:
-                return json.dumps({"error": map_to_mcp_error_message(exc)})
+                return result.model_dump(by_alias=True)
+
+            success = False
+            try:
+                payload = await run_mcp_tool(
+                    "search_gtex_genes", call, context=McpErrorContext("search_gtex_genes")
+                )
+                success = payload.get("success", False)
+                return payload
             finally:
                 record_mcp_tool_call(tool="search_gtex_genes", success=success)
 
@@ -66,9 +69,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             gene_id: list[str],
             gencode_version: str | None = None,
             genome_build: str | None = None,
-        ) -> str:
-            success = False
-            try:
+        ) -> dict[str, Any]:
+            async def call() -> dict[str, Any]:
                 service = get_gtex_service()
                 payload: dict[str, object] = {
                     "geneId": gene_id,
@@ -81,10 +83,15 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     payload["genomeBuild"] = genome_build
                 request = GeneRequest.model_validate(payload)
                 result = await service.get_genes(request)
-                success = True
-                return json.dumps(result.model_dump(by_alias=True))
-            except Exception as exc:
-                return json.dumps({"error": map_to_mcp_error_message(exc)})
+                return result.model_dump(by_alias=True)
+
+            success = False
+            try:
+                payload = await run_mcp_tool(
+                    "get_gene_information", call, context=McpErrorContext("get_gene_information")
+                )
+                success = payload.get("success", False)
+                return payload
             finally:
                 record_mcp_tool_call(tool="get_gene_information", success=success)
 
@@ -105,9 +112,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             genome_build: str | None = None,
             page: int = 0,
             page_size: int = 250,
-        ) -> str:
-            success = False
-            try:
+        ) -> dict[str, Any]:
+            async def call() -> dict[str, Any]:
                 service = get_gtex_service()
                 payload: dict[str, object] = {
                     "gencodeId": gencode_id,
@@ -120,9 +126,16 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     payload["genomeBuild"] = genome_build
                 request = TranscriptRequest.model_validate(payload)
                 result = await service.get_transcripts(request)
-                success = True
-                return json.dumps(result.model_dump(by_alias=True))
-            except Exception as exc:
-                return json.dumps({"error": map_to_mcp_error_message(exc)})
+                return result.model_dump(by_alias=True)
+
+            success = False
+            try:
+                payload = await run_mcp_tool(
+                    "get_transcript_information",
+                    call,
+                    context=McpErrorContext("get_transcript_information"),
+                )
+                success = payload.get("success", False)
+                return payload
             finally:
                 record_mcp_tool_call(tool="get_transcript_information", success=success)

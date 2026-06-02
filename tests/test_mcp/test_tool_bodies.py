@@ -107,7 +107,27 @@ async def test_search_gtex_genes_error_path_returns_friendly_message() -> None:
     with patch_service(mock_service):
         payload = await _call_tool("search_gtex_genes", {"query": "BRCA1"})
 
-    assert "rate limit" in payload["error"].lower()
+    assert payload["success"] is False
+    assert payload["error_code"] == "rate_limited"
+    assert "rate limit" in payload["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_search_gtex_genes_returns_structured_not_double_encoded() -> None:
+    mock_service = AsyncMock()
+    mock_service.search_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[_brca1_gene()], pagingInfo=_paging(1))
+    )
+
+    with patch_service(mock_service):
+        mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
+        result = await mcp.call_tool("search_gtex_genes", {"query": "BRCA1"})
+
+    # structured_content is a real object, not a JSON string in a string
+    assert result.structured_content is not None
+    assert result.structured_content["success"] is True
+    assert result.structured_content["data"][0]["geneSymbol"] == "BRCA1"
+    assert result.structured_content["_meta"]["gtex_release"] == "gtex_v8"
 
 
 @pytest.mark.asyncio
