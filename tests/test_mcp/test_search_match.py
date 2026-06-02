@@ -22,7 +22,10 @@ def test_recall_terms_dedupes_preserving_order() -> None:
 
 def test_classify_match_ranks_exact_symbol_first() -> None:
     assert classify_match("umod", symbol="UMOD", gencode_id="ENSG00000169344.15") == "exact_symbol"
-    assert classify_match("ensg00000169344", symbol="UMOD", gencode_id="ENSG00000169344.15") == "exact_ensembl_id"
+    assert (
+        classify_match("ensg00000169344", symbol="UMOD", gencode_id="ENSG00000169344.15")
+        == "exact_ensembl_id"
+    )
     assert classify_match("umo", symbol="UMOD", gencode_id="ENSG00000169344.15") == "prefix"
     assert classify_match("mod", symbol="UMOD", gencode_id="ENSG00000169344.15") == "substring"
 
@@ -30,11 +33,21 @@ def test_classify_match_ranks_exact_symbol_first() -> None:
 def _gene(symbol: str, gencode: str) -> Gene:
     return Gene.model_validate(
         {
-            "chromosome": "chr16", "dataSource": "GENCODE", "description": "x", "end": 2,
-            "entrezGeneId": 1, "gencodeId": gencode, "gencodeVersion": "v26",
-            "geneStatus": "KNOWN", "geneSymbol": symbol, "geneSymbolUpper": symbol.upper(),
-            "geneType": "protein_coding", "genomeBuild": "GRCh38", "start": 1,
-            "strand": "-", "tss": 2,
+            "chromosome": "chr16",
+            "dataSource": "GENCODE",
+            "description": "x",
+            "end": 2,
+            "entrezGeneId": 1,
+            "gencodeId": gencode,
+            "gencodeVersion": "v26",
+            "geneStatus": "KNOWN",
+            "geneSymbol": symbol,
+            "geneSymbolUpper": symbol.upper(),
+            "geneType": "protein_coding",
+            "genomeBuild": "GRCh38",
+            "start": 1,
+            "strand": "-",
+            "tss": 2,
         }
     )
 
@@ -53,7 +66,9 @@ async def test_resolve_gene_ids_resolves_symbol_to_gencode() -> None:
     service.get_genes = AsyncMock(
         return_value=PaginatedGeneResponse(
             data=[_gene("UMOD", "ENSG00000169344.15")],
-            pagingInfo=PaginationInfo(numberOfPages=1, page=0, maxItemsPerPage=50, totalNumberOfItems=1),
+            pagingInfo=PaginationInfo(
+                numberOfPages=1, page=0, maxItemsPerPage=50, totalNumberOfItems=1
+            ),
         )
     )
     resolved = await resolve_gene_ids(service, ["UMOD"])
@@ -68,7 +83,9 @@ async def test_resolve_gene_ids_raises_invalid_input_for_unknown() -> None:
     service.get_genes = AsyncMock(
         return_value=PaginatedGeneResponse(
             data=[],
-            pagingInfo=PaginationInfo(numberOfPages=0, page=0, maxItemsPerPage=50, totalNumberOfItems=0),
+            pagingInfo=PaginationInfo(
+                numberOfPages=0, page=0, maxItemsPerPage=50, totalNumberOfItems=0
+            ),
         )
     )
     with pytest.raises(McpToolError) as excinfo:

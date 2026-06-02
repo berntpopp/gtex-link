@@ -431,11 +431,21 @@ async def test_search_natural_language_query_finds_gene() -> None:
     # The NL query tokenizes to [umod, kidney, expression]; only "umod" resolves.
     umod = Gene.model_validate(
         {
-            "chromosome": "chr16", "dataSource": "GENCODE", "description": "uromodulin",
-            "end": 2, "entrezGeneId": 7369, "gencodeId": "ENSG00000169344.15",
-            "gencodeVersion": "v26", "geneStatus": "KNOWN", "geneSymbol": "UMOD",
-            "geneSymbolUpper": "UMOD", "geneType": "protein_coding",
-            "genomeBuild": "GRCh38", "start": 1, "strand": "-", "tss": 2,
+            "chromosome": "chr16",
+            "dataSource": "GENCODE",
+            "description": "uromodulin",
+            "end": 2,
+            "entrezGeneId": 7369,
+            "gencodeId": "ENSG00000169344.15",
+            "gencodeVersion": "v26",
+            "geneStatus": "KNOWN",
+            "geneSymbol": "UMOD",
+            "geneSymbolUpper": "UMOD",
+            "geneType": "protein_coding",
+            "genomeBuild": "GRCh38",
+            "start": 1,
+            "strand": "-",
+            "tss": 2,
         }
     )
 
@@ -459,13 +469,20 @@ async def test_fetch_sorts_expression_by_descending_median() -> None:
     def _median(tissue: str, value: float) -> MedianGeneExpression:
         return MedianGeneExpression.model_validate(
             {
-                "datasetId": "gtex_v8", "ontologyId": "X", "gencodeId": "ENSG00000169344.15",
-                "geneSymbol": "UMOD", "median": value, "numSamples": None,
-                "tissueSiteDetailId": tissue, "unit": "TPM",
+                "datasetId": "gtex_v8",
+                "ontologyId": "X",
+                "gencodeId": "ENSG00000169344.15",
+                "geneSymbol": "UMOD",
+                "median": value,
+                "numSamples": None,
+                "tissueSiteDetailId": tissue,
+                "unit": "TPM",
             }
         )
 
-    umod = _brca1_gene().model_copy(update={"gene_symbol": "UMOD", "gencode_id": "ENSG00000169344.15"})
+    umod = _brca1_gene().model_copy(
+        update={"gene_symbol": "UMOD", "gencode_id": "ENSG00000169344.15"}
+    )
     mock_service = AsyncMock()
     mock_service.get_genes = AsyncMock(
         return_value=PaginatedGeneResponse(data=[umod], pagingInfo=_paging(1))
@@ -488,7 +505,9 @@ async def test_fetch_sorts_expression_by_descending_median() -> None:
 
 @pytest.mark.asyncio
 async def test_fetch_accepts_bare_gencode_id() -> None:
-    umod = _brca1_gene().model_copy(update={"gene_symbol": "UMOD", "gencode_id": "ENSG00000169344.15"})
+    umod = _brca1_gene().model_copy(
+        update={"gene_symbol": "UMOD", "gencode_id": "ENSG00000169344.15"}
+    )
     mock_service = AsyncMock()
     mock_service.get_genes = AsyncMock(
         return_value=PaginatedGeneResponse(data=[umod], pagingInfo=_paging(1))

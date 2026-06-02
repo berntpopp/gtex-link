@@ -107,7 +107,9 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 payload = await run_mcp_tool(
                     "get_individual_expression_data",
                     call,
-                    context=McpErrorContext("get_individual_expression_data", dataset_id=dataset_id),
+                    context=McpErrorContext(
+                        "get_individual_expression_data", dataset_id=dataset_id
+                    ),
                 )
                 success = payload.get("success", False)
                 return payload
@@ -151,7 +153,9 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 payload = await run_mcp_tool(
                     "get_top_expressed_genes_by_tissue",
                     call,
-                    context=McpErrorContext("get_top_expressed_genes_by_tissue", dataset_id=dataset_id),
+                    context=McpErrorContext(
+                        "get_top_expressed_genes_by_tissue", dataset_id=dataset_id
+                    ),
                 )
                 success = payload.get("success", False)
                 return payload

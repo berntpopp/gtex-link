@@ -16,8 +16,8 @@ from gtex_link.mcp.envelope import McpErrorContext, run_mcp_tool
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.resources import GTEX_PORTAL_URL
 from gtex_link.mcp.search_match import (
-    MAX_QUERY_TOKENS,
     _RANK_ORDER,
+    MAX_QUERY_TOKENS,
     classify_match,
     recall_terms,
 )
@@ -102,7 +102,9 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
                 service = get_gtex_service()
                 gencode_id = id[len("gene:") :] if id.startswith("gene:") else id
                 if not gencode_id:
-                    return _error_doc(id, "Unsupported resource type", f"Unsupported resource id: {id!r}")
+                    return _error_doc(
+                        id, "Unsupported resource type", f"Unsupported resource id: {id!r}"
+                    )
 
                 gene_request = GeneRequest.model_validate(
                     {"geneId": [gencode_id], "page": 0, "itemsPerPage": 1}
@@ -179,5 +181,7 @@ async def _expression_lines(service: Any, gencode_id: str) -> list[str]:
         lines.append(f"  {exp.tissue_site_detail_id}: {exp.median:.2f} TPM")
     if len(ranked) > _FETCH_TISSUE_LIMIT:
         cutoff = ranked[_FETCH_TISSUE_LIMIT].median
-        lines.append(f"  ... and {len(ranked) - _FETCH_TISSUE_LIMIT} more tissues at <= {cutoff:.2f} TPM")
+        lines.append(
+            f"  ... and {len(ranked) - _FETCH_TISSUE_LIMIT} more tissues at <= {cutoff:.2f} TPM"
+        )
     return lines
