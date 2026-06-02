@@ -17,3 +17,6 @@ GTEX_SERVER_INSTRUCTIONS = (
 )
 
 GTEX_PORTAL_URL = "https://gtexportal.org"
+
+# Default GTEx data release surfaced in provenance _meta and capabilities.
+GTEX_DATA_RELEASE = "gtex_v8"
