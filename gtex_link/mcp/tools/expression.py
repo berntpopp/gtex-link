@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, McpToolError, run_mcp_tool
+from gtex_link.mcp.metadata import valid_tissues
 from gtex_link.mcp.next_commands import after_median
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.schema_relax import relax_output_schema
@@ -208,6 +209,17 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             page_size: int = 100,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
+                allowed = valid_tissues()
+                if tissue_site_detail_id not in allowed:
+                    sample = ", ".join(allowed[:8])
+                    raise McpToolError(
+                        error_code="invalid_input",
+                        message=(
+                            f"Unknown tissue_site_detail_id {tissue_site_detail_id!r}. "
+                            f"Valid values include: {sample}, ... ({len(allowed)} total; "
+                            "see get_server_capabilities.tissues)."
+                        ),
+                    )
                 service = get_gtex_service()
                 request = TopExpressedGenesRequest.model_validate(
                     {
