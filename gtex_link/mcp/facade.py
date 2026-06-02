@@ -5,6 +5,8 @@ from __future__ import annotations
 from fastmcp import FastMCP
 
 from gtex_link.config import settings
+from gtex_link.mcp.capabilities_resources import register_capability_resources
+from gtex_link.mcp.metadata import register_metadata_tools
 from gtex_link.mcp.output_validation import install_output_validation_error_handler
 from gtex_link.mcp.profiles import MCPToolProfile, normalize_mcp_profile
 from gtex_link.mcp.resources import GTEX_SERVER_INSTRUCTIONS
@@ -39,6 +41,8 @@ def create_gtex_mcp(profile: MCPToolProfile | str | None = None) -> FastMCP:
     register_search_fetch_tools(mcp, profile=selected)
     register_reference_tools(mcp, profile=selected)
     register_expression_tools(mcp, profile=selected)
+    register_metadata_tools(mcp, profile=selected)
+    register_capability_resources(mcp)
 
     install_output_validation_error_handler(mcp)
     return mcp
