@@ -5,7 +5,8 @@ from gtex_link.mcp.next_commands import after_gene_search, after_median, cmd
 
 def test_cmd_shape() -> None:
     assert cmd("get_gene_information", gene_id=["UMOD"]) == {
-        "tool": "get_gene_information", "arguments": {"gene_id": ["UMOD"]}
+        "tool": "get_gene_information",
+        "arguments": {"gene_id": ["UMOD"]},
     }
 
 

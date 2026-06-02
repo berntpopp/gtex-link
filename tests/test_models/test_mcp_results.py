@@ -11,12 +11,18 @@ def test_grouped_result_serializes_camel_case() -> None:
         headline="UMOD: highest median in Kidney_Medulla (2116.02 TPM, n=4).",
         genes=[
             GeneMedianGroup(
-                gencodeId="ENSG00000169344.15", geneSymbol="UMOD", datasetId="gtex_v8", unit="TPM",
+                gencodeId="ENSG00000169344.15",
+                geneSymbol="UMOD",
+                datasetId="gtex_v8",
+                unit="TPM",
                 tissues=[TissueMedian(tissue="Kidney_Medulla", median=2116.02, n=4)],
-                tissuesReturned=1, tissuesTotal=54,
+                tissuesReturned=1,
+                tissuesTotal=54,
             )
         ],
-        pagingInfo=PaginationInfo(numberOfPages=1, page=0, maxItemsPerPage=50, totalNumberOfItems=1),
+        pagingInfo=PaginationInfo(
+            numberOfPages=1, page=0, maxItemsPerPage=50, totalNumberOfItems=1
+        ),
     )
     dumped = result.model_dump(by_alias=True)
     assert dumped["genes"][0]["gencodeId"] == "ENSG00000169344.15"

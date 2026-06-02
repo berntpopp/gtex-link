@@ -645,29 +645,53 @@ async def test_median_returns_gene_grouped_shape_with_next_commands() -> None:
 
     def _t(tid: str, n: int) -> TissueSiteDetail:
         return TissueSiteDetail.model_validate(
-            {"tissueSiteDetailId": tid, "colorHex": "0", "colorRgb": "0", "datasetId": "gtex_v8",
-             "eGeneCount": None, "expressedGeneCount": 1, "hasEGenes": False, "hasSGenes": False,
-             "mappedInHubmap": False, "eqtlSampleSummary": {"totalCount": n, "female": {}, "male": {}},
-             "rnaSeqSampleSummary": {"totalCount": n, "female": {}, "male": {}}, "sGeneCount": None,
-             "samplingSite": "x", "tissueSite": "x", "tissueSiteDetail": "x",
-             "tissueSiteDetailAbbr": "x", "ontologyId": "UBERON:1", "ontologyIri": "http://x"}
+            {
+                "tissueSiteDetailId": tid,
+                "colorHex": "0",
+                "colorRgb": "0",
+                "datasetId": "gtex_v8",
+                "eGeneCount": None,
+                "expressedGeneCount": 1,
+                "hasEGenes": False,
+                "hasSGenes": False,
+                "mappedInHubmap": False,
+                "eqtlSampleSummary": {"totalCount": n, "female": {}, "male": {}},
+                "rnaSeqSampleSummary": {"totalCount": n, "female": {}, "male": {}},
+                "sGeneCount": None,
+                "samplingSite": "x",
+                "tissueSite": "x",
+                "tissueSiteDetail": "x",
+                "tissueSiteDetailAbbr": "x",
+                "ontologyId": "UBERON:1",
+                "ontologyIri": "http://x",
+            }
         )
 
     def _m(tissue: str, value: float) -> MedianGeneExpression:
         return MedianGeneExpression.model_validate(
-            {"datasetId": "gtex_v8", "ontologyId": "UBERON:1", "gencodeId": "ENSG00000169344.15",
-             "geneSymbol": "UMOD", "median": value, "numSamples": None,
-             "tissueSiteDetailId": tissue, "unit": "TPM"}
+            {
+                "datasetId": "gtex_v8",
+                "ontologyId": "UBERON:1",
+                "gencodeId": "ENSG00000169344.15",
+                "geneSymbol": "UMOD",
+                "median": value,
+                "numSamples": None,
+                "tissueSiteDetailId": tissue,
+                "unit": "TPM",
+            }
         )
 
     mock_service = AsyncMock()
     mock_service.get_median_gene_expression = AsyncMock(
         return_value=PaginatedMedianGeneExpressionResponse(
-            data=[_m("Adipose_Subcutaneous", 0.0), _m("Kidney_Medulla", 2116.02)], pagingInfo=_paging(2)
+            data=[_m("Adipose_Subcutaneous", 0.0), _m("Kidney_Medulla", 2116.02)],
+            pagingInfo=_paging(2),
         )
     )
     mock_service.get_tissue_site_details = AsyncMock(
-        return_value=PaginatedTissueSiteDetailResponse(data=[_t("Kidney_Medulla", 4)], pagingInfo=_paging(1))
+        return_value=PaginatedTissueSiteDetailResponse(
+            data=[_t("Kidney_Medulla", 4)], pagingInfo=_paging(1)
+        )
     )
 
     with patch_service(mock_service):

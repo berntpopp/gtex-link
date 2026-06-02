@@ -34,7 +34,9 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             title="Get Median Expression Levels",
             annotations=READ_ONLY_OPEN_WORLD,
             tags={"expression"},
-            output_schema=relax_output_schema(MedianExpressionResult.model_json_schema(by_alias=True)),
+            output_schema=relax_output_schema(
+                MedianExpressionResult.model_json_schema(by_alias=True)
+            ),
             description=(
                 "Get median GTEx Portal expression (TPM) per tissue for one or "
                 "more genes (GENCODE IDs or symbols; symbols are auto-resolved). "
@@ -74,8 +76,10 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 spread_by_key: dict[tuple[str, str], dict[str, Any] | None] = {}
                 if include_spread and result.data:
                     spread_req: dict[str, object] = {
-                        "gencodeId": resolved, "datasetId": dataset_id,
-                        "page": 0, "itemsPerPage": 1000,
+                        "gencodeId": resolved,
+                        "datasetId": dataset_id,
+                        "page": 0,
+                        "itemsPerPage": 1000,
                     }
                     if tissue_site_detail_id is not None:
                         spread_req["tissueSiteDetailId"] = tissue_site_detail_id
@@ -88,9 +92,14 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     }
 
                 shaped = group_median(
-                    list(result.data), counts=counts, sort=sort, top_n=top_n,
-                    response_mode=response_mode, spread_by_key=spread_by_key,
-                    page=page, page_size=page_size,
+                    list(result.data),
+                    counts=counts,
+                    sort=sort,
+                    top_n=top_n,
+                    response_mode=response_mode,
+                    spread_by_key=spread_by_key,
+                    page=page,
+                    page_size=page_size,
                 )
                 payload = shaped.model_dump(by_alias=True)
                 top_tissue = (
