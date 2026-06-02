@@ -227,6 +227,39 @@ async def test_get_median_expression_levels_passes_tissue_when_given() -> None:
 
 
 @pytest.mark.asyncio
+async def test_median_resolves_symbol_to_gencode() -> None:
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[_brca1_gene()], pagingInfo=_paging(1))
+    )
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool("get_median_expression_levels", {"gencode_id": ["BRCA1"]})
+
+    assert payload["success"] is True
+    request = mock_service.get_median_gene_expression.call_args.args[0]
+    assert request.gencode_id == ["ENSG00000012048.22"]
+
+
+@pytest.mark.asyncio
+async def test_median_unknown_symbol_returns_invalid_input_not_silent_empty() -> None:
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool("get_median_expression_levels", {"gencode_id": ["NOTAGENE"]})
+
+    assert payload["success"] is False
+    assert payload["error_code"] == "invalid_input"
+    assert "NOTAGENE" in payload["message"]
+
+
+@pytest.mark.asyncio
 async def test_get_individual_expression_data_happy_path() -> None:
     expr = GeneExpression.model_validate(
         {

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from gtex_link.mcp.errors import map_to_mcp_error_message
+from gtex_link.mcp.envelope import McpErrorContext, run_mcp_tool
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
+from gtex_link.mcp.search_match import resolve_gene_ids
 from gtex_link.mcp.service_adapters import get_gtex_service
 from gtex_link.models import (
     GeneExpressionRequest,
@@ -27,10 +27,11 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             name="get_median_expression_levels",
             description=(
                 "Get median GTEx Portal expression (TPM) per tissue for one or "
-                "more GENCODE IDs. Returns per-tissue medians for dataset "
-                "`gtex_v8` by default. Use this when comparing expression of "
-                "a known gene across tissues; pair with "
-                "`get_top_expressed_genes_by_tissue` for the reverse question."
+                "more genes (GENCODE IDs or symbols; symbols are auto-resolved). "
+                "Returns per-tissue medians for dataset `gtex_v8` by default. Use "
+                "this when comparing expression of a known gene across tissues; "
+                "pair with `get_top_expressed_genes_by_tissue` for the reverse "
+                "question."
             ),
         )
         async def get_median_expression_levels(
@@ -39,12 +40,12 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             dataset_id: str = "gtex_v8",
             page: int = 0,
             page_size: int = 100,
-        ) -> str:
-            success = False
-            try:
+        ) -> dict[str, Any]:
+            async def call() -> dict[str, Any]:
                 service = get_gtex_service()
+                resolved = await resolve_gene_ids(service, gencode_id)
                 payload: dict[str, object] = {
-                    "gencodeId": gencode_id,
+                    "gencodeId": resolved,
                     "datasetId": dataset_id,
                     "page": page,
                     "itemsPerPage": page_size,
@@ -53,10 +54,17 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     payload["tissueSiteDetailId"] = tissue_site_detail_id
                 request = MedianGeneExpressionRequest.model_validate(payload)
                 result = await service.get_median_gene_expression(request)
-                success = True
-                return json.dumps(result.model_dump(by_alias=True))
-            except Exception as exc:
-                return json.dumps({"error": map_to_mcp_error_message(exc)})
+                return result.model_dump(by_alias=True)
+
+            success = False
+            try:
+                payload = await run_mcp_tool(
+                    "get_median_expression_levels",
+                    call,
+                    context=McpErrorContext("get_median_expression_levels", dataset_id=dataset_id),
+                )
+                success = payload.get("success", False)
+                return payload
             finally:
                 record_mcp_tool_call(tool="get_median_expression_levels", success=success)
 
@@ -65,11 +73,11 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
         @mcp.tool(
             name="get_individual_expression_data",
             description=(
-                "Get individual-sample GTEx Portal expression data (TPM) for "
-                "one or more GENCODE IDs, optionally filtered by tissue and "
-                "dataset. High volume -- limit `page_size` accordingly. Use "
-                "for variance/distribution analyses where per-sample data is "
-                "needed."
+                "Get individual-sample GTEx Portal expression data (TPM) for one "
+                "or more genes (GENCODE IDs or symbols; symbols are auto-resolved), "
+                "optionally filtered by tissue and dataset. High volume -- limit "
+                "`page_size` accordingly. Use for variance/distribution analyses "
+                "where per-sample data is needed."
             ),
         )
         async def get_individual_expression_data(
@@ -78,12 +86,12 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             dataset_id: str = "gtex_v8",
             page: int = 0,
             page_size: int = 100,
-        ) -> str:
-            success = False
-            try:
+        ) -> dict[str, Any]:
+            async def call() -> dict[str, Any]:
                 service = get_gtex_service()
+                resolved = await resolve_gene_ids(service, gencode_id)
                 payload: dict[str, object] = {
-                    "gencodeId": gencode_id,
+                    "gencodeId": resolved,
                     "datasetId": dataset_id,
                     "page": page,
                     "itemsPerPage": page_size,
@@ -92,10 +100,17 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     payload["tissueSiteDetailId"] = tissue_site_detail_id
                 request = GeneExpressionRequest.model_validate(payload)
                 result = await service.get_gene_expression(request)
-                success = True
-                return json.dumps(result.model_dump(by_alias=True))
-            except Exception as exc:
-                return json.dumps({"error": map_to_mcp_error_message(exc)})
+                return result.model_dump(by_alias=True)
+
+            success = False
+            try:
+                payload = await run_mcp_tool(
+                    "get_individual_expression_data",
+                    call,
+                    context=McpErrorContext("get_individual_expression_data", dataset_id=dataset_id),
+                )
+                success = payload.get("success", False)
+                return payload
             finally:
                 record_mcp_tool_call(tool="get_individual_expression_data", success=success)
 
@@ -116,9 +131,8 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             filter_mt_gene: bool = True,
             page: int = 0,
             page_size: int = 100,
-        ) -> str:
-            success = False
-            try:
+        ) -> dict[str, Any]:
+            async def call() -> dict[str, Any]:
                 service = get_gtex_service()
                 request = TopExpressedGenesRequest.model_validate(
                     {
@@ -130,9 +144,16 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     }
                 )
                 result = await service.get_top_expressed_genes(request)
-                success = True
-                return json.dumps(result.model_dump(by_alias=True))
-            except Exception as exc:
-                return json.dumps({"error": map_to_mcp_error_message(exc)})
+                return result.model_dump(by_alias=True)
+
+            success = False
+            try:
+                payload = await run_mcp_tool(
+                    "get_top_expressed_genes_by_tissue",
+                    call,
+                    context=McpErrorContext("get_top_expressed_genes_by_tissue", dataset_id=dataset_id),
+                )
+                success = payload.get("success", False)
+                return payload
             finally:
                 record_mcp_tool_call(tool="get_top_expressed_genes_by_tissue", success=success)
