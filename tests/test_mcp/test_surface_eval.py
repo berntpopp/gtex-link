@@ -15,9 +15,13 @@ import pytest
 from gtex_link.mcp.facade import create_gtex_mcp
 from gtex_link.mcp.profiles import MCPToolProfile
 from gtex_link.models.responses import (
-    Gene, MedianGeneExpression, PaginatedGeneResponse,
-    PaginatedMedianGeneExpressionResponse, PaginatedTissueSiteDetailResponse,
-    PaginationInfo, TissueSiteDetail,
+    Gene,
+    MedianGeneExpression,
+    PaginatedGeneResponse,
+    PaginatedMedianGeneExpressionResponse,
+    PaginatedTissueSiteDetailResponse,
+    PaginationInfo,
+    TissueSiteDetail,
 )
 from tests.test_mcp.test_tool_bodies import patch_service  # reuse the patcher
 
@@ -28,30 +32,63 @@ def _paging(total: int) -> PaginationInfo:
 
 def _umod_gene() -> Gene:
     return Gene.model_validate(
-        {"chromosome": "chr16", "dataSource": "GENCODE", "description": "uromodulin",
-         "end": 20356301, "entrezGeneId": 7369, "gencodeId": "ENSG00000169344.15",
-         "gencodeVersion": "v26", "geneStatus": "KNOWN", "geneSymbol": "UMOD",
-         "geneSymbolUpper": "UMOD", "geneType": "protein_coding", "genomeBuild": "GRCh38",
-         "start": 20333052, "strand": "-", "tss": 20356301}
+        {
+            "chromosome": "chr16",
+            "dataSource": "GENCODE",
+            "description": "uromodulin",
+            "end": 20356301,
+            "entrezGeneId": 7369,
+            "gencodeId": "ENSG00000169344.15",
+            "gencodeVersion": "v26",
+            "geneStatus": "KNOWN",
+            "geneSymbol": "UMOD",
+            "geneSymbolUpper": "UMOD",
+            "geneType": "protein_coding",
+            "genomeBuild": "GRCh38",
+            "start": 20333052,
+            "strand": "-",
+            "tss": 20356301,
+        }
     )
 
 
 def _tissue(tid: str, n: int) -> TissueSiteDetail:
     return TissueSiteDetail.model_validate(
-        {"tissueSiteDetailId": tid, "colorHex": "0", "colorRgb": "0", "datasetId": "gtex_v8",
-         "eGeneCount": None, "expressedGeneCount": 1, "hasEGenes": False, "hasSGenes": False,
-         "mappedInHubmap": False, "eqtlSampleSummary": {"totalCount": n, "female": {}, "male": {}},
-         "rnaSeqSampleSummary": {"totalCount": n, "female": {}, "male": {}}, "sGeneCount": None,
-         "samplingSite": "x", "tissueSite": "x", "tissueSiteDetail": "x",
-         "tissueSiteDetailAbbr": "x", "ontologyId": "UBERON:1", "ontologyIri": "http://x"}
+        {
+            "tissueSiteDetailId": tid,
+            "colorHex": "0",
+            "colorRgb": "0",
+            "datasetId": "gtex_v8",
+            "eGeneCount": None,
+            "expressedGeneCount": 1,
+            "hasEGenes": False,
+            "hasSGenes": False,
+            "mappedInHubmap": False,
+            "eqtlSampleSummary": {"totalCount": n, "female": {}, "male": {}},
+            "rnaSeqSampleSummary": {"totalCount": n, "female": {}, "male": {}},
+            "sGeneCount": None,
+            "samplingSite": "x",
+            "tissueSite": "x",
+            "tissueSiteDetail": "x",
+            "tissueSiteDetailAbbr": "x",
+            "ontologyId": "UBERON:1",
+            "ontologyIri": "http://x",
+        }
     )
 
 
 def _median(tissue: str, value: float) -> MedianGeneExpression:
     return MedianGeneExpression.model_validate(
-        {"datasetId": "gtex_v8", "ontologyId": "UBERON:1", "gencodeId": "ENSG00000169344.15",
-         "geneSymbol": "UMOD", "median": value, "numSamples": None,
-         "tissueSiteDetailId": tissue, "unit": "TPM"}
+        {
+            "datasetId": "gtex_v8",
+            "ontologyId": "UBERON:1",
+            "gencodeId": "ENSG00000169344.15",
+            "geneSymbol": "UMOD",
+            "median": value,
+            "numSamples": None,
+            "tissueSiteDetailId": tissue,
+            "unit": "TPM",
+        }
     )
 
 
@@ -82,13 +119,18 @@ async def test_eval_median_top_tissue_is_kidney_medulla_and_compact() -> None:
     svc = AsyncMock()
     svc.get_median_gene_expression = AsyncMock(
         return_value=PaginatedMedianGeneExpressionResponse(
-            data=[_median("Adipose_Subcutaneous", 0.0), _median("Kidney_Medulla", 2116.02),
-                  _median("Kidney_Cortex", 190.13)],
+            data=[
+                _median("Adipose_Subcutaneous", 0.0),
+                _median("Kidney_Medulla", 2116.02),
+                _median("Kidney_Cortex", 190.13),
+            ],
             pagingInfo=_paging(3),
         )
     )
     svc.get_tissue_site_details = AsyncMock(
-        return_value=PaginatedTissueSiteDetailResponse(data=[_tissue("Kidney_Medulla", 4)], pagingInfo=_paging(1))
+        return_value=PaginatedTissueSiteDetailResponse(
+            data=[_tissue("Kidney_Medulla", 4)], pagingInfo=_paging(1)
+        )
     )
     with patch_service(svc):
         result_obj = create_gtex_mcp(profile=MCPToolProfile.FULL)

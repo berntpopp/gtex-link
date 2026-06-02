@@ -33,6 +33,7 @@ def test_lite_tool_set_is_explicit() -> None:
         "search_gtex_genes",
         "get_gene_information",
         "get_median_expression_levels",
+        "get_server_capabilities",
     }
     assert expected == LITE_TOOLS
 

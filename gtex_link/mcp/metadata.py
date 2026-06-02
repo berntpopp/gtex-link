@@ -63,8 +63,12 @@ def _surface() -> dict[str, Any]:
             "include_spread": "opt-in min/max/quartiles/IQR (one extra upstream call)",
         },
         "error_codes": [
-            "not_found", "invalid_input", "validation_failed",
-            "rate_limited", "upstream_unavailable", "internal_error",
+            "not_found",
+            "invalid_input",
+            "validation_failed",
+            "rate_limited",
+            "upstream_unavailable",
+            "internal_error",
         ],
         "parameter_conventions": {
             "gene_id": "symbols or GENCODE IDs; symbols auto-resolved",
@@ -108,7 +112,7 @@ def _surface() -> dict[str, Any]:
 
 def capabilities_version() -> str:
     """16-char content hash of the capabilities surface for cache invalidation."""
-    return _surface()["capabilities_version"]
+    return str(_surface()["capabilities_version"])
 
 
 def build_capabilities() -> dict[str, Any]:

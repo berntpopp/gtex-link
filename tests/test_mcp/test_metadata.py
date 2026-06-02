@@ -15,9 +15,18 @@ def test_valid_tissues_excludes_empty_sentinel() -> None:
 def test_capabilities_has_expected_top_level_keys() -> None:
     caps = build_capabilities()
     for key in (
-        "server", "server_version", "mcp_protocol_version", "gtex_release",
-        "research_use_only", "datasets", "tissues", "tools", "error_codes",
-        "response_fields", "capabilities_version", "citation",
+        "server",
+        "server_version",
+        "mcp_protocol_version",
+        "gtex_release",
+        "research_use_only",
+        "datasets",
+        "tissues",
+        "tools",
+        "error_codes",
+        "response_fields",
+        "capabilities_version",
+        "citation",
     ):
         assert key in caps
     assert caps["mcp_protocol_version"] == "2025-11-25"

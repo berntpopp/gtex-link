@@ -335,7 +335,9 @@ async def test_top_expressed_rejects_empty_tissue_with_valid_values() -> None:
     mock_service = AsyncMock()
 
     with patch_service(mock_service):
-        payload = await _call_tool("get_top_expressed_genes_by_tissue", {"tissue_site_detail_id": ""})
+        payload = await _call_tool(
+            "get_top_expressed_genes_by_tissue", {"tissue_site_detail_id": ""}
+        )
 
     assert payload["success"] is False
     assert payload["error_code"] == "invalid_input"
