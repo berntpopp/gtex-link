@@ -6,6 +6,9 @@ HTTP detail or stack-trace contents from leaking to MCP clients.
 
 from __future__ import annotations
 
+# NOTE: superseded by gtex_link.mcp.envelope._classify for tool error handling.
+# Retained only for any non-tool callers; new code should not import this.
+
 from pydantic import ValidationError as PydanticValidationError
 
 from gtex_link.exceptions import (
