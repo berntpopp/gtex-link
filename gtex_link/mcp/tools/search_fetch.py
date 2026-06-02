@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, run_mcp_tool
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.resources import GTEX_PORTAL_URL
@@ -37,6 +38,9 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
 
         @mcp.tool(
             name="search",
+            title="Search",
+            annotations=READ_ONLY_OPEN_WORLD,
+            tags={"search"},
             description=(
                 "Search the GTEx Portal genetic expression database for genes. "
                 "Accepts a natural-language query (e.g. 'UMOD kidney "
@@ -89,6 +93,9 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
 
         @mcp.tool(
             name="fetch",
+            title="Fetch",
+            annotations=READ_ONLY_OPEN_WORLD,
+            tags={"search"},
             description=(
                 "Retrieve full details for a gene from the GTEx Portal database. "
                 "Use the `id` returned by `search` (`gene:<GENCODE_ID>`); a bare "

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, run_mcp_tool
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.service_adapters import get_gtex_service
@@ -20,6 +21,9 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
 
         @mcp.tool(
             name="search_gtex_genes",
+            title="Search GTEx Genes",
+            annotations=READ_ONLY_OPEN_WORLD,
+            tags={"reference", "search"},
             description=(
                 "Search the GTEx Portal gene catalog by gene symbol or partial "
                 "match. Returns a paginated list of genes with GENCODE IDs, "
@@ -58,6 +62,9 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
 
         @mcp.tool(
             name="get_gene_information",
+            title="Get Gene Information",
+            annotations=READ_ONLY_OPEN_WORLD,
+            tags={"reference"},
             description=(
                 "Retrieve detailed gene information from GTEx Portal for one "
                 "or more GENCODE IDs or gene symbols. Returns chromosome, "
@@ -99,6 +106,9 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
 
         @mcp.tool(
             name="get_transcript_information",
+            title="Get Transcript Information",
+            annotations=READ_ONLY_OPEN_WORLD,
+            tags={"reference"},
             description=(
                 "Retrieve transcript annotations for a single GENCODE ID from "
                 "GTEx Portal. Returns transcript identifiers, coordinates, "

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, run_mcp_tool
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.search_match import resolve_gene_ids
@@ -26,6 +27,9 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
 
         @mcp.tool(
             name="get_median_expression_levels",
+            title="Get Median Expression Levels",
+            annotations=READ_ONLY_OPEN_WORLD,
+            tags={"expression"},
             description=(
                 "Get median GTEx Portal expression (TPM) per tissue for one or "
                 "more genes (GENCODE IDs or symbols; symbols are auto-resolved). "
@@ -96,6 +100,9 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
 
         @mcp.tool(
             name="get_individual_expression_data",
+            title="Get Individual Expression Data",
+            annotations=READ_ONLY_OPEN_WORLD,
+            tags={"expression"},
             description=(
                 "Get individual-sample GTEx Portal expression data (TPM) for one "
                 "or more genes (GENCODE IDs or symbols; symbols are auto-resolved), "
@@ -144,6 +151,9 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
 
         @mcp.tool(
             name="get_top_expressed_genes_by_tissue",
+            title="Get Top Expressed Genes By Tissue",
+            annotations=READ_ONLY_OPEN_WORLD,
+            tags={"expression"},
             description=(
                 "Get the top expressed genes for a given tissue from GTEx "
                 "Portal. Use when answering 'what's expressed in this "
