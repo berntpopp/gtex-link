@@ -8,6 +8,7 @@ from gtex_link.mcp.envelope import McpErrorContext, run_mcp_tool
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.search_match import resolve_gene_ids
 from gtex_link.mcp.service_adapters import get_gtex_service
+from gtex_link.mcp.tissue_stats import compute_spread, sample_count_map
 from gtex_link.models import (
     GeneExpressionRequest,
     MedianGeneExpressionRequest,
@@ -54,7 +55,12 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     payload["tissueSiteDetailId"] = tissue_site_detail_id
                 request = MedianGeneExpressionRequest.model_validate(payload)
                 result = await service.get_median_gene_expression(request)
-                return result.model_dump(by_alias=True)
+                data = result.model_dump(by_alias=True)
+
+                counts = await sample_count_map(service, dataset_id)
+                for row in data["data"]:
+                    row["numSamples"] = counts.get(row["tissueSiteDetailId"])
+                return data
 
             success = False
             try:
