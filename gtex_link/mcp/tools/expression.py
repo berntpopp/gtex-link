@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal
 
 from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
-from gtex_link.mcp.envelope import McpErrorContext, run_mcp_tool
+from gtex_link.mcp.envelope import McpErrorContext, McpToolError, run_mcp_tool
 from gtex_link.mcp.next_commands import after_median
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.schema_relax import relax_output_schema
@@ -23,6 +23,10 @@ from gtex_link.observability.metrics import record_mcp_tool_call
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
+
+# 18 genes * 54 tissues = 972 rows, within the upstream 1000-row page cap, so a
+# single fetch returns every requested gene's tissues without splitting any gene.
+MAX_MEDIAN_GENES = 18
 
 
 def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
@@ -60,11 +64,20 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
                 resolved = await resolve_gene_ids(service, gencode_id)
+                if len(resolved) > MAX_MEDIAN_GENES:
+                    raise McpToolError(
+                        error_code="invalid_input",
+                        message=(
+                            f"Too many genes ({len(resolved)}); request at most "
+                            f"{MAX_MEDIAN_GENES} genes per call so each gene's tissues "
+                            "are returned intact (upstream 1000-row page cap)."
+                        ),
+                    )
                 req: dict[str, object] = {
                     "gencodeId": resolved,
                     "datasetId": dataset_id,
                     "page": 0,
-                    "itemsPerPage": max(60 * len(resolved), 100),
+                    "itemsPerPage": min(max(60 * len(resolved), 100), 1000),
                 }
                 if tissue_site_detail_id is not None:
                     req["tissueSiteDetailId"] = tissue_site_detail_id

@@ -267,6 +267,38 @@ async def test_median_unknown_symbol_returns_invalid_input_not_silent_empty() ->
 
 
 @pytest.mark.asyncio
+async def test_median_clamps_items_per_page_for_many_genes() -> None:
+    ids = [f"ENSG{i:011d}.1" for i in range(17)]
+    mock_service = AsyncMock()
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(data=[], pagingInfo=_paging(0))
+    )
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
+    )
+    with patch_service(mock_service):
+        payload = await _call_tool("get_median_expression_levels", {"gencode_id": ids})
+    assert payload["success"] is True
+    request = mock_service.get_median_gene_expression.call_args.args[0]
+    assert request.items_per_page == 1000
+
+
+@pytest.mark.asyncio
+async def test_median_rejects_more_than_max_genes() -> None:
+    ids = [f"ENSG{i:011d}.1" for i in range(19)]
+    mock_service = AsyncMock()
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(data=[], pagingInfo=_paging(0))
+    )
+    with patch_service(mock_service):
+        payload = await _call_tool("get_median_expression_levels", {"gencode_id": ids})
+    assert payload["success"] is False
+    assert payload["error_code"] == "invalid_input"
+    assert "Too many genes" in payload["message"]
+    mock_service.get_median_gene_expression.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_get_individual_expression_data_happy_path() -> None:
     expr = GeneExpression.model_validate(
         {
