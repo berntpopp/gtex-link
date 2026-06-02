@@ -540,22 +540,37 @@ async def test_median_populates_num_samples_from_tissue_map() -> None:
     def _tissue(tid: str, n: int) -> TissueSiteDetail:
         return TissueSiteDetail.model_validate(
             {
-                "tissueSiteDetailId": tid, "colorHex": "0", "colorRgb": "0",
-                "datasetId": "gtex_v8", "eGeneCount": None, "expressedGeneCount": 1,
-                "hasEGenes": False, "hasSGenes": False, "mappedInHubmap": False,
+                "tissueSiteDetailId": tid,
+                "colorHex": "0",
+                "colorRgb": "0",
+                "datasetId": "gtex_v8",
+                "eGeneCount": None,
+                "expressedGeneCount": 1,
+                "hasEGenes": False,
+                "hasSGenes": False,
+                "mappedInHubmap": False,
                 "eqtlSampleSummary": {"totalCount": n, "female": {}, "male": {}},
                 "rnaSeqSampleSummary": {"totalCount": n, "female": {}, "male": {}},
-                "sGeneCount": None, "samplingSite": "x", "tissueSite": "x",
-                "tissueSiteDetail": "x", "tissueSiteDetailAbbr": "x",
-                "ontologyId": "UBERON:1", "ontologyIri": "http://x",
+                "sGeneCount": None,
+                "samplingSite": "x",
+                "tissueSite": "x",
+                "tissueSiteDetail": "x",
+                "tissueSiteDetailAbbr": "x",
+                "ontologyId": "UBERON:1",
+                "ontologyIri": "http://x",
             }
         )
 
     row = MedianGeneExpression.model_validate(
         {
-            "datasetId": "gtex_v8", "ontologyId": "UBERON:1", "gencodeId": "ENSG00000169344.15",
-            "geneSymbol": "UMOD", "median": 2116.02, "numSamples": None,
-            "tissueSiteDetailId": "Kidney_Medulla", "unit": "TPM",
+            "datasetId": "gtex_v8",
+            "ontologyId": "UBERON:1",
+            "gencodeId": "ENSG00000169344.15",
+            "geneSymbol": "UMOD",
+            "median": 2116.02,
+            "numSamples": None,
+            "tissueSiteDetailId": "Kidney_Medulla",
+            "unit": "TPM",
         }
     )
     mock_service = AsyncMock()
@@ -580,17 +595,26 @@ async def test_median_populates_num_samples_from_tissue_map() -> None:
 async def test_median_include_spread_attaches_distribution() -> None:
     row = MedianGeneExpression.model_validate(
         {
-            "datasetId": "gtex_v8", "ontologyId": "UBERON:1", "gencodeId": "ENSG00000169344.15",
-            "geneSymbol": "UMOD", "median": 2116.02, "numSamples": None,
-            "tissueSiteDetailId": "Kidney_Medulla", "unit": "TPM",
+            "datasetId": "gtex_v8",
+            "ontologyId": "UBERON:1",
+            "gencodeId": "ENSG00000169344.15",
+            "geneSymbol": "UMOD",
+            "median": 2116.02,
+            "numSamples": None,
+            "tissueSiteDetailId": "Kidney_Medulla",
+            "unit": "TPM",
         }
     )
     expr = GeneExpression.model_validate(
         {
-            "data": [1224.0, 1837.0, 2395.0, 3766.0], "datasetId": "gtex_v8",
-            "tissueSiteDetailId": "Kidney_Medulla", "ontologyId": "UBERON:1",
-            "subsetGroup": None, "gencodeId": "ENSG00000169344.15",
-            "geneSymbol": "UMOD", "unit": "TPM",
+            "data": [1224.0, 1837.0, 2395.0, 3766.0],
+            "datasetId": "gtex_v8",
+            "tissueSiteDetailId": "Kidney_Medulla",
+            "ontologyId": "UBERON:1",
+            "subsetGroup": None,
+            "gencodeId": "ENSG00000169344.15",
+            "geneSymbol": "UMOD",
+            "unit": "TPM",
         }
     )
     mock_service = AsyncMock()

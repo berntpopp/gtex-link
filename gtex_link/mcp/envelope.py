@@ -64,11 +64,19 @@ def _safe_message(exc: BaseException) -> str:
 def _classify(exc: BaseException) -> tuple[str, str, bool]:
     """Return (error_code, client_safe_message, retryable)."""
     if isinstance(exc, McpToolError):
-        return exc.error_code, exc.message, exc.error_code in {"rate_limited", "upstream_unavailable"}
+        return (
+            exc.error_code,
+            exc.message,
+            exc.error_code in {"rate_limited", "upstream_unavailable"},
+        )
     if isinstance(exc, RateLimitError):
         return "rate_limited", "GTEx Portal rate limit exceeded. Try again shortly.", True
     if isinstance(exc, ServiceUnavailableError):
-        return "upstream_unavailable", "GTEx Portal is temporarily unavailable. Try again later.", True
+        return (
+            "upstream_unavailable",
+            "GTEx Portal is temporarily unavailable. Try again later.",
+            True,
+        )
     if isinstance(exc, PydanticValidationError):
         first = exc.errors()[0]
         loc = ".".join(str(p) for p in first["loc"]) or "input"
@@ -77,7 +85,11 @@ def _classify(exc: BaseException) -> tuple[str, str, bool]:
         field = f"`{exc.field}`: " if exc.field else ""
         return "invalid_input", f"Invalid input -- {field}{exc.message}", False
     if isinstance(exc, GTExAPIError):
-        return "upstream_unavailable", "GTEx Portal returned an error. Verify the request inputs.", True
+        return (
+            "upstream_unavailable",
+            "GTEx Portal returned an error. Verify the request inputs.",
+            True,
+        )
     return "internal_error", "An internal error occurred. The request was not completed.", False
 
 

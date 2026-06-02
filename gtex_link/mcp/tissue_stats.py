@@ -27,8 +27,7 @@ async def sample_count_map(service: GTExService, dataset_id: str) -> dict[str, i
     request = TissueSiteDetailRequest.model_validate({"datasetId": dataset_id})
     result = await service.get_tissue_site_details(request)
     return {
-        row.tissue_site_detail_id: row.rna_seq_sample_summary.total_count
-        for row in result.data
+        row.tissue_site_detail_id: row.rna_seq_sample_summary.total_count for row in result.data
     }
 
 
