@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, run_mcp_tool
+from gtex_link.mcp.next_commands import after_gene_search
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.service_adapters import get_gtex_service
 from gtex_link.models import GeneRequest, TranscriptRequest
@@ -46,7 +47,11 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     page=page,
                     page_size=page_size,
                 )
-                return result.model_dump(by_alias=True)
+                payload = result.model_dump(by_alias=True)
+                gencode_ids = [g["gencodeId"] for g in payload["data"]]
+                if gencode_ids:
+                    payload["_meta"] = {"next_commands": after_gene_search(gencode_ids)}
+                return payload
 
             success = False
             try:

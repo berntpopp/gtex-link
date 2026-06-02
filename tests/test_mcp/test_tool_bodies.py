@@ -687,6 +687,21 @@ async def test_median_returns_gene_grouped_shape_with_next_commands() -> None:
 
 
 @pytest.mark.asyncio
+async def test_search_gtex_genes_emits_next_commands() -> None:
+    mock_service = AsyncMock()
+    mock_service.search_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[_brca1_gene()], pagingInfo=_paging(1))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool("search_gtex_genes", {"query": "BRCA1"})
+
+    nc = payload["_meta"]["next_commands"]
+    assert nc[0]["tool"] == "get_gene_information"
+    assert nc[0]["arguments"]["gene_id"] == ["ENSG00000012048.22"]
+
+
+@pytest.mark.asyncio
 async def test_median_default_omits_spread() -> None:
     mock_service = AsyncMock()
     mock_service.get_median_gene_expression = AsyncMock(
