@@ -331,26 +331,25 @@ async def test_search_tool_returns_chatgpt_shape() -> None:
     with patch_service(mock_service):
         payload = await _call_tool("search", {"query": "BRCA1"})
 
-    assert payload == {
-        "results": [
-            {
-                "id": "gene:ENSG00000012048.22",
-                "title": "BRCA1 - BRCA1 DNA repair associated",
-                "url": "https://gtexportal.org/home/gene/BRCA1",
-            }
-        ]
-    }
+    assert payload["results"] == [
+        {
+            "id": "gene:ENSG00000012048.22",
+            "title": "BRCA1 - BRCA1 DNA repair associated",
+            "url": "https://gtexportal.org/home/gene/BRCA1",
+        }
+    ]
 
 
 @pytest.mark.asyncio
-async def test_search_tool_returns_empty_on_error() -> None:
+async def test_search_tool_returns_structured_error_on_upstream_failure() -> None:
     mock_service = AsyncMock()
     mock_service.search_genes = AsyncMock(side_effect=RuntimeError("upstream down"))
 
     with patch_service(mock_service):
         payload = await _call_tool("search", {"query": "BRCA1"})
 
-    assert payload == {"results": []}
+    assert payload["success"] is False
+    assert payload["error_code"] == "internal_error"
 
 
 @pytest.mark.asyncio
@@ -407,7 +406,7 @@ async def test_fetch_tool_returns_error_doc_for_unsupported_id() -> None:
     mock_service = AsyncMock()
 
     with patch_service(mock_service):
-        payload = await _call_tool("fetch", {"id": "transcript:ENST123"})
+        payload = await _call_tool("fetch", {"id": "gene:"})
 
     assert payload["metadata"]["type"] == "error"
     assert "Unsupported resource type" in payload["title"]
@@ -425,3 +424,81 @@ async def test_fetch_tool_returns_not_found_when_gene_missing() -> None:
 
     assert payload["metadata"]["type"] == "error"
     assert "not found" in payload["title"].lower()
+
+
+@pytest.mark.asyncio
+async def test_search_natural_language_query_finds_gene() -> None:
+    # The NL query tokenizes to [umod, kidney, expression]; only "umod" resolves.
+    umod = Gene.model_validate(
+        {
+            "chromosome": "chr16", "dataSource": "GENCODE", "description": "uromodulin",
+            "end": 2, "entrezGeneId": 7369, "gencodeId": "ENSG00000169344.15",
+            "gencodeVersion": "v26", "geneStatus": "KNOWN", "geneSymbol": "UMOD",
+            "geneSymbolUpper": "UMOD", "geneType": "protein_coding",
+            "genomeBuild": "GRCh38", "start": 1, "strand": "-", "tss": 2,
+        }
+    )
+
+    async def fake_search(query: str, **kwargs: Any) -> PaginatedGeneResponse:
+        if query.lower() == "umod":
+            return PaginatedGeneResponse(data=[umod], pagingInfo=_paging(1))
+        return PaginatedGeneResponse(data=[], pagingInfo=_paging(0))
+
+    mock_service = AsyncMock()
+    mock_service.search_genes = AsyncMock(side_effect=fake_search)
+
+    with patch_service(mock_service):
+        payload = await _call_tool("search", {"query": "UMOD kidney expression"})
+
+    ids = [r["id"] for r in payload["results"]]
+    assert "gene:ENSG00000169344.15" in ids
+
+
+@pytest.mark.asyncio
+async def test_fetch_sorts_expression_by_descending_median() -> None:
+    def _median(tissue: str, value: float) -> MedianGeneExpression:
+        return MedianGeneExpression.model_validate(
+            {
+                "datasetId": "gtex_v8", "ontologyId": "X", "gencodeId": "ENSG00000169344.15",
+                "geneSymbol": "UMOD", "median": value, "numSamples": None,
+                "tissueSiteDetailId": tissue, "unit": "TPM",
+            }
+        )
+
+    umod = _brca1_gene().model_copy(update={"gene_symbol": "UMOD", "gencode_id": "ENSG00000169344.15"})
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[umod], pagingInfo=_paging(1))
+    )
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(
+            data=[_median("Adipose_Subcutaneous", 0.0), _median("Kidney_Medulla", 2116.02)],
+            pagingInfo=_paging(2),
+        )
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool("fetch", {"id": "gene:ENSG00000169344.15"})
+
+    text = payload["text"]
+    assert "Kidney_Medulla: 2116.02 TPM" in text
+    # Highest-expression tissue appears before the 0.00 one
+    assert text.index("Kidney_Medulla") < text.index("Adipose_Subcutaneous")
+
+
+@pytest.mark.asyncio
+async def test_fetch_accepts_bare_gencode_id() -> None:
+    umod = _brca1_gene().model_copy(update={"gene_symbol": "UMOD", "gencode_id": "ENSG00000169344.15"})
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[umod], pagingInfo=_paging(1))
+    )
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool("fetch", {"id": "ENSG00000169344.15"})
+
+    assert payload["id"] == "ENSG00000169344.15"
+    assert payload["title"].startswith("UMOD - ")
