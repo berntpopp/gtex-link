@@ -32,7 +32,7 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 "Returns per-tissue medians for dataset `gtex_v8` by default. Use "
                 "this when comparing expression of a known gene across tissues; "
                 "pair with `get_top_expressed_genes_by_tissue` for the reverse "
-                "question."
+                "question. Set `include_spread=true` for per-tissue min/max/quartiles/IQR (one extra upstream call)."
             ),
         )
         async def get_median_expression_levels(
@@ -41,6 +41,7 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             dataset_id: str = "gtex_v8",
             page: int = 0,
             page_size: int = 100,
+            include_spread: bool = False,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
@@ -60,6 +61,23 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 counts = await sample_count_map(service, dataset_id)
                 for row in data["data"]:
                     row["numSamples"] = counts.get(row["tissueSiteDetailId"])
+
+                if include_spread and data["data"]:
+                    spread_payload: dict[str, object] = {
+                        "gencodeId": resolved,
+                        "datasetId": dataset_id,
+                        "page": 0,
+                        "itemsPerPage": 1000,
+                    }
+                    if tissue_site_detail_id is not None:
+                        spread_payload["tissueSiteDetailId"] = tissue_site_detail_id
+                    expr = await service.get_gene_expression(
+                        GeneExpressionRequest.model_validate(spread_payload)
+                    )
+                    by_key = {(r.gencode_id, r.tissue_site_detail_id): r.data for r in expr.data}
+                    for row in data["data"]:
+                        values = by_key.get((row["gencodeId"], row["tissueSiteDetailId"]), [])
+                        row["spread"] = compute_spread(values)
                 return data
 
             success = False

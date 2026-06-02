@@ -574,3 +574,58 @@ async def test_median_populates_num_samples_from_tissue_map() -> None:
         )
 
     assert payload["data"][0]["numSamples"] == 4
+
+
+@pytest.mark.asyncio
+async def test_median_include_spread_attaches_distribution() -> None:
+    row = MedianGeneExpression.model_validate(
+        {
+            "datasetId": "gtex_v8", "ontologyId": "UBERON:1", "gencodeId": "ENSG00000169344.15",
+            "geneSymbol": "UMOD", "median": 2116.02, "numSamples": None,
+            "tissueSiteDetailId": "Kidney_Medulla", "unit": "TPM",
+        }
+    )
+    expr = GeneExpression.model_validate(
+        {
+            "data": [1224.0, 1837.0, 2395.0, 3766.0], "datasetId": "gtex_v8",
+            "tissueSiteDetailId": "Kidney_Medulla", "ontologyId": "UBERON:1",
+            "subsetGroup": None, "gencodeId": "ENSG00000169344.15",
+            "geneSymbol": "UMOD", "unit": "TPM",
+        }
+    )
+    mock_service = AsyncMock()
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(data=[row], pagingInfo=_paging(1))
+    )
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
+    )
+    mock_service.get_gene_expression = AsyncMock(
+        return_value=PaginatedGeneExpressionResponse(data=[expr], pagingInfo=_paging(1))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_median_expression_levels",
+            {"gencode_id": ["ENSG00000169344.15"], "include_spread": True},
+        )
+
+    spread = payload["data"][0]["spread"]
+    assert spread["min"] == 1224.0 and spread["max"] == 3766.0
+    assert spread["iqr"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_median_default_omits_spread() -> None:
+    mock_service = AsyncMock()
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(data=[], pagingInfo=_paging(0))
+    )
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        await _call_tool("get_median_expression_levels", {"gencode_id": ["ENSG00000169344.15"]})
+
+    mock_service.get_gene_expression.assert_not_awaited()
