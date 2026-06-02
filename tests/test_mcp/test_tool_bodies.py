@@ -205,7 +205,7 @@ async def test_get_median_expression_levels_omits_tissue_when_none() -> None:
             {"gencode_id": ["ENSG00000012048.22"]},
         )
 
-    assert payload["data"][0]["median"] == 12.5436
+    assert payload["genes"][0]["tissues"][0]["median"] == 12.5436
     request = mock_service.get_median_gene_expression.call_args.args[0]
     assert request.tissue_site_detail_id == ""
 
@@ -588,7 +588,7 @@ async def test_median_populates_num_samples_from_tissue_map() -> None:
             "get_median_expression_levels", {"gencode_id": ["ENSG00000169344.15"]}
         )
 
-    assert payload["data"][0]["numSamples"] == 4
+    assert payload["genes"][0]["tissues"][0]["n"] == 4
 
 
 @pytest.mark.asyncio
@@ -634,9 +634,56 @@ async def test_median_include_spread_attaches_distribution() -> None:
             {"gencode_id": ["ENSG00000169344.15"], "include_spread": True},
         )
 
-    spread = payload["data"][0]["spread"]
+    spread = payload["genes"][0]["tissues"][0]["spread"]
     assert spread["min"] == 1224.0 and spread["max"] == 3766.0
     assert spread["iqr"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_median_returns_gene_grouped_shape_with_next_commands() -> None:
+    from gtex_link.models.responses import PaginatedTissueSiteDetailResponse, TissueSiteDetail
+
+    def _t(tid: str, n: int) -> TissueSiteDetail:
+        return TissueSiteDetail.model_validate(
+            {"tissueSiteDetailId": tid, "colorHex": "0", "colorRgb": "0", "datasetId": "gtex_v8",
+             "eGeneCount": None, "expressedGeneCount": 1, "hasEGenes": False, "hasSGenes": False,
+             "mappedInHubmap": False, "eqtlSampleSummary": {"totalCount": n, "female": {}, "male": {}},
+             "rnaSeqSampleSummary": {"totalCount": n, "female": {}, "male": {}}, "sGeneCount": None,
+             "samplingSite": "x", "tissueSite": "x", "tissueSiteDetail": "x",
+             "tissueSiteDetailAbbr": "x", "ontologyId": "UBERON:1", "ontologyIri": "http://x"}
+        )
+
+    def _m(tissue: str, value: float) -> MedianGeneExpression:
+        return MedianGeneExpression.model_validate(
+            {"datasetId": "gtex_v8", "ontologyId": "UBERON:1", "gencodeId": "ENSG00000169344.15",
+             "geneSymbol": "UMOD", "median": value, "numSamples": None,
+             "tissueSiteDetailId": tissue, "unit": "TPM"}
+        )
+
+    mock_service = AsyncMock()
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(
+            data=[_m("Adipose_Subcutaneous", 0.0), _m("Kidney_Medulla", 2116.02)], pagingInfo=_paging(2)
+        )
+    )
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(data=[_t("Kidney_Medulla", 4)], pagingInfo=_paging(1))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_median_expression_levels",
+            {"gencode_id": ["ENSG00000169344.15"], "top_n": 1},
+        )
+
+    assert payload["success"] is True
+    assert payload["genes"][0]["geneSymbol"] == "UMOD"
+    assert payload["genes"][0]["tissues"][0]["tissue"] == "Kidney_Medulla"
+    assert payload["genes"][0]["tissues"][0]["n"] == 4
+    assert payload["headline"].startswith("UMOD: highest median in Kidney_Medulla")
+    nc = payload["_meta"]["next_commands"]
+    assert nc[0]["tool"] == "get_top_expressed_genes_by_tissue"
+    assert nc[0]["arguments"]["tissue_site_detail_id"] == "Kidney_Medulla"
 
 
 @pytest.mark.asyncio
