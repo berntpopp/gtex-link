@@ -287,8 +287,8 @@ class SampleSummary(BaseResponse):
     """Sample summary statistics."""
 
     total_count: int = Field(alias="totalCount")
-    female: dict[str, int | float]
-    male: dict[str, int | float]
+    female: dict[str, int | float | None]
+    male: dict[str, int | float | None]
 
 
 class TissueSiteDetail(BaseResponse):

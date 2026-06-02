@@ -17,14 +17,24 @@ from gtex_link.models.responses import (
 def _tissue(tid: str, n: int) -> TissueSiteDetail:
     return TissueSiteDetail.model_validate(
         {
-            "tissueSiteDetailId": tid, "colorHex": "000000", "colorRgb": "0,0,0",
-            "datasetId": "gtex_v8", "eGeneCount": None, "expressedGeneCount": 1,
-            "hasEGenes": False, "hasSGenes": False, "mappedInHubmap": False,
+            "tissueSiteDetailId": tid,
+            "colorHex": "000000",
+            "colorRgb": "0,0,0",
+            "datasetId": "gtex_v8",
+            "eGeneCount": None,
+            "expressedGeneCount": 1,
+            "hasEGenes": False,
+            "hasSGenes": False,
+            "mappedInHubmap": False,
             "eqtlSampleSummary": {"totalCount": n, "female": {}, "male": {}},
             "rnaSeqSampleSummary": {"totalCount": n, "female": {}, "male": {}},
-            "sGeneCount": None, "samplingSite": "x", "tissueSite": "x",
-            "tissueSiteDetail": "x", "tissueSiteDetailAbbr": "x",
-            "ontologyId": "UBERON:1", "ontologyIri": "http://x",
+            "sGeneCount": None,
+            "samplingSite": "x",
+            "tissueSite": "x",
+            "tissueSiteDetail": "x",
+            "tissueSiteDetailAbbr": "x",
+            "ontologyId": "UBERON:1",
+            "ontologyIri": "http://x",
         }
     )
 
@@ -35,7 +45,9 @@ async def test_sample_count_map_builds_tissue_to_n() -> None:
     service.get_tissue_site_details = AsyncMock(
         return_value=PaginatedTissueSiteDetailResponse(
             data=[_tissue("Kidney_Medulla", 4), _tissue("Muscle_Skeletal", 803)],
-            pagingInfo=PaginationInfo(numberOfPages=1, page=0, maxItemsPerPage=250, totalNumberOfItems=2),
+            pagingInfo=PaginationInfo(
+                numberOfPages=1, page=0, maxItemsPerPage=250, totalNumberOfItems=2
+            ),
         )
     )
 
@@ -55,3 +67,19 @@ def test_compute_spread_quartiles() -> None:
 
 def test_compute_spread_empty_is_none() -> None:
     assert compute_spread([]) is None
+
+
+def test_sample_summary_tolerates_null_age_stats() -> None:
+    # Single-sex tissues return null age stats for the absent sex (live API shape).
+    from gtex_link.models.responses import SampleSummary
+
+    summary = SampleSummary.model_validate(
+        {
+            "totalCount": 4,
+            "female": {"ageMax": None, "ageMin": None, "ageMean": None},
+            "male": {"ageMax": 70.0, "ageMin": 20.0, "ageMean": 45.0, "count": 4},
+        }
+    )
+    assert summary.total_count == 4
+    assert summary.female["ageMax"] is None
+    assert summary.male["count"] == 4
