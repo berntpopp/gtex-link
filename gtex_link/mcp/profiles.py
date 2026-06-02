@@ -23,6 +23,7 @@ LITE_TOOLS: frozenset[str] = frozenset(
         "search_gtex_genes",
         "get_gene_information",
         "get_median_expression_levels",
+        "get_server_capabilities",
     }
 )
 
