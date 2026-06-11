@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gtex_link.mcp.next_commands import after_gene_search, after_median, cmd
+from gtex_link.mcp.next_commands import after_gene_search, after_median, after_top, cmd
 
 
 def test_cmd_shape() -> None:
@@ -20,3 +20,10 @@ def test_after_median_points_at_top_expressed_for_top_tissue() -> None:
     cmds = after_median("Kidney_Medulla")
     assert cmds[0]["tool"] == "get_top_expressed_genes_by_tissue"
     assert cmds[0]["arguments"]["tissue_site_detail_id"] == "Kidney_Medulla"
+
+
+def test_after_top_points_at_median_for_top_gene() -> None:
+    cmds = after_top("ENSG00000248527.1")
+    assert cmds[0]["tool"] == "get_median_expression_levels"
+    assert cmds[0]["arguments"]["gencode_id"] == ["ENSG00000248527.1"]
+    assert after_top(None) == []

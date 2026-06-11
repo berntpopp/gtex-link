@@ -235,12 +235,27 @@ async def test_get_median_expression_levels_passes_tissue_when_given() -> None:
 
 @pytest.mark.asyncio
 async def test_median_resolves_symbol_to_gencode() -> None:
+    row = MedianGeneExpression.model_validate(
+        {
+            "datasetId": "gtex_v8",
+            "ontologyId": "UBERON:1",
+            "gencodeId": "ENSG00000012048.22",
+            "geneSymbol": "BRCA1",
+            "median": 5.0,
+            "numSamples": None,
+            "tissueSiteDetailId": "Whole_Blood",
+            "unit": "TPM",
+        }
+    )
     mock_service = AsyncMock()
     mock_service.get_genes = AsyncMock(
         return_value=PaginatedGeneResponse(data=[_brca1_gene()], pagingInfo=_paging(1))
     )
     mock_service.get_median_gene_expression = AsyncMock(
-        return_value=PaginatedMedianGeneExpressionResponse(data=[], pagingInfo=_paging(0))
+        return_value=PaginatedMedianGeneExpressionResponse(data=[row], pagingInfo=_paging(1))
+    )
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
     )
 
     with patch_service(mock_service):
@@ -269,9 +284,21 @@ async def test_median_unknown_symbol_returns_invalid_input_not_silent_empty() ->
 @pytest.mark.asyncio
 async def test_median_clamps_items_per_page_for_many_genes() -> None:
     ids = [f"ENSG{i:011d}.1" for i in range(17)]
+    row = MedianGeneExpression.model_validate(
+        {
+            "datasetId": "gtex_v8",
+            "ontologyId": "UBERON:1",
+            "gencodeId": ids[0],
+            "geneSymbol": "G0",
+            "median": 1.0,
+            "numSamples": None,
+            "tissueSiteDetailId": "Whole_Blood",
+            "unit": "TPM",
+        }
+    )
     mock_service = AsyncMock()
     mock_service.get_median_gene_expression = AsyncMock(
-        return_value=PaginatedMedianGeneExpressionResponse(data=[], pagingInfo=_paging(0))
+        return_value=PaginatedMedianGeneExpressionResponse(data=[row], pagingInfo=_paging(1))
     )
     mock_service.get_tissue_site_details = AsyncMock(
         return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
@@ -774,9 +801,21 @@ async def test_search_gtex_genes_emits_next_commands() -> None:
 
 @pytest.mark.asyncio
 async def test_median_default_omits_spread() -> None:
+    row = MedianGeneExpression.model_validate(
+        {
+            "datasetId": "gtex_v8",
+            "ontologyId": "UBERON:1",
+            "gencodeId": "ENSG00000169344.15",
+            "geneSymbol": "UMOD",
+            "median": 1.0,
+            "numSamples": None,
+            "tissueSiteDetailId": "Whole_Blood",
+            "unit": "TPM",
+        }
+    )
     mock_service = AsyncMock()
     mock_service.get_median_gene_expression = AsyncMock(
-        return_value=PaginatedMedianGeneExpressionResponse(data=[], pagingInfo=_paging(0))
+        return_value=PaginatedMedianGeneExpressionResponse(data=[row], pagingInfo=_paging(1))
     )
     mock_service.get_tissue_site_details = AsyncMock(
         return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
@@ -786,3 +825,293 @@ async def test_median_default_omits_spread() -> None:
         await _call_tool("get_median_expression_levels", {"gencode_id": ["ENSG00000169344.15"]})
 
     mock_service.get_gene_expression.assert_not_awaited()
+
+
+def _umod_median(tissue: str, value: float) -> MedianGeneExpression:
+    return MedianGeneExpression.model_validate(
+        {
+            "datasetId": "gtex_v8",
+            "ontologyId": "UBERON:1",
+            "gencodeId": "ENSG00000169344.15",
+            "geneSymbol": "UMOD",
+            "median": value,
+            "numSamples": None,
+            "tissueSiteDetailId": tissue,
+            "unit": "TPM",
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_gene_information_not_found_when_empty() -> None:
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool("get_gene_information", {"gene_id": ["NOTAREALGENE_XYZ"]})
+
+    assert payload["success"] is False
+    assert payload["error_code"] == "not_found"
+    assert payload["recovery_action"] == "reformulate_input"
+    assert "NOTAREALGENE_XYZ" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_median_empty_on_nondefault_dataset_is_not_found_with_hint() -> None:
+    mock_service = AsyncMock()
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(data=[], pagingInfo=_paging(0))
+    )
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_median_expression_levels",
+            {"gencode_id": ["ENSG00000169344.15"], "dataset_id": "gtex_v10"},
+        )
+
+    assert payload["success"] is False
+    assert payload["error_code"] == "not_found"
+    assert "gtex_v10" in payload["message"]
+    assert "GENCODE" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_median_empty_on_default_dataset_is_not_found() -> None:
+    mock_service = AsyncMock()
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(data=[], pagingInfo=_paging(0))
+    )
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_median_expression_levels", {"gencode_id": ["ENSG99999999999.9"]}
+        )
+
+    assert payload["success"] is False
+    assert payload["error_code"] == "not_found"
+    assert "gtex_v8" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_median_multi_tissue_filter_returns_only_requested() -> None:
+    from gtex_link.models.responses import PaginatedTissueSiteDetailResponse, TissueSiteDetail
+
+    def _tsd(tid: str, n: int) -> TissueSiteDetail:
+        return TissueSiteDetail.model_validate(
+            {
+                "tissueSiteDetailId": tid,
+                "colorHex": "0",
+                "colorRgb": "0",
+                "datasetId": "gtex_v8",
+                "eGeneCount": None,
+                "expressedGeneCount": 1,
+                "hasEGenes": False,
+                "hasSGenes": False,
+                "mappedInHubmap": False,
+                "eqtlSampleSummary": {"totalCount": n, "female": {}, "male": {}},
+                "rnaSeqSampleSummary": {"totalCount": n, "female": {}, "male": {}},
+                "sGeneCount": None,
+                "samplingSite": "x",
+                "tissueSite": "x",
+                "tissueSiteDetail": "x",
+                "tissueSiteDetailAbbr": "x",
+                "ontologyId": "UBERON:1",
+                "ontologyIri": "http://x",
+            }
+        )
+
+    mock_service = AsyncMock()
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(
+            data=[
+                _umod_median("Brain_Cerebellum", 0.0),
+                _umod_median("Kidney_Cortex", 190.13),
+                _umod_median("Kidney_Medulla", 2116.02),
+            ],
+            pagingInfo=_paging(3),
+        )
+    )
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(
+            data=[_tsd("Kidney_Cortex", 85), _tsd("Kidney_Medulla", 4)], pagingInfo=_paging(2)
+        )
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_median_expression_levels",
+            {
+                "gencode_id": ["ENSG00000169344.15"],
+                "tissue_site_detail_id": ["Kidney_Cortex", "Kidney_Medulla"],
+            },
+        )
+
+    gene = payload["genes"][0]
+    tissues = {t["tissue"] for t in gene["tissues"]}
+    assert tissues == {"Kidney_Cortex", "Kidney_Medulla"}
+    assert gene["tissuesTotal"] == 2
+    # The upstream request is NOT tissue-filtered for the list path (filtered client-side).
+    request = mock_service.get_median_gene_expression.call_args.args[0]
+    assert request.tissue_site_detail_id == ""
+
+
+@pytest.mark.asyncio
+async def test_median_compact_omits_null_keys_and_rounds() -> None:
+    mock_service = AsyncMock()
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(
+            data=[_umod_median("Kidney_Medulla", 484.38300000000004)], pagingInfo=_paging(1)
+        )
+    )
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_median_expression_levels", {"gencode_id": ["ENSG00000169344.15"]}
+        )
+
+    tissue = payload["genes"][0]["tissues"][0]
+    assert "ontologyId" not in tissue
+    assert "spread" not in tissue
+    assert tissue["median"] == 484.383
+
+
+@pytest.mark.asyncio
+async def test_median_invalid_tissue_returns_short_error() -> None:
+    mock_service = AsyncMock()
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_median_expression_levels",
+            {"gencode_id": ["ENSG00000169344.15"], "tissue_site_detail_id": "Kidney"},
+        )
+
+    assert payload["success"] is False
+    assert payload["error_code"] == "invalid_input"
+    # Short message, not the full 54-tissue enum dumped twice.
+    assert "see get_server_capabilities.tissues" in payload["message"]
+    assert len(payload["message"]) < 300
+    mock_service.get_median_gene_expression.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_individual_adds_n_and_rounds_values() -> None:
+    expr = GeneExpression.model_validate(
+        {
+            "data": [1.23456789, 2.0, 3.5],
+            "datasetId": "gtex_v8",
+            "tissueSiteDetailId": "Whole_Blood",
+            "ontologyId": "UBERON:0000178",
+            "subsetGroup": None,
+            "gencodeId": "ENSG00000012048.22",
+            "geneSymbol": "BRCA1",
+            "unit": "TPM",
+        }
+    )
+    mock_service = AsyncMock()
+    mock_service.get_gene_expression = AsyncMock(
+        return_value=PaginatedGeneExpressionResponse(data=[expr], pagingInfo=_paging(1))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_individual_expression_data",
+            {"gencode_id": ["ENSG00000012048.22"], "tissue_site_detail_id": "Whole_Blood"},
+        )
+
+    row = payload["data"][0]
+    assert row["n"] == 3
+    assert row["data"][0] == 1.2346
+
+
+@pytest.mark.asyncio
+async def test_individual_rejects_invalid_tissue() -> None:
+    mock_service = AsyncMock()
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_individual_expression_data",
+            {"gencode_id": ["ENSG00000012048.22"], "tissue_site_detail_id": "Kidney"},
+        )
+
+    assert payload["success"] is False
+    assert payload["error_code"] == "invalid_input"
+    mock_service.get_gene_expression.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_top_expressed_emits_next_commands_and_rounds_median() -> None:
+    row = TopExpressedGenes.model_validate(
+        {
+            "datasetId": "gtex_v8",
+            "tissueSiteDetailId": "Kidney_Cortex",
+            "ontologyId": "UBERON:0001225",
+            "gencodeId": "ENSG00000248527.1",
+            "geneSymbol": "MTATP6P1",
+            "median": 7704.700000000001,
+            "unit": "TPM",
+        }
+    )
+    mock_service = AsyncMock()
+    mock_service.get_top_expressed_genes = AsyncMock(
+        return_value=PaginatedTopExpressedGenesResponse(data=[row], pagingInfo=_paging(1))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_top_expressed_genes_by_tissue", {"tissue_site_detail_id": "Kidney_Cortex"}
+        )
+
+    assert payload["data"][0]["median"] == 7704.7
+    nc = payload["_meta"]["next_commands"]
+    assert nc[0]["tool"] == "get_median_expression_levels"
+    assert nc[0]["arguments"]["gencode_id"] == ["ENSG00000248527.1"]
+
+
+@pytest.mark.asyncio
+async def test_get_transcript_information_not_found_when_empty() -> None:
+    mock_service = AsyncMock()
+    mock_service.get_transcripts = AsyncMock(
+        return_value=PaginatedTranscriptResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_transcript_information", {"gencode_id": "ENSG99999999999.9"}
+        )
+
+    assert payload["success"] is False
+    assert payload["error_code"] == "not_found"
+    assert payload["recovery_action"] == "reformulate_input"
+    assert "ENSG99999999999.9" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_individual_not_found_when_empty() -> None:
+    mock_service = AsyncMock()
+    # A well-formed but nonexistent versioned GENCODE id passes resolution
+    # untouched, so the upstream returns no rows -- must be not_found, not silent.
+    mock_service.get_gene_expression = AsyncMock(
+        return_value=PaginatedGeneExpressionResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_individual_expression_data",
+            {"gencode_id": ["ENSG99999999999.9"], "tissue_site_detail_id": "Whole_Blood"},
+        )
+
+    assert payload["success"] is False
+    assert payload["error_code"] == "not_found"
+    assert payload["recovery_action"] == "reformulate_input"
+    assert "ENSG99999999999.9" in payload["message"]

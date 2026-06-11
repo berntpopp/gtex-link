@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
-from gtex_link.mcp.envelope import McpErrorContext, run_mcp_tool
+from gtex_link.mcp.envelope import McpErrorContext, McpToolError, run_mcp_tool
 from gtex_link.mcp.next_commands import after_gene_search
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.service_adapters import get_gtex_service
@@ -95,6 +95,15 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     payload["genomeBuild"] = genome_build
                 request = GeneRequest.model_validate(payload)
                 result = await service.get_genes(request)
+                if not result.data:
+                    raise McpToolError(
+                        error_code="not_found",
+                        message=(
+                            f"No gene found for: {', '.join(gene_id)}. Provide a valid "
+                            "gene symbol (e.g. UMOD) or GENCODE ID (e.g. "
+                            "ENSG00000169344.15)."
+                        ),
+                    )
                 return result.model_dump(by_alias=True)
 
             success = False
@@ -141,6 +150,15 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     payload["genomeBuild"] = genome_build
                 request = TranscriptRequest.model_validate(payload)
                 result = await service.get_transcripts(request)
+                if not result.data:
+                    raise McpToolError(
+                        error_code="not_found",
+                        message=(
+                            f"No transcripts found for {gencode_id}. Provide a versioned "
+                            "GENCODE ID (e.g. ENSG00000169344.15); resolve a symbol via "
+                            "get_gene_information or search_gtex_genes first."
+                        ),
+                    )
                 return result.model_dump(by_alias=True)
 
             success = False

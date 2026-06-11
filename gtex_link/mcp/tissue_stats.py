@@ -44,8 +44,8 @@ def compute_spread(values: list[float]) -> dict[str, Any] | None:
         q1 = q3 = ordered[0]
     return {
         "n": n,
-        "min": ordered[0],
-        "max": ordered[-1],
+        "min": round(ordered[0], 4),
+        "max": round(ordered[-1], 4),
         "q1": round(q1, 4),
         "median": round(statistics.median(ordered), 4),
         "q3": round(q3, 4),

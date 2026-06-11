@@ -66,3 +66,32 @@ def test_multiple_genes_grouped_separately() -> None:
         rows, counts={}, sort="desc", top_n=None, response_mode="compact", spread_by_key={}
     )
     assert {g.gene_symbol for g in result.genes} == {"UMOD", "BRCA1"}
+
+
+def test_tissues_filter_restricts_and_sets_total() -> None:
+    rows = [
+        _row("Brain_Cerebellum", 0.0),
+        _row("Kidney_Cortex", 190.1),
+        _row("Kidney_Medulla", 2116.02),
+    ]
+    result = group_median(
+        rows,
+        counts={},
+        sort="desc",
+        top_n=None,
+        response_mode="compact",
+        spread_by_key={},
+        tissues_filter={"Kidney_Cortex", "Kidney_Medulla"},
+    )
+    group = result.genes[0]
+    assert {t.tissue for t in group.tissues} == {"Kidney_Cortex", "Kidney_Medulla"}
+    assert group.tissues_total == 2
+    assert group.tissues_returned == 2
+
+
+def test_median_values_are_rounded() -> None:
+    rows = [_row("Kidney_Medulla", 484.38300000000004)]
+    result = group_median(
+        rows, counts={}, sort="desc", top_n=None, response_mode="compact", spread_by_key={}
+    )
+    assert result.genes[0].tissues[0].median == 484.383
