@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed (Dependency maintenance)
+
+- Consolidated the open Dependabot updates into a single change set:
+  - Runtime: `uvicorn[standard]` 0.48 → 0.49, `structlog` 25.5 → 26.1,
+    `typer` 0.25.1 → 0.26.7, `mcp[cli]` 1.27.1 → 1.27.2,
+    `fastmcp` 3.3.1 → 3.4.2, `asgi-correlation-id` 4.3 → 5.0.
+  - Dev/tooling: `pytest-asyncio` 1.3 → 1.4, `ruff` 0.15.14 → 0.15.16.
+  - CI actions: `actions/checkout` 6.0.2 → 6.0.3,
+    `astral-sh/setup-uv` 7.6.0 → 8.2.0.
+  - Validated against `make ci-local` (format, lint, file-size, mypy strict,
+    360 tests) and app/MCP boot smoke checks after the `structlog` 26 and
+    `asgi-correlation-id` 5 major bumps.
+
 ### Added (Phase 1 — Foundation)
 
 - `AGENTS.md` as shared source of truth for agentic tools.
