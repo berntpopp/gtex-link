@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, McpToolError, run_mcp_tool
-from gtex_link.mcp.metadata import valid_tissues
-from gtex_link.mcp.next_commands import after_median
+from gtex_link.mcp.metadata import ensure_valid_tissue
+from gtex_link.mcp.next_commands import after_median, after_top
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.schema_relax import relax_output_schema
 from gtex_link.mcp.search_match import resolve_gene_ids
@@ -30,6 +30,37 @@ if TYPE_CHECKING:
 MAX_MEDIAN_GENES = 18
 
 
+def _no_median_rows(dataset_id: str) -> str:
+    """Loud, actionable message for an empty median result (never silent success)."""
+    if dataset_id != "gtex_v8":
+        return (
+            f"No expression rows for the requested gene(s) in dataset {dataset_id!r}. "
+            "Gene IDs resolve against gtex_v8 (GENCODE v26); other datasets use a "
+            "different GENCODE version, so versioned IDs may not match. Retry with "
+            "dataset_id='gtex_v8'."
+        )
+    return (
+        "No median expression rows returned for the requested gene(s). Verify the "
+        "GENCODE ID exists in gtex_v8."
+    )
+
+
+def _no_individual_rows(dataset_id: str, genes: list[str]) -> str:
+    """Loud, actionable message for an empty individual-sample result."""
+    joined = ", ".join(genes)
+    if dataset_id != "gtex_v8":
+        return (
+            f"No individual-sample expression rows for {joined} in dataset "
+            f"{dataset_id!r}. Gene IDs resolve against gtex_v8 (GENCODE v26); other "
+            "datasets use a different GENCODE version, so versioned IDs may not "
+            "match. Retry with dataset_id='gtex_v8'."
+        )
+    return (
+        f"No individual-sample expression rows for {joined}. Verify the GENCODE ID "
+        "exists in gtex_v8 and (if filtered) that the tissue has samples for it."
+    )
+
+
 def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
     """Register expression-category tools on a FastMCP instance."""
     if is_tool_in_profile("get_median_expression_levels", profile):
@@ -45,15 +76,18 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             description=(
                 "Get median GTEx Portal expression (TPM) per tissue for one or "
                 "more genes (GENCODE IDs or symbols; symbols are auto-resolved). "
-                "Results are grouped per gene with invariant fields hoisted. Use "
-                "`sort` + `top_n` to answer 'where is this expressed most?' in one "
-                "call; `response_mode='full'` adds ontologyId; `include_spread=true` "
-                "adds per-tissue min/max/quartiles/IQR (one extra upstream call)."
+                "Results are grouped per gene with invariant fields hoisted. "
+                "`tissue_site_detail_id` accepts a single tissue OR a list of "
+                "tissues to compare a few tissues in one compact call; omit for "
+                "all tissues. Use `sort` + `top_n` to answer 'where is this "
+                "expressed most?' in one call; `response_mode='full'` adds "
+                "ontologyId; `include_spread=true` adds per-tissue "
+                "min/max/quartiles/IQR (one extra upstream call)."
             ),
         )
         async def get_median_expression_levels(
             gencode_id: list[str],
-            tissue_site_detail_id: str | None = None,
+            tissue_site_detail_id: str | list[str] | None = None,
             dataset_id: str = "gtex_v8",
             sort: Literal["desc", "asc", "none"] = "desc",
             top_n: int | None = None,
@@ -74,17 +108,31 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                             "are returned intact (upstream 1000-row page cap)."
                         ),
                     )
+                # A single tissue is pushed down to the upstream filter; a list is
+                # filtered client-side (the upstream endpoint takes one tissue), so
+                # fetch all tissues and restrict in group_median.
+                upstream_tissue: str | None = None
+                tissues_filter: set[str] | None = None
+                if isinstance(tissue_site_detail_id, list):
+                    for tissue in tissue_site_detail_id:
+                        ensure_valid_tissue(tissue)
+                    tissues_filter = set(tissue_site_detail_id)
+                elif tissue_site_detail_id is not None:
+                    ensure_valid_tissue(tissue_site_detail_id)
+                    upstream_tissue = tissue_site_detail_id
                 req: dict[str, object] = {
                     "gencodeId": resolved,
                     "datasetId": dataset_id,
                     "page": 0,
                     "itemsPerPage": min(max(60 * len(resolved), 100), 1000),
                 }
-                if tissue_site_detail_id is not None:
-                    req["tissueSiteDetailId"] = tissue_site_detail_id
+                if upstream_tissue is not None:
+                    req["tissueSiteDetailId"] = upstream_tissue
                 result = await service.get_median_gene_expression(
                     MedianGeneExpressionRequest.model_validate(req)
                 )
+                if not result.data:
+                    raise McpToolError(error_code="not_found", message=_no_median_rows(dataset_id))
                 counts = await sample_count_map(service, dataset_id)
 
                 spread_by_key: dict[tuple[str, str], dict[str, Any] | None] = {}
@@ -95,8 +143,8 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                         "page": 0,
                         "itemsPerPage": 1000,
                     }
-                    if tissue_site_detail_id is not None:
-                        spread_req["tissueSiteDetailId"] = tissue_site_detail_id
+                    if upstream_tissue is not None:
+                        spread_req["tissueSiteDetailId"] = upstream_tissue
                     expr = await service.get_gene_expression(
                         GeneExpressionRequest.model_validate(spread_req)
                     )
@@ -114,8 +162,11 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     spread_by_key=spread_by_key,
                     page=page,
                     page_size=page_size,
+                    tissues_filter=tissues_filter,
                 )
-                payload = shaped.model_dump(by_alias=True)
+                # exclude_none drops the always-null ontologyId/spread keys in
+                # compact mode (honoring the documented "tissue/median/n only").
+                payload = shaped.model_dump(by_alias=True, exclude_none=True)
                 top_tissue = (
                     payload["genes"][0]["tissues"][0]["tissue"]
                     if payload["genes"] and payload["genes"][0]["tissues"]
@@ -146,9 +197,12 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             description=(
                 "Get individual-sample GTEx Portal expression data (TPM) for one "
                 "or more genes (GENCODE IDs or symbols; symbols are auto-resolved), "
-                "optionally filtered by tissue and dataset. High volume -- limit "
-                "`page_size` accordingly. Use for variance/distribution analyses "
-                "where per-sample data is needed."
+                "optionally filtered by tissue and dataset. Returns one row per "
+                "gene-tissue; each row's `data` is an unlabeled per-sample TPM "
+                "vector (no sample/donor IDs, upstream order) with `n` = sample "
+                "count. NOTE: `page_size` paginates the gene-tissue ROWS, not "
+                "samples -- filter by tissue to bound size. Use for "
+                "variance/distribution analyses where per-sample data is needed."
             ),
         )
         async def get_individual_expression_data(
@@ -160,6 +214,7 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
+                ensure_valid_tissue(tissue_site_detail_id)
                 resolved = await resolve_gene_ids(service, gencode_id)
                 payload: dict[str, object] = {
                     "gencodeId": resolved,
@@ -171,7 +226,19 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     payload["tissueSiteDetailId"] = tissue_site_detail_id
                 request = GeneExpressionRequest.model_validate(payload)
                 result = await service.get_gene_expression(request)
-                return result.model_dump(by_alias=True)
+                if not result.data:
+                    raise McpToolError(
+                        error_code="not_found",
+                        message=_no_individual_rows(dataset_id, resolved),
+                    )
+                dumped = result.model_dump(by_alias=True)
+                # Surface the per-row sample count and tame float noise; the raw
+                # vector carries no sample IDs, so `n` is the only labelled stat.
+                for row in dumped.get("data", []):
+                    values = row.get("data") or []
+                    row["data"] = [round(v, 4) for v in values]
+                    row["n"] = len(values)
+                return dumped
 
             success = False
             try:
@@ -209,17 +276,7 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             page_size: int = 100,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
-                allowed = valid_tissues()
-                if tissue_site_detail_id not in allowed:
-                    sample = ", ".join(allowed[:8])
-                    raise McpToolError(
-                        error_code="invalid_input",
-                        message=(
-                            f"Unknown tissue_site_detail_id {tissue_site_detail_id!r}. "
-                            f"Valid values include: {sample}, ... ({len(allowed)} total; "
-                            "see get_server_capabilities.tissues)."
-                        ),
-                    )
+                ensure_valid_tissue(tissue_site_detail_id)
                 service = get_gtex_service()
                 request = TopExpressedGenesRequest.model_validate(
                     {
@@ -231,7 +288,14 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     }
                 )
                 result = await service.get_top_expressed_genes(request)
-                return result.model_dump(by_alias=True)
+                dumped = result.model_dump(by_alias=True)
+                rows = dumped.get("data", [])
+                for row in rows:
+                    if row.get("median") is not None:
+                        row["median"] = round(row["median"], 4)
+                if rows:
+                    dumped["_meta"] = {"next_commands": after_top(rows[0]["gencodeId"])}
+                return dumped
 
             success = False
             try:

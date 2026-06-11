@@ -23,3 +23,10 @@ def after_median(top_tissue: str | None) -> list[dict[str, Any]]:
     if not top_tissue:
         return []
     return [cmd("get_top_expressed_genes_by_tissue", tissue_site_detail_id=top_tissue)]
+
+
+def after_top(top_gencode_id: str | None) -> list[dict[str, Any]]:
+    """After top-expressed genes: pivot to where the top gene is expressed."""
+    if not top_gencode_id:
+        return []
+    return [cmd("get_median_expression_levels", gencode_id=[top_gencode_id])]

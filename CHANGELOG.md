@@ -6,6 +6,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed (MCP surface hardening)
+
+- `get_gene_information` now returns a structured `not_found` error for unknown
+  genes instead of a silent `success: true` with an empty `data` list.
+- `get_median_expression_levels` returns `not_found` (with a GENCODE-version
+  hint for non-`gtex_v8` datasets) instead of silently succeeding with no rows,
+  closing the `gtex_v10` silent-empty trap.
+- `get_transcript_information` and `get_individual_expression_data` now return
+  `not_found` (with the offending GENCODE ID and a resolution hint) instead of
+  a silent `success: true` empty `data` list, extending the no-silent-false-
+  negative contract across the whole tool surface.
+- Invalid tissue filters on `get_median_expression_levels` and
+  `get_individual_expression_data` now raise the same short `invalid_input`
+  message as `get_top_expressed_genes_by_tissue` instead of dumping the full
+  54-tissue enum twice (shared `ensure_valid_tissue` helper).
+- Compact median output no longer emits always-null `ontologyId`/`spread` keys
+  (honoring the documented "tissue/median/n only" contract).
+- Median and spread `min`/`max` values are rounded to 4 decimals, removing
+  floating-point noise like `484.38300000000004`.
+
+### Added (MCP surface hardening)
+
+- `get_median_expression_levels` `tissue_site_detail_id` accepts a list of
+  tissues for a compact multi-tissue comparison (filtered client-side).
+- `get_individual_expression_data` rows now carry `n` (sample count); the
+  per-sample vector is documented as unlabeled and in upstream order.
+- `get_top_expressed_genes_by_tissue` emits `_meta.next_commands` pointing at
+  `get_median_expression_levels` for the top gene.
+- `not_found` now maps to the `reformulate_input` recovery action.
+
 ### Changed (Dependency maintenance)
 
 - Consolidated the open Dependabot updates into a single change set:

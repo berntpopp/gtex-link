@@ -97,7 +97,7 @@ def _classify(exc: BaseException) -> tuple[str, str, bool]:
 def _recovery_action(error_code: str, retryable: bool) -> str:
     if retryable:
         return "retry_backoff"
-    if error_code in {"invalid_input", "validation_failed"}:
+    if error_code in {"invalid_input", "validation_failed", "not_found"}:
         return "reformulate_input"
     return "switch_tool"
 
