@@ -860,7 +860,15 @@ async def test_get_gene_information_not_found_when_empty() -> None:
 
 @pytest.mark.asyncio
 async def test_median_empty_on_nondefault_dataset_is_not_found_with_hint() -> None:
+    # gtex_v10 re-resolves the gene against GENCODE v39 before querying expression;
+    # an empty median result still surfaces a loud not_found naming the dataset.
+    resolved_gene = _brca1_gene().model_copy(
+        update={"gene_symbol": "UMOD", "gencode_id": "ENSG00000169344.20"}
+    )
     mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[resolved_gene], pagingInfo=_paging(1))
+    )
     mock_service.get_median_gene_expression = AsyncMock(
         return_value=PaginatedMedianGeneExpressionResponse(data=[], pagingInfo=_paging(0))
     )
@@ -878,6 +886,53 @@ async def test_median_empty_on_nondefault_dataset_is_not_found_with_hint() -> No
     assert payload["error_code"] == "not_found"
     assert "gtex_v10" in payload["message"]
     assert "GENCODE" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_median_gtex_v10_resolves_gene_to_v39_id() -> None:
+    # Regression for the v10 empty-result bug: a v26 id (.19) on gtex_v10 must be
+    # re-resolved against GENCODE v39 to the dataset's id (.20) before querying.
+    resolved_gene = _brca1_gene().model_copy(
+        update={"gene_symbol": "PKD1", "gencode_id": "ENSG00000008710.20"}
+    )
+    captured: dict[str, Any] = {}
+
+    async def fake_get_genes(request: Any) -> PaginatedGeneResponse:
+        captured["genes_req"] = request
+        return PaginatedGeneResponse(data=[resolved_gene], pagingInfo=_paging(1))
+
+    async def fake_median(request: Any) -> PaginatedMedianGeneExpressionResponse:
+        captured["median_req"] = request
+        row = MedianGeneExpression.model_validate(
+            {
+                "datasetId": "gtex_v10",
+                "ontologyId": "UBERON:1",
+                "gencodeId": "ENSG00000008710.20",
+                "geneSymbol": "PKD1",
+                "median": 510.7,
+                "numSamples": None,
+                "tissueSiteDetailId": "Brain_Cerebellum",
+                "unit": "TPM",
+            }
+        )
+        return PaginatedMedianGeneExpressionResponse(data=[row], pagingInfo=_paging(1))
+
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(side_effect=fake_get_genes)
+    mock_service.get_median_gene_expression = AsyncMock(side_effect=fake_median)
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_median_expression_levels",
+            {"gencode_id": ["ENSG00000008710.19"], "dataset_id": "gtex_v10"},
+        )
+
+    assert payload["success"] is True
+    assert captured["genes_req"].gencode_version == "v39"
+    assert captured["median_req"].gencode_id == ["ENSG00000008710.20"]
 
 
 @pytest.mark.asyncio

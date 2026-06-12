@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 from gtex_link.mcp.envelope import McpToolError
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.resources import GTEX_DATA_RELEASE, RECOMMENDED_CITATION
-from gtex_link.models.gtex import TissueSiteDetailId
+from gtex_link.models.gtex import DATASET_GENCODE_VERSION, TissueSiteDetailId
 from gtex_link.observability.metrics import record_mcp_tool_call
 
 if TYPE_CHECKING:
@@ -73,6 +73,7 @@ def _surface() -> dict[str, Any]:
         "gtex_release": GTEX_DATA_RELEASE,
         "research_use_only": True,
         "datasets": ["gtex_v8", "gtex_v10", "gtex_snrnaseq_pilot"],
+        "dataset_gencode_versions": dict(DATASET_GENCODE_VERSION),
         "tissues": valid_tissues(),
         "tools": list(_ALL_TOOLS),
         "recommended_workflows": [
@@ -123,8 +124,10 @@ def _surface() -> dict[str, Any]:
                 "gene-tissue."
             ),
             (
-                "Gene IDs resolve against gtex_v8 (GENCODE v26); other datasets use "
-                "a different GENCODE version, so versioned IDs may not match."
+                "Each dataset uses a different GENCODE release (see "
+                "dataset_gencode_versions: gtex_v8->v26, gtex_v10->v39). Gene IDs are "
+                "resolved to the requested dataset's release automatically; a gene "
+                "absent from a release still returns no rows."
             ),
             "Research use only; not for clinical decision support.",
         ],

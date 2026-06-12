@@ -75,6 +75,48 @@ async def test_resolve_gene_ids_resolves_symbol_to_gencode() -> None:
     assert resolved == ["ENSG00000169344.15"]
 
 
+def test_gencode_version_for_dataset_maps_known_datasets() -> None:
+    from gtex_link.mcp.search_match import gencode_version_for_dataset
+
+    assert gencode_version_for_dataset("gtex_v8") == "v26"
+    assert gencode_version_for_dataset("gtex_v10") == "v39"
+    # Unknown datasets fall back to the upstream default release.
+    assert gencode_version_for_dataset("something_else") == "v26"
+
+
+@pytest.mark.asyncio
+async def test_resolve_gene_ids_resolves_against_dataset_version() -> None:
+    # gtex_v10 uses GENCODE v39: a v26 id (.19) must be stripped and re-resolved to
+    # the dataset's id (.20), and the upstream query must carry gencodeVersion=v39.
+    captured: dict[str, object] = {}
+
+    async def fake_get_genes(request: object) -> PaginatedGeneResponse:
+        captured["request"] = request
+        return PaginatedGeneResponse(
+            data=[_gene("PKD1", "ENSG00000008710.20")],
+            pagingInfo=PaginationInfo(
+                numberOfPages=1, page=0, maxItemsPerPage=50, totalNumberOfItems=1
+            ),
+        )
+
+    service = AsyncMock()
+    service.get_genes = AsyncMock(side_effect=fake_get_genes)
+    resolved = await resolve_gene_ids(service, ["ENSG00000008710.19"], gencode_version="v39")
+    assert resolved == ["ENSG00000008710.20"]
+    req = captured["request"]
+    assert req.gencode_version == "v39"
+    assert req.gene_id == ["ENSG00000008710"]
+
+
+@pytest.mark.asyncio
+async def test_resolve_gene_ids_v26_versioned_passes_through() -> None:
+    # The default release keeps the no-API fast path for already-versioned ids.
+    service = AsyncMock()
+    resolved = await resolve_gene_ids(service, ["ENSG00000169344.15"], gencode_version="v26")
+    assert resolved == ["ENSG00000169344.15"]
+    service.get_genes.assert_not_awaited()
+
+
 @pytest.mark.asyncio
 async def test_resolve_gene_ids_raises_invalid_input_for_unknown() -> None:
     from gtex_link.mcp.envelope import McpToolError
