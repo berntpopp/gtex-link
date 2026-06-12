@@ -10,7 +10,7 @@ from gtex_link.mcp.metadata import ensure_valid_tissue
 from gtex_link.mcp.next_commands import after_median, after_top
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.schema_relax import relax_output_schema
-from gtex_link.mcp.search_match import resolve_gene_ids
+from gtex_link.mcp.search_match import gencode_version_for_dataset, resolve_gene_ids
 from gtex_link.mcp.service_adapters import get_gtex_service
 from gtex_link.mcp.shaping import group_median
 from gtex_link.mcp.tissue_stats import compute_spread, sample_count_map
@@ -32,32 +32,22 @@ MAX_MEDIAN_GENES = 18
 
 def _no_median_rows(dataset_id: str) -> str:
     """Loud, actionable message for an empty median result (never silent success)."""
-    if dataset_id != "gtex_v8":
-        return (
-            f"No expression rows for the requested gene(s) in dataset {dataset_id!r}. "
-            "Gene IDs resolve against gtex_v8 (GENCODE v26); other datasets use a "
-            "different GENCODE version, so versioned IDs may not match. Retry with "
-            "dataset_id='gtex_v8'."
-        )
     return (
-        "No median expression rows returned for the requested gene(s). Verify the "
-        "GENCODE ID exists in gtex_v8."
+        f"No median expression rows for the requested gene(s) in dataset "
+        f"{dataset_id!r}. Gene IDs were resolved to this dataset's GENCODE release, "
+        "so confirm the gene is measured in this dataset (some genes are annotation- "
+        "or dataset-specific)."
     )
 
 
 def _no_individual_rows(dataset_id: str, genes: list[str]) -> str:
     """Loud, actionable message for an empty individual-sample result."""
     joined = ", ".join(genes)
-    if dataset_id != "gtex_v8":
-        return (
-            f"No individual-sample expression rows for {joined} in dataset "
-            f"{dataset_id!r}. Gene IDs resolve against gtex_v8 (GENCODE v26); other "
-            "datasets use a different GENCODE version, so versioned IDs may not "
-            "match. Retry with dataset_id='gtex_v8'."
-        )
     return (
-        f"No individual-sample expression rows for {joined}. Verify the GENCODE ID "
-        "exists in gtex_v8 and (if filtered) that the tissue has samples for it."
+        f"No individual-sample expression rows for {joined} in dataset "
+        f"{dataset_id!r}. Gene IDs were resolved to this dataset's GENCODE release, "
+        "so confirm the gene is measured here and (if filtered) that the tissue has "
+        "samples for it."
     )
 
 
@@ -98,7 +88,9 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
-                resolved = await resolve_gene_ids(service, gencode_id)
+                resolved = await resolve_gene_ids(
+                    service, gencode_id, gencode_version=gencode_version_for_dataset(dataset_id)
+                )
                 if len(resolved) > MAX_MEDIAN_GENES:
                     raise McpToolError(
                         error_code="invalid_input",
@@ -215,7 +207,9 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
                 ensure_valid_tissue(tissue_site_detail_id)
-                resolved = await resolve_gene_ids(service, gencode_id)
+                resolved = await resolve_gene_ids(
+                    service, gencode_id, gencode_version=gencode_version_for_dataset(dataset_id)
+                )
                 payload: dict[str, object] = {
                     "gencodeId": resolved,
                     "datasetId": dataset_id,

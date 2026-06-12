@@ -44,12 +44,33 @@ class DatasetId(StrEnum):
 
 
 class GencodeVersion(StrEnum):
-    """Gencode version enumeration."""
+    """Gencode version enumeration.
+
+    These are the only releases the GTEx Portal API accepts (it rejects anything
+    else with HTTP 422). Each dataset is annotated against one of them:
+    gtex_v8 -> v26, gtex_v10 -> v39. See DATASET_GENCODE_VERSION.
+    """
 
     V19 = "v19"
     V26 = "v26"
-    V32 = "v32"
-    V43 = "v43"
+    V39 = "v39"
+
+
+# Each GTEx dataset is annotated against one GENCODE release; expression rows key
+# on the dataset's versioned GENCODE id. PKD1 is ENSG00000008710.19 under v26
+# (gtex_v8) but .20 under v39 (gtex_v10), so a gene must be resolved against the
+# dataset's release or median/individual expression returns zero rows.
+DEFAULT_GENCODE_VERSION = "v26"
+DATASET_GENCODE_VERSION: dict[str, str] = {
+    "gtex_v8": "v26",
+    "gtex_snrnaseq_pilot": "v26",
+    "gtex_v10": "v39",
+}
+
+
+def gencode_version_for_dataset(dataset_id: str) -> str:
+    """GENCODE release backing *dataset_id* (default v26 for unknown datasets)."""
+    return DATASET_GENCODE_VERSION.get(dataset_id, DEFAULT_GENCODE_VERSION)
 
 
 class GenomeBuild(StrEnum):
