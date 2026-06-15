@@ -78,7 +78,11 @@ class TestAppCreation:
         routes = [route.path for route in test_app.routes if hasattr(route, "path")]
 
         assert "/" in routes
-        assert any("/api/health" in str(route) for route in test_app.routes)
+        # FastAPI >=0.137 wraps included routers in lazy ``_IncludedRouter``
+        # objects, so nested paths no longer appear directly in ``app.routes``.
+        # Use the public ``url_path_for`` resolver to confirm the health router
+        # was included regardless of the internal route representation.
+        assert test_app.url_path_for("health_check") == "/api/health"
 
     def test_imports_work(self) -> None:
         """Test that all imports work correctly."""
