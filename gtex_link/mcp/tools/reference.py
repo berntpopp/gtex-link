@@ -18,10 +18,10 @@ if TYPE_CHECKING:
 
 def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
     """Register reference-category tools on a FastMCP instance."""
-    if is_tool_in_profile("search_gtex_genes", profile):
+    if is_tool_in_profile("search_genes", profile):
 
         @mcp.tool(
-            name="search_gtex_genes",
+            name="search_genes",
             title="Search GTEx Genes",
             annotations=READ_ONLY_OPEN_WORLD,
             tags={"reference", "search"},
@@ -33,10 +33,10 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 "disambiguate. Pair with `get_gene_information` for full detail."
             ),
         )
-        async def search_gtex_genes(
+        async def search_genes(
             query: str,
-            page: int = 0,
-            page_size: int = 20,
+            offset: int = 0,
+            limit: int = 20,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
@@ -44,8 +44,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     query=query,
                     gencode_version=None,
                     genome_build=None,
-                    page=page,
-                    page_size=page_size,
+                    page=offset // limit if limit else 0,
+                    page_size=limit,
                 )
                 payload = result.model_dump(by_alias=True)
                 gencode_ids = [g["gencodeId"] for g in payload["data"]]
@@ -56,12 +56,12 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             success = False
             try:
                 payload = await run_mcp_tool(
-                    "search_gtex_genes", call, context=McpErrorContext("search_gtex_genes")
+                    "search_genes", call, context=McpErrorContext("search_genes")
                 )
                 success = payload.get("success", False)
                 return payload
             finally:
-                record_mcp_tool_call(tool="search_gtex_genes", success=success)
+                record_mcp_tool_call(tool="search_genes", success=success)
 
     if is_tool_in_profile("get_gene_information", profile):
 
@@ -134,15 +134,15 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             gencode_id: str,
             gencode_version: str | None = None,
             genome_build: str | None = None,
-            page: int = 0,
-            page_size: int = 250,
+            offset: int = 0,
+            limit: int = 250,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
                 payload: dict[str, object] = {
                     "gencodeId": gencode_id,
-                    "page": page,
-                    "itemsPerPage": page_size,
+                    "page": offset // limit if limit else 0,
+                    "itemsPerPage": limit,
                 }
                 if gencode_version is not None:
                     payload["gencodeVersion"] = gencode_version
@@ -156,7 +156,7 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                         message=(
                             f"No transcripts found for {gencode_id}. Provide a versioned "
                             "GENCODE ID (e.g. ENSG00000169344.15); resolve a symbol via "
-                            "get_gene_information or search_gtex_genes first."
+                            "get_gene_information or search_genes first."
                         ),
                     )
                 return result.model_dump(by_alias=True)

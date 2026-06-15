@@ -425,7 +425,7 @@ class HealthResponse(BaseResponse):
     version: str = Field(
         ...,
         description="GTEx-Link version",
-        json_schema_extra={"example": "0.1.0"},
+        json_schema_extra={"example": "1.0.0"},
     )
     gtex_api: str = Field(
         ...,

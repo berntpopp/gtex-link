@@ -51,7 +51,7 @@ async def health_check(
 
     return HealthResponse(
         status=overall_status,
-        version="0.1.0",
+        version="1.0.0",
         gtex_api=gtex_status,
         cache=cache_status,
         uptime_seconds=uptime,
@@ -62,7 +62,7 @@ async def health_check(
 async def version_info() -> dict[str, Any]:
     """Get version information."""
     return {
-        "version": "0.1.0",
+        "version": "1.0.0",
         "api_version": "v1",
         "gtex_api": settings.api.base_url,
     }

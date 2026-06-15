@@ -30,7 +30,7 @@ def test_lite_tool_set_is_explicit() -> None:
     expected = {
         "search",
         "fetch",
-        "search_gtex_genes",
+        "search_genes",
         "get_gene_information",
         "get_median_expression_levels",
         "get_server_capabilities",
@@ -44,4 +44,4 @@ def test_full_profile_includes_everything() -> None:
 
 def test_lite_profile_excludes_advanced_tools() -> None:
     assert not is_tool_in_profile("get_top_expressed_genes_by_tissue", MCPToolProfile.LITE)
-    assert is_tool_in_profile("search_gtex_genes", MCPToolProfile.LITE)
+    assert is_tool_in_profile("search_genes", MCPToolProfile.LITE)

@@ -31,7 +31,7 @@ class TestHealthRoutes:
             assert result.status == "healthy"
             assert result.gtex_api == "available"
             assert result.cache == "enabled"
-            assert result.version == "0.1.0"
+            assert result.version == "1.0.0"
             assert result.uptime_seconds > 0
 
             # Verify client was called
@@ -59,7 +59,7 @@ class TestHealthRoutes:
             assert result.status == "degraded"
             assert result.gtex_api == "unavailable"
             assert result.cache == "disabled"
-            assert result.version == "0.1.0"
+            assert result.version == "1.0.0"
 
             # Verify warning was logged
             mock_logger.warning.assert_called_once()
@@ -73,7 +73,7 @@ class TestHealthRoutes:
 
             result = await version_info()
 
-            assert result["version"] == "0.1.0"
+            assert result["version"] == "1.0.0"
             assert result["api_version"] == "v1"
             assert result["gtex_api"] == "https://gtexportal.org/api/v2/"
 

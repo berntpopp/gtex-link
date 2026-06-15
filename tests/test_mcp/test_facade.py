@@ -16,7 +16,7 @@ async def test_facade_builds_and_lists_all_full_tools() -> None:
     assert names == {
         "search",
         "fetch",
-        "search_gtex_genes",
+        "search_genes",
         "get_gene_information",
         "get_transcript_information",
         "get_median_expression_levels",
@@ -34,7 +34,7 @@ async def test_facade_lite_profile_subset() -> None:
     assert names == {
         "search",
         "fetch",
-        "search_gtex_genes",
+        "search_genes",
         "get_gene_information",
         "get_median_expression_levels",
         "get_server_capabilities",

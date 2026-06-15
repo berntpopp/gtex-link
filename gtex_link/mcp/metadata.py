@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 _ALL_TOOLS = (
     "search",
     "fetch",
-    "search_gtex_genes",
+    "search_genes",
     "get_gene_information",
     "get_transcript_information",
     "get_median_expression_levels",
@@ -77,7 +77,7 @@ def _surface() -> dict[str, Any]:
         "tools": list(_ALL_TOOLS),
         "recommended_workflows": [
             "natural language -> search -> fetch",
-            "gene symbol -> search_gtex_genes -> get_gene_information -> get_median_expression_levels",
+            "gene symbol -> search_genes -> get_gene_information -> get_median_expression_levels",
             "tissue -> get_top_expressed_genes_by_tissue",
         ],
         "response_modes": {
@@ -101,12 +101,14 @@ def _surface() -> dict[str, Any]:
             ),
             "sort": "desc (default) | asc | none",
             "top_n": "limit tissues per gene for the peak-expression question",
+            "offset": "zero-based row offset for pagination (fleet canon)",
+            "limit": "page size for pagination (fleet canon)",
         },
         "token_cost_hints": {
             "search": "~1-3kB",
             "get_median_expression_levels": "compact ~1-4kB; full/include_spread larger",
             "get_individual_expression_data": (
-                "high volume; one row per gene-tissue (page_size paginates genes, "
+                "high volume; one row per gene-tissue (limit paginates genes, "
                 "not samples) -- filter by tissue to bound size"
             ),
             "get_server_capabilities": "<3kB",
@@ -166,6 +168,7 @@ def register_metadata_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
     @mcp.tool(
         name="get_server_capabilities",
         title="Get Server Capabilities",
+        tags={"meta", "discovery"},
         description=(
             "Return supported tools, datasets, the tissue vocabulary, recommended "
             "workflows, response modes, error codes, and limits. Compare "

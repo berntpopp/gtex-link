@@ -10,7 +10,7 @@ RESEARCH_USE_NOTICE = (
 GTEX_SERVER_INSTRUCTIONS = (
     "GTEx-Link exposes GTEx Portal v8 expression data. "
     "For ChatGPT-compatible workflows use `search` (natural language ok) then "
-    "`fetch`. For programmatic access: `search_gtex_genes` -> "
+    "`fetch`. For programmatic access: `search_genes` -> "
     "`get_gene_information` -> `get_median_expression_levels` or "
     "`get_top_expressed_genes_by_tissue`. Gene IDs accept symbols or GENCODE "
     "IDs; symbols are auto-resolved. Tool results are structured JSON with a "
@@ -30,7 +30,7 @@ RECOMMENDED_CITATION = (
 )
 
 GTEX_USAGE_NOTES = (
-    "Resolve a gene with `search` (natural language) or `search_gtex_genes`, "
+    "Resolve a gene with `search` (natural language) or `search_genes`, "
     "then `get_median_expression_levels` (use sort+top_n for the peak tissue) "
     "or `get_top_expressed_genes_by_tissue`. response_mode=compact is the "
     "default; pass response_mode=full or include_spread=true to widen. Follow "

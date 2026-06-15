@@ -29,7 +29,7 @@ class TestConfigDisplay:
             mock_api_config.burst_size = 10
             mock_api_config.max_retries = 3
             mock_api_config.retry_delay = 1.0
-            mock_api_config.user_agent = "GTEx-Link/0.1.0"
+            mock_api_config.user_agent = "GTEx-Link/1.0.0"
             mock_get_api_config.return_value = mock_api_config
 
             # Mock cache config
