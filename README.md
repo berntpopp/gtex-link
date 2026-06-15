@@ -117,12 +117,33 @@ Override the host port with `GTEX_LINK_HOST_PORT`.
 
 GTEx-Link provides MCP tools for seamless integration with AI assistants:
 
+### Gateway namespace token
+
+GTEx-Link is designed to federate behind the
+[`genefoundry-router`](https://github.com/berntpopp/genefoundry-router) MCP
+gateway, which applies the namespace at mount time. The canonical gateway
+**namespace token** for this server is **`gtex`**: the gateway mounts this
+server with `mount(namespace="gtex")`, so leaf tool `get_gene_information`
+surfaces as `gtex_get_gene_information`. Leaf tool names are therefore kept
+**unprefixed** here (the gateway adds the prefix); a leaf-level `gtex_` prefix
+would double-prefix to `gtex_gtex_...`. Tool names follow the GeneFoundry
+Tool-Naming Standard v1 (`verb_noun`, canonical verbs, ≤ 50 chars).
+
 ### Available Tools
-- `search_gtex_genes` - Search for genes in GTEx database
-- `get_gene_information` - Get detailed gene information
-- `get_median_expression_levels` - Get median expression data
-- `get_expression_qtl_associations` - Get eQTL association data
-- `get_top_expressed_genes_by_tissue` - Get top expressed genes
+- `search` - ChatGPT deep-research entry point: natural-language gene search
+  (returns result documents with `id`/`title`/`url`)
+- `fetch` - ChatGPT deep-research companion: full gene detail for a `search` `id`
+- `search_genes` - Search the GTEx Portal gene catalog by symbol or partial match
+- `get_gene_information` - Get detailed gene information for GENCODE IDs or symbols
+- `get_transcript_information` - Get transcript annotations for a GENCODE ID
+- `get_median_expression_levels` - Get median expression (TPM) per tissue
+- `get_individual_expression_data` - Get individual-sample expression (TPM)
+- `get_top_expressed_genes_by_tissue` - Get top expressed genes for a tissue
+- `get_server_capabilities` - Discover tools, datasets, tissues, limits, and workflows
+
+The `search` / `fetch` pair is the OpenAI deep-research / Apps SDK contract and
+is retained verbatim (a documented exception to the canonical-verb rule).
+Pagination arguments use the fleet-canonical `offset` / `limit`.
 
 ### Claude Desktop Configuration
 

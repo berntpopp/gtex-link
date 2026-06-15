@@ -93,8 +93,8 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             top_n: int | None = None,
             response_mode: Literal["compact", "full"] = "compact",
             include_spread: bool = False,
-            page: int = 0,
-            page_size: int = 50,
+            offset: int = 0,
+            limit: int = 50,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
@@ -160,8 +160,8 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     top_n=top_n,
                     response_mode=response_mode,
                     spread_by_key=spread_by_key,
-                    page=page,
-                    page_size=page_size,
+                    page=offset // limit if limit else 0,
+                    page_size=limit,
                     tissues_filter=tissues_filter,
                 )
                 # exclude_none drops the always-null ontologyId/spread keys in
@@ -200,7 +200,7 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 "optionally filtered by tissue and dataset. Returns one row per "
                 "gene-tissue; each row's `data` is an unlabeled per-sample TPM "
                 "vector (no sample/donor IDs, upstream order) with `n` = sample "
-                "count. NOTE: `page_size` paginates the gene-tissue ROWS, not "
+                "count. NOTE: `limit` paginates the gene-tissue ROWS, not "
                 "samples -- filter by tissue to bound size. Use for "
                 "variance/distribution analyses where per-sample data is needed."
             ),
@@ -209,8 +209,8 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             gencode_id: list[str],
             tissue_site_detail_id: str | None = None,
             dataset_id: str = "gtex_v8",
-            page: int = 0,
-            page_size: int = 100,
+            offset: int = 0,
+            limit: int = 100,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
@@ -219,8 +219,8 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 payload: dict[str, object] = {
                     "gencodeId": resolved,
                     "datasetId": dataset_id,
-                    "page": page,
-                    "itemsPerPage": page_size,
+                    "page": offset // limit if limit else 0,
+                    "itemsPerPage": limit,
                 }
                 if tissue_site_detail_id is not None:
                     payload["tissueSiteDetailId"] = tissue_site_detail_id
@@ -272,8 +272,8 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             tissue_site_detail_id: str,
             dataset_id: str = "gtex_v8",
             filter_mt_gene: bool = True,
-            page: int = 0,
-            page_size: int = 100,
+            offset: int = 0,
+            limit: int = 100,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 ensure_valid_tissue(tissue_site_detail_id)
@@ -283,8 +283,8 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                         "tissueSiteDetailId": tissue_site_detail_id,
                         "datasetId": dataset_id,
                         "filterMtGene": filter_mt_gene,
-                        "page": page,
-                        "itemsPerPage": page_size,
+                        "page": offset // limit if limit else 0,
+                        "itemsPerPage": limit,
                     }
                 )
                 result = await service.get_top_expressed_genes(request)

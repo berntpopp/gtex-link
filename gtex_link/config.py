@@ -46,7 +46,7 @@ class GTExAPIConfigModel(BaseModel):
         description="Delay between retry attempts in seconds",
     )
     user_agent: str = Field(
-        default="GTEx-Link/0.1.0",
+        default="GTEx-Link/1.0.0",
         description="User agent string for API requests",
     )
     endpoints: dict[str, str] = Field(

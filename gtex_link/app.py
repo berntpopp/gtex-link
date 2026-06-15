@@ -32,7 +32,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="GTEx-Link",
         description=("High-performance MCP/API server for GTEx Portal genetic expression database"),
-        version="0.2.0",
+        version="1.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
@@ -72,7 +72,7 @@ def create_app() -> FastAPI:
         """Root endpoint with service information."""
         return {
             "name": "GTEx-Link",
-            "version": "0.2.0",
+            "version": "1.0.0",
             "description": (
                 "High-performance MCP/API server for GTEx Portal genetic expression database"
             ),

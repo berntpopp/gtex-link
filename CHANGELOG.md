@@ -4,6 +4,50 @@ All notable changes to GTEx-Link are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-06-15
+
+### Changed (BREAKING — GeneFoundry Tool-Naming Standard v1)
+
+GTEx-Link now conforms to the GeneFoundry Tool-Naming & Normalization Standard
+v1 so it composes cleanly behind the `genefoundry-router` MCP gateway, which
+mounts this server under the **`gtex`** namespace (leaf tool `get_gene_information`
+surfaces at the gateway as `gtex_get_gene_information`). There are **no
+deprecation aliases** — update callers directly.
+
+**Renamed tools:**
+
+- `search_gtex_genes` → `search_genes`. The embedded `gtex` source token was
+  redundant under the gateway namespace (it produced the double-prefixed
+  `gtex_search_gtex_genes`). Payload and behaviour are unchanged.
+
+The `search` / `fetch` deep-research pair (OpenAI deep-research / Apps SDK
+contract) is **kept verbatim** as a documented exception to the canonical-verb
+rule.
+
+**Renamed arguments (fleet canon — applies to all paginated tools):**
+
+- `page` → `offset`, `page_size` → `limit` on `search_genes`,
+  `get_transcript_information`, `get_median_expression_levels`,
+  `get_individual_expression_data`, and `get_top_expressed_genes_by_tissue`.
+  `offset` is a zero-based row offset (`page = offset // limit`); `limit` is the
+  page size. Defaults are unchanged.
+
+### Added
+
+- README documents the canonical gateway **namespace token** `gtex` and the
+  full, refreshed MCP tool list (the previous list named a non-existent
+  `get_expression_qtl_associations` and omitted five real tools).
+- Domain `tags` on `get_server_capabilities` (`meta`, `discovery`).
+- CI guard `tests/unit/test_tool_names.py`: every registered tool matches
+  `^[a-z0-9_]{1,50}$`, starts with a canonical verb (with the `search`/`fetch`
+  deep-research allowlist), and does not self-prefix the `gtex` namespace token.
+
+### Fixed
+
+- Reconciled version drift: the FastAPI app, `/api/health`, and `/api/version`
+  previously reported stale `0.2.0` / `0.1.0` strings; all now report the
+  package version (`1.0.0`).
+
 ## [Unreleased]
 
 ### Fixed (MCP surface hardening)

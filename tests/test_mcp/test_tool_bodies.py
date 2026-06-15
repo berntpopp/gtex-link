@@ -86,14 +86,14 @@ def _paging(total: int) -> PaginationInfo:
 
 
 @pytest.mark.asyncio
-async def test_search_gtex_genes_happy_path() -> None:
+async def test_search_genes_happy_path() -> None:
     mock_service = AsyncMock()
     mock_service.search_genes = AsyncMock(
         return_value=PaginatedGeneResponse(data=[_brca1_gene()], pagingInfo=_paging(1))
     )
 
     with patch_service(mock_service):
-        payload = await _call_tool("search_gtex_genes", {"query": "BRCA1"})
+        payload = await _call_tool("search_genes", {"query": "BRCA1"})
 
     assert payload["data"][0]["geneSymbol"] == "BRCA1"
     assert payload["data"][0]["gencodeId"] == "ENSG00000012048.22"
@@ -101,12 +101,12 @@ async def test_search_gtex_genes_happy_path() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_gtex_genes_error_path_returns_friendly_message() -> None:
+async def test_search_genes_error_path_returns_friendly_message() -> None:
     mock_service = AsyncMock()
     mock_service.search_genes = AsyncMock(side_effect=RateLimitError("limit"))
 
     with patch_service(mock_service):
-        payload = await _call_tool("search_gtex_genes", {"query": "BRCA1"})
+        payload = await _call_tool("search_genes", {"query": "BRCA1"})
 
     assert payload["success"] is False
     assert payload["error_code"] == "rate_limited"
@@ -114,7 +114,7 @@ async def test_search_gtex_genes_error_path_returns_friendly_message() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_gtex_genes_returns_structured_not_double_encoded() -> None:
+async def test_search_genes_returns_structured_not_double_encoded() -> None:
     mock_service = AsyncMock()
     mock_service.search_genes = AsyncMock(
         return_value=PaginatedGeneResponse(data=[_brca1_gene()], pagingInfo=_paging(1))
@@ -122,7 +122,7 @@ async def test_search_gtex_genes_returns_structured_not_double_encoded() -> None
 
     with patch_service(mock_service):
         mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
-        result = await mcp.call_tool("search_gtex_genes", {"query": "BRCA1"})
+        result = await mcp.call_tool("search_genes", {"query": "BRCA1"})
 
     # structured_content is a real object, not a JSON string in a string
     assert result.structured_content is not None
@@ -785,14 +785,14 @@ async def test_median_returns_gene_grouped_shape_with_next_commands() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_gtex_genes_emits_next_commands() -> None:
+async def test_search_genes_emits_next_commands() -> None:
     mock_service = AsyncMock()
     mock_service.search_genes = AsyncMock(
         return_value=PaginatedGeneResponse(data=[_brca1_gene()], pagingInfo=_paging(1))
     )
 
     with patch_service(mock_service):
-        payload = await _call_tool("search_gtex_genes", {"query": "BRCA1"})
+        payload = await _call_tool("search_genes", {"query": "BRCA1"})
 
     nc = payload["_meta"]["next_commands"]
     assert nc[0]["tool"] == "get_gene_information"

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gtex-link"
-version = "0.2.0"
+version = "1.0.0"
 description = "High-performance MCP/API server for GTEx Portal genetic expression database"
 readme = "README.md"
 license = { text = "MIT" }
