@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 from fastapi import APIRouter
 
+from gtex_link import __version__
 from gtex_link.config import settings
 from gtex_link.models.responses import HealthResponse
 
@@ -51,7 +52,7 @@ async def health_check(
 
     return HealthResponse(
         status=overall_status,
-        version="1.0.0",
+        version=__version__,
         gtex_api=gtex_status,
         cache=cache_status,
         uptime_seconds=uptime,
@@ -62,7 +63,7 @@ async def health_check(
 async def version_info() -> dict[str, Any]:
     """Get version information."""
     return {
-        "version": "1.0.0",
+        "version": __version__,
         "api_version": "v1",
         "gtex_api": settings.api.base_url,
     }

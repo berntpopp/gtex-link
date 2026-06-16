@@ -21,7 +21,7 @@ services:
       GTEX_LINK_MCP_PATH: /mcp
       GTEX_LINK_LOG_LEVEL: INFO
       GTEX_LINK_LOG_FORMAT: json
-    command: ["gtex-link", "server", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["gtex-link", "serve", "--transport", "unified", "--host", "0.0.0.0", "--port", "8000"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s

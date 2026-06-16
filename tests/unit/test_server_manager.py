@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -24,43 +23,10 @@ class TestUnifiedServerManager:
         assert manager.logger is mock_logger
         assert manager._uvicorn_server is None
 
-    def test_configure_stdio_environment_sets_expected_vars(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Verify stdio environment vars are set so non-JSON output cannot
-        corrupt the JSON-RPC stream on stdout."""
-        for key in (
-            "PYTHONUNBUFFERED",
-            "GTEX_LINK_TRANSPORT",
-            "FASTMCP_DISABLE_BANNER",
-            "FASTMCP_NO_BANNER",
-            "FASTMCP_QUIET",
-            "NO_COLOR",
-            "FORCE_COLOR",
-            "TERM",
-            "PYTHONWARNINGS",
-        ):
-            monkeypatch.delenv(key, raising=False)
-
-        UnifiedServerManager._configure_stdio_environment()
-
-        assert os.environ["PYTHONUNBUFFERED"] == "1"
-        assert os.environ["GTEX_LINK_TRANSPORT"] == "stdio"
-        assert os.environ["FASTMCP_DISABLE_BANNER"] == "1"
-        assert os.environ["FASTMCP_NO_BANNER"] == "1"
-        assert os.environ["FASTMCP_QUIET"] == "1"
-        assert os.environ["NO_COLOR"] == "1"
-        assert os.environ["FORCE_COLOR"] == "0"
-        assert os.environ["TERM"] == "dumb"
-        assert os.environ["PYTHONWARNINGS"] == "ignore"
-
-    def test_configure_stdio_environment_does_not_overwrite(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Pre-set env vars are preserved (`setdefault`, not `[]=`)."""
-        monkeypatch.setenv("NO_COLOR", "custom-value")
-        UnifiedServerManager._configure_stdio_environment()
-        assert os.environ["NO_COLOR"] == "custom-value"
+    def test_no_stdio_transport(self) -> None:
+        """Streamable HTTP only: there is no stdio server entry point."""
+        assert not hasattr(UnifiedServerManager, "start_stdio_server")
+        assert not hasattr(UnifiedServerManager, "_configure_stdio_environment")
 
     @pytest.mark.asyncio
     async def test_shutdown_is_safe_without_running_server(self) -> None:

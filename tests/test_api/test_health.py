@@ -6,6 +6,7 @@ import httpx
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from gtex_link import __version__
 from gtex_link.models.responses import HealthResponse
 
 
@@ -32,7 +33,7 @@ class TestHealthEndpoints:
             assert response.status_code == status.HTTP_200_OK
             data = response.json()
             assert data["status"] == "healthy"
-            assert data["version"] == "1.0.0"
+            assert data["version"] == __version__
             assert data["gtex_api"] == "available"
             assert data["cache"] in ["enabled", "disabled"]
             assert "uptime_seconds" in data
@@ -61,7 +62,7 @@ class TestHealthEndpoints:
             assert response.status_code == status.HTTP_200_OK
             data = response.json()
             assert data["status"] == "degraded"
-            assert data["version"] == "1.0.0"
+            assert data["version"] == __version__
             assert data["gtex_api"] == "unavailable"
             assert data["cache"] in ["enabled", "disabled"]
             assert "uptime_seconds" in data
@@ -75,7 +76,7 @@ class TestHealthEndpoints:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["version"] == "1.0.0"
+        assert data["version"] == __version__
         assert data["api_version"] == "v1"
         assert "gtex_api" in data
         assert data["gtex_api"] == "https://gtexportal.org/api/v2/"

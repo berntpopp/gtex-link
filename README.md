@@ -33,44 +33,41 @@ make ci-local
 
 ### Basic Usage
 
-#### HTTP Server
+#### Server (Streamable HTTP)
+
+GTEx-Link is a single `typer` CLI. The server always boots via
+`gtex-link serve` — there is no bare-serve and no stdio transport.
 
 ```bash
-# Start the development HTTP server
+# Start the unified server (FastAPI REST + MCP at /mcp) — development
 make dev
 
-# Start HTTP server with custom options
-uv run gtex-link server --host 127.0.0.1 --port 8000
+# Unified transport with custom options
+uv run gtex-link serve --transport unified --host 127.0.0.1 --port 8000
 
-# With auto-reload for development
-uv run gtex-link server --reload
+# REST API only (no MCP)
+uv run gtex-link serve --transport http --host 127.0.0.1 --port 8000
+
+# Development mode (verbose console logging)
+uv run gtex-link serve --dev
 ```
 
-#### MCP Server
+#### Other commands
 
 ```bash
-# Start MCP stdio server
-make mcp-serve
-
-# Start hosted MCP endpoint with REST API
-make mcp-serve-http
-
-# Direct console scripts
-uv run gtex-link-mcp
-uv run gtex-mcp  # compatibility alias
-```
-
-#### Test Connection
-
-```bash
-# Test GTEx Portal API connectivity
-uv run gtex-link test
-
-# Search for genes
-uv run gtex-link search BRCA1 --limit 5
-
-# Show configuration
+# Show (and optionally validate) the resolved configuration
 uv run gtex-link config
+uv run gtex-link config --validate
+
+# Probe a running server's /api/health endpoint
+uv run gtex-link health --url http://127.0.0.1:8000
+
+# Inspect or clear the in-process service cache
+uv run gtex-link cache stats
+uv run gtex-link cache clear
+
+# Print the installed version
+uv run gtex-link version
 ```
 
 ### Docker Usage
@@ -145,24 +142,26 @@ The `search` / `fetch` pair is the OpenAI deep-research / Apps SDK contract and
 is retained verbatim (a documented exception to the canonical-verb rule).
 Pagination arguments use the fleet-canonical `offset` / `limit`.
 
-### Claude Desktop Configuration
+### MCP Client Configuration (Streamable HTTP)
 
-Add to your Claude Desktop configuration:
+GTEx-Link serves MCP over Streamable HTTP only (there is no stdio transport).
+Start the unified server and point an HTTP-capable MCP client at the `/mcp`
+endpoint:
+
+```bash
+uv run gtex-link serve --transport unified --host 127.0.0.1 --port 8000
+# MCP endpoint: http://127.0.0.1:8000/mcp
+```
 
 ```json
 {
   "mcpServers": {
     "gtex-link": {
-      "command": "gtex-link-mcp",
-      "env": {
-        "GTEX_LINK_LOG_LEVEL": "INFO"
-      }
+      "url": "http://127.0.0.1:8000/mcp"
     }
   }
 }
 ```
-
-Existing configurations that use `gtex-mcp` continue to work as a compatibility alias.
 
 ## Configuration
 
@@ -178,7 +177,7 @@ GTEx-Link can be configured via environment variables or `.env` file:
 ### Server Configuration
 - `GTEX_LINK_HOST` - Server host (default: 127.0.0.1)
 - `GTEX_LINK_PORT` - Server port (default: 8000)
-- `GTEX_LINK_TRANSPORT` - Transport mode: unified/http/stdio (default: unified)
+- `GTEX_LINK_TRANSPORT` - Transport mode: unified/http (default: unified)
 - `GTEX_LINK_MCP_PROFILE` - MCP tool profile: full/lite (default: full)
 - `GTEX_LINK_MCP_PATH` - MCP endpoint path (default: /mcp)
 

@@ -26,7 +26,7 @@ services:
       - GTEX_LINK_CORS_ORIGINS=["https://gtex-link.example.com"]
       - GTEX_LINK_CORS_ALLOW_CREDENTIALS=true
     # env_file is specified via --env-file flag for consistency with phentrieve
-    command: ["gtex-link", "server", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["gtex-link", "serve", "--transport", "unified", "--host", "0.0.0.0", "--port", "8000"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s

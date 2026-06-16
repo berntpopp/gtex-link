@@ -1,275 +1,221 @@
-"""Command-line interface for GTEx-Link."""
+"""Typer command-line interface for GTEx-Link.
+
+GeneFoundry Logging & CLI Standard v1: a single ``Typer`` app exposing
+``serve`` / ``config`` / ``health`` / ``cache`` / ``version``. Streamable HTTP
+only — there is no stdio transport and no bare-serve entry point. The server
+boots via ``gtex-link serve`` in either the ``unified`` (FastAPI REST + MCP at
+``/mcp``) or ``http`` (FastAPI only) transport.
+"""
 
 from __future__ import annotations
 
-import argparse
 import asyncio
-import sys
+import signal
+from typing import TYPE_CHECKING, Annotated
 
-from fastapi import HTTPException
+import httpx
+import typer
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
-from .config import get_api_config, get_cache_config
+from . import __version__
+from .config import get_api_config, get_cache_config, settings
 from .logging_config import configure_logging
 from .server_manager import UnifiedServerManager
 
-# Initialize rich console
+if TYPE_CHECKING:
+    from types import FrameType
+
+app = typer.Typer(
+    name="gtex-link",
+    add_completion=False,
+    no_args_is_help=True,
+    help="gtex-link: an MCP/API server grounding expression research in GTEx Portal.",
+)
+cache_app = typer.Typer(
+    name="cache",
+    add_completion=False,
+    no_args_is_help=True,
+    help="Inspect or clear the in-process service cache.",
+)
+app.add_typer(cache_app, name="cache")
 console = Console()
 
 
-async def test_connection() -> bool:
-    """Test connection to GTEx Portal API."""
+async def _serve(host: str, port: int, *, unified: bool) -> None:
+    """Run the unified or HTTP-only server until interrupted."""
     logger = configure_logging()
+    manager = UnifiedServerManager(logger=logger)
 
-    with console.status("[bold blue]Testing GTEx Portal API connection...", spinner="dots"):
-        try:
-            # Import here to avoid circular imports
-            from .api.client import GTExClient
+    shutdown_task: asyncio.Task[None] | None = None
 
-            config = get_api_config()
-            async with GTExClient(config=config, logger=logger) as client:
-                # Test with service info endpoint
-                result = await client.get_service_info()
+    def _signal(signum: int, _frame: FrameType | None) -> None:
+        nonlocal shutdown_task
+        logger.info("Received shutdown signal", signal=signum)
+        if shutdown_task is None or shutdown_task.done():
+            shutdown_task = asyncio.create_task(manager.shutdown())
 
-                if result:
-                    console.print(
-                        Panel(
-                            (
-                                "[bold green]:white_check_mark: "
-                                "Successfully connected to GTEx Portal API\n"
-                                "Service info retrieved successfully"
-                            ),
-                            title="Connection Test",
-                            border_style="green",
-                        ),
-                    )
-                    return True
-                console.print(
-                    Panel(
-                        "[bold yellow]:warning: Connected but no service info returned",
-                        title="Connection Test",
-                        border_style="yellow",
-                    ),
-                )
-                return True
+    signal.signal(signal.SIGINT, _signal)
+    # SIGTERM may not be deliverable on Windows; SIGINT (Ctrl-C) still works.
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, _signal)
 
-        except (HTTPException, ConnectionError, TimeoutError) as e:
-            console.print(
-                Panel(
-                    f"[bold red]:x: Connection failed: {e!s}",
-                    title="Connection Test",
-                    border_style="red",
-                ),
-            )
-            return False
+    try:
+        if unified:
+            await manager.start_unified_server(host=host, port=port)
+        else:
+            await manager.start_http_only_server(host=host, port=port)
+    finally:
+        await manager.shutdown()
 
 
-async def search_genes(query: str, limit: int = 10) -> None:
-    """Search for genes."""
-    logger = configure_logging()
+@app.command()
+def serve(
+    transport: Annotated[
+        str,
+        typer.Option("--transport", help="Transport mode: 'unified' (REST + MCP/HTTP) or 'http'."),
+    ] = "unified",
+    host: Annotated[str, typer.Option("--host", help="Host to bind to.")] = settings.host,
+    port: Annotated[int, typer.Option("--port", help="Port to bind to.")] = settings.port,
+    mcp_path: Annotated[
+        str, typer.Option("--mcp-path", help="MCP endpoint path.")
+    ] = settings.mcp_path,
+    log_level: Annotated[
+        str, typer.Option("--log-level", help="Logging level.")
+    ] = settings.log_level,
+    disable_docs: Annotated[
+        bool, typer.Option("--disable-docs", help="Disable API documentation endpoints.")
+    ] = False,
+    dev: Annotated[
+        bool, typer.Option("--dev", help="Development mode (verbose console logging).")
+    ] = False,
+) -> None:
+    """Start the gtex-link server (Streamable HTTP only)."""
+    if transport not in ("unified", "http"):
+        console.print(
+            f"[red]Invalid transport '{transport}'.[/red] Choose 'unified' or 'http' "
+            "(stdio is not supported)."
+        )
+        raise typer.Exit(code=2)
 
-    search_desc = f"[bold blue]Searching for genes: '{query}'"
+    settings.transport = transport  # type: ignore[assignment]
+    settings.host = host
+    settings.port = port
+    settings.mcp_path = mcp_path
+    settings.log_level = "DEBUG" if dev else log_level  # type: ignore[assignment]
+    settings.disable_docs = disable_docs
+    settings.reload = dev
 
-    with console.status(search_desc, spinner="dots"):
-        try:
-            # Import here to avoid circular imports
-            from .api.client import GTExClient
-            from .services.gtex_service import GTExService
-
-            config = get_api_config()
-            async with GTExClient(config=config, logger=logger) as client:
-                service = GTExService(client, get_cache_config(), logger)
-                result = await service.search_genes(query=query, page_size=limit)
-
-                # Create a table for results
-                table = Table(title=f"Gene Search Results for '{query}'")
-                table.add_column("Gene Symbol", style="cyan", no_wrap=True)
-                table.add_column("Gene Name", style="green")
-                table.add_column("Chromosome", style="magenta")
-                table.add_column("Start", style="yellow", justify="right")
-                table.add_column("End", style="yellow", justify="right")
-                table.add_column("Strand", style="blue")
-
-                if hasattr(result, "data") and result.data:
-                    for gene in result.data[:limit]:
-                        table.add_row(
-                            gene.gene_symbol or "N/A",
-                            gene.description or "N/A",
-                            str(gene.chromosome) if gene.chromosome else "N/A",
-                            str(gene.start) if hasattr(gene, "start") and gene.start else "N/A",
-                            str(gene.end) if hasattr(gene, "end") and gene.end else "N/A",
-                            str(gene.strand) if hasattr(gene, "strand") and gene.strand else "N/A",
-                        )
-
-                    console.print(table)
-                    console.print(f"\n[bold green]Found {len(result.data)} gene(s)")
-                else:
-                    console.print(f"[bold yellow]No genes found for query: '{query}'")
-
-        except (HTTPException, ConnectionError, TimeoutError) as e:
-            console.print(
-                Panel(
-                    f"[bold red]:x: Search failed: {e!s}",
-                    title="Gene Search Error",
-                    border_style="red",
-                ),
-            )
+    console.print(
+        f"[green]Starting gtex-link[/green] transport={transport} "
+        f"host={host} port={port} mcp_path={mcp_path}"
+    )
+    asyncio.run(_serve(host, port, unified=transport == "unified"))
 
 
-def show_config() -> None:
-    """Display current configuration."""
-    config = get_api_config()
+@app.command()
+def config(
+    validate: Annotated[
+        bool, typer.Option("--validate", help="Validate the resolved configuration.")
+    ] = False,
+) -> None:
+    """Show (and optionally validate) the resolved configuration."""
+    api_config = get_api_config()
     cache_config = get_cache_config()
 
-    # API Configuration Table
-    api_table = Table(title="GTEx Portal API Configuration")
-    api_table.add_column("Setting", style="cyan")
-    api_table.add_column("Value", style="green")
+    server_table = Table(title="gtex-link configuration")
+    server_table.add_column("Setting", style="cyan")
+    server_table.add_column("Value", style="white")
+    server_table.add_row("transport", settings.transport)
+    server_table.add_row("host", settings.host)
+    server_table.add_row("port", str(settings.port))
+    server_table.add_row("mcp_path", settings.mcp_path)
+    server_table.add_row("log_level", settings.log_level)
+    server_table.add_row("log_format", settings.log_format)
+    server_table.add_row("api.base_url", api_config.base_url)
+    server_table.add_row("api.timeout", f"{api_config.timeout}s")
+    server_table.add_row("cache.size", str(cache_config.size))
+    server_table.add_row("cache.ttl", f"{cache_config.ttl}s")
+    console.print(server_table)
 
-    api_table.add_row("Base URL", config.base_url)
-    api_table.add_row("Timeout", f"{config.timeout}s")
-    api_table.add_row("Rate Limit", f"{config.rate_limit_per_second}/s")
-    api_table.add_row("Burst Size", str(config.burst_size))
-    api_table.add_row("Max Retries", str(config.max_retries))
-    api_table.add_row("Retry Delay", f"{config.retry_delay}s")
-    api_table.add_row("User Agent", config.user_agent)
-
-    # Cache Configuration Table
-    cache_table = Table(title="Cache Configuration")
-    cache_table.add_column("Setting", style="cyan")
-    cache_table.add_column("Value", style="green")
-
-    cache_table.add_row("Size", str(cache_config.size))
-    cache_table.add_row("TTL", f"{cache_config.ttl}s")
-    cache_table.add_row("Stats Enabled", str(cache_config.stats_enabled))
-    cache_table.add_row("Cleanup Interval", f"{cache_config.cleanup_interval}s")
-
-    console.print(api_table)
-    console.print()
-    console.print(cache_table)
+    if validate:
+        if not 1024 <= settings.port <= 65535:
+            console.print("[red]Invalid port number[/red]")
+            raise typer.Exit(code=1)
+        if not settings.mcp_path.startswith("/"):
+            console.print("[red]MCP path must start with '/'[/red]")
+            raise typer.Exit(code=1)
+        console.print("[green]Configuration is valid[/green]")
 
 
-def create_parser() -> argparse.ArgumentParser:
-    """Create argument parser for CLI."""
-    parser = argparse.ArgumentParser(
-        description="GTEx-Link: High-performance MCP/API server for GTEx Portal",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
-
-    # Server command
-    server_parser = subparsers.add_parser("server", help="Start the server")
-    server_parser.add_argument(
-        "--host", default="127.0.0.1", help="Server host (default: 127.0.0.1)"
-    )
-    server_parser.add_argument("--port", type=int, default=8000, help="Server port (default: 8000)")
-    server_parser.add_argument(
-        "--mode",
-        choices=["unified", "http", "stdio"],
-        default="unified",
-        help="Server transport mode (default: unified)",
-    )
-    server_parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
-
-    # Test command
-    subparsers.add_parser("test", help="Test API connection")
-
-    # Search command
-    search_parser = subparsers.add_parser("search", help="Search for genes")
-    search_parser.add_argument("query", help="Search query")
-    search_parser.add_argument(
-        "--limit", type=int, default=10, help="Maximum results (default: 10)"
-    )
-
-    # Config command
-    subparsers.add_parser("config", help="Show configuration")
-
-    return parser
-
-
-async def run_server(
-    host: str = "127.0.0.1",
-    port: int = 8000,
-    mode: str = "unified",
-    *,
-    reload: bool = False,  # retained for CLI backwards compatibility
+@app.command()
+def health(
+    url: Annotated[
+        str, typer.Option("--url", help="Base URL of the server to probe.")
+    ] = "http://127.0.0.1:8000",
 ) -> None:
-    """Run the server in the requested transport mode."""
-    _ = reload  # explicit no-op; auto-reload is now an env-based concern
+    """Check a running server's /api/health endpoint."""
+    try:
+        response = httpx.get(f"{url.rstrip('/')}/api/health", timeout=5)
+    except httpx.HTTPError as exc:
+        console.print(f"[red]Failed to connect to server:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    if response.status_code != 200:
+        console.print(f"[red]Server returned status {response.status_code}[/red]")
+        raise typer.Exit(code=1)
+
+    data = response.json()
+    console.print("[green]Server is healthy[/green]")
+    console.print(f"status:  {data.get('status', 'unknown')}")
+    console.print(f"version: {data.get('version', 'unknown')}")
+    console.print(f"gtex_api: {data.get('gtex_api', 'unknown')}")
+
+
+def _build_service() -> object:
+    """Construct a GTExService bound to a fresh client for cache inspection."""
+    from .api.client import GTExClient
+    from .services.gtex_service import GTExService
+
     logger = configure_logging()
-    server_manager = UnifiedServerManager(logger=logger)
-
-    try:
-        if mode == "unified":
-            await server_manager.start_unified_server(host=host, port=port)
-        elif mode == "http":
-            await server_manager.start_http_only_server(host=host, port=port)
-        elif mode == "stdio":
-            await server_manager.start_stdio_server()
-        else:
-            msg = f"Unknown server mode: {mode}"
-            raise ValueError(msg)
-    except KeyboardInterrupt:
-        console.print("\n[bold yellow]Server stopped by user")
-    except (OSError, RuntimeError) as e:
-        console.print(
-            Panel(
-                f"[bold red]:x: Server failed to start: {e!s}",
-                title="Server Error",
-                border_style="red",
-            ),
-        )
-        sys.exit(1)
-    finally:
-        await server_manager.shutdown()
+    client = GTExClient(config=get_api_config(), logger=logger)
+    return GTExService(client, get_cache_config(), logger)
 
 
-def main() -> None:
-    """Execute CLI commands and handle arguments."""
-    parser = create_parser()
-    args = parser.parse_args()
+@cache_app.command("stats")
+def cache_stats() -> None:
+    """Show in-process cache statistics."""
+    service = _build_service()
+    stats = service.cache_stats  # type: ignore[attr-defined]
+    info = service.get_cache_info()  # type: ignore[attr-defined]
 
-    if not args.command:
-        parser.print_help()
-        sys.exit(1)
+    table = Table(title="gtex-link cache statistics")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="white")
+    table.add_row("hits", str(stats.get("hits", 0)))
+    table.add_row("misses", str(stats.get("misses", 0)))
+    table.add_row("hit_rate", f"{stats.get('hit_rate', 0.0):.1f}%")
+    table.add_row("total_requests", str(stats.get("total_requests", 0)))
+    table.add_row("cached_functions", str(stats.get("cached_functions", 0)))
+    console.print(table)
+    console.print(f"tracked cache surfaces: {len(info)}")
 
-    try:
-        if args.command == "server":
-            asyncio.run(
-                run_server(
-                    host=args.host,
-                    port=args.port,
-                    mode=args.mode,
-                    reload=args.reload,
-                )
-            )
-        elif args.command == "test":
-            success = asyncio.run(test_connection())
-            sys.exit(0 if success else 1)
-        elif args.command == "search":
-            asyncio.run(search_genes(args.query, args.limit))
-        elif args.command == "config":
-            show_config()
-        else:
-            parser.print_help()
-            sys.exit(1)
 
-    except KeyboardInterrupt:
-        console.print("\n[bold yellow]Operation cancelled by user")
-        sys.exit(1)
-    except (ValueError, RuntimeError, OSError) as e:
-        console.print(
-            Panel(
-                f"[bold red]:x: Command failed: {e!s}",
-                title="Error",
-                border_style="red",
-            ),
-        )
-        sys.exit(1)
+@cache_app.command("clear")
+def cache_clear() -> None:
+    """Clear all in-process caches and reset counters."""
+    service = _build_service()
+    result = service.clear_cache()  # type: ignore[attr-defined]
+    console.print(
+        f"[green]Cleared caches[/green] (cleared_functions={result.get('cleared_functions', 0)})"
+    )
+
+
+@app.command()
+def version() -> None:
+    """Print the installed gtex-link version."""
+    console.print(f"gtex-link {__version__}")
 
 
 if __name__ == "__main__":
-    main()
+    app()

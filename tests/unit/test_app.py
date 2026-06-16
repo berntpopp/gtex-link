@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from gtex_link import __version__
 from gtex_link.app import app, create_app, lifespan
 
 
@@ -16,7 +17,7 @@ class TestAppCreation:
         test_app = create_app()
 
         assert test_app.title == "GTEx-Link"
-        assert test_app.version == "1.0.0"
+        assert test_app.version == __version__
         assert test_app.docs_url == "/docs"
         assert test_app.redoc_url == "/redoc"
         assert test_app.openapi_url == "/openapi.json"
@@ -25,6 +26,7 @@ class TestAppCreation:
         """Test root endpoint functionality."""
         with patch("gtex_link.app.settings") as mock_settings:
             mock_settings.mcp_path = "/mcp"
+            mock_settings.disable_docs = False
 
             client = TestClient(app)
             response = client.get("/")
@@ -32,7 +34,7 @@ class TestAppCreation:
             assert response.status_code == 200
             data = response.json()
             assert data["name"] == "GTEx-Link"
-            assert data["version"] == "1.0.0"
+            assert data["version"] == __version__
             assert data["docs"] == "/docs"
             assert data["health"] == "/api/health"
             assert data["metrics"] == "/metrics"

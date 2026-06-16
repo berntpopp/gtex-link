@@ -46,7 +46,7 @@ class GTExAPIConfigModel(BaseModel):
         description="Delay between retry attempts in seconds",
     )
     user_agent: str = Field(
-        default="GTEx-Link/1.0.0",
+        default="GTEx-Link/2.0.0",
         description="User agent string for API requests",
     )
     endpoints: dict[str, str] = Field(
@@ -128,9 +128,13 @@ class ServerSettings(BaseSettings):
     host: str = Field(default="127.0.0.1", description="Server host")
     port: int = Field(default=8000, ge=1024, le=65535, description="Server port")
     reload: bool = Field(default=False, description="Enable auto-reload in development")
+    disable_docs: bool = Field(
+        default=False,
+        description="Disable API documentation endpoints (/docs, /redoc, /openapi.json)",
+    )
 
-    # Transport modes
-    transport: Literal["unified", "http", "stdio"] = Field(
+    # Transport modes (Streamable HTTP only — stdio is not supported)
+    transport: Literal["unified", "http"] = Field(
         default="unified",
         description="Server transport mode",
     )

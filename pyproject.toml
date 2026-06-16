@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gtex-link"
-version = "1.0.0"
+version = "2.0.0"
 description = "High-performance MCP/API server for GTEx Portal genetic expression database"
 readme = "README.md"
 license = { text = "MIT" }
@@ -66,9 +66,7 @@ Repository = "https://github.com/gtex-link/gtex-link"
 Changelog = "https://github.com/gtex-link/gtex-link/blob/main/CHANGELOG.md"
 
 [project.scripts]
-gtex-link = "gtex_link.cli:main"
-gtex-link-mcp = "mcp_server:main"
-gtex-mcp = "mcp_server:main"
+gtex-link = "gtex_link.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gtex_link"]
@@ -96,7 +94,6 @@ line-ending = "lf"
 "tests/**/*" = ["S101", "S104", "S110", "T20", "B011", "SIM105", "SIM108"]
 "docs/**/*.py" = ["UP035", "T20"]
 "gtex_link/models/__init__.py" = ["F403", "F405", "RUF022"]
-"mcp_server.py" = ["T20"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
