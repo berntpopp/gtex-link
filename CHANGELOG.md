@@ -4,6 +4,46 @@ All notable changes to GTEx-Link are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-06-16
+
+### Changed (BREAKING — GeneFoundry Logging & CLI Standard v1)
+
+GTEx-Link now conforms to the fleet-wide **GeneFoundry Logging & CLI Standard
+v1**. This is a CLI/transport front-end change only: the **MCP tool surface,
+services, and `/api/health` / `/mcp` endpoints are unchanged**, so the
+`genefoundry-router` gateway is unaffected.
+
+- **CLI migrated from `argparse` to `typer`.** `gtex_link/cli.py` is now a
+  single `typer.Typer(no_args_is_help=True)` app with `rich` output exposing
+  the standard commands: `serve`, `config [--validate]`, `health [--url]`,
+  `cache stats|clear`, and `version`. The server always boots via
+  `gtex-link serve` — there is **no bare-serve**.
+- `serve` options: `--transport {unified,http}` (default `unified`), `--host`,
+  `--port`, `--mcp-path`, `--log-level`, `--disable-docs`, `--dev`.
+- **Single console script.** `pyproject.toml` now declares only
+  `gtex-link = "gtex_link.cli:app"`. The previous `gtex-link` (argparse `main`),
+  `gtex-link-mcp`, and `gtex-mcp` entry points are **removed** with no aliases.
+- **Root entry scripts deleted.** `server.py` and `mcp_server.py` are gone;
+  `python -m gtex_link` now delegates to the typer app.
+- **stdio transport removed.** The `stdio` transport value, the
+  `UnifiedServerManager.start_stdio_server` / `_configure_stdio_environment`
+  methods, and all stdio references in config, Docker, Makefile, and docs are
+  removed. Streamable HTTP only.
+- Docker `CMD`, all `docker-compose*.yml` commands, and the `make dev` / new
+  `make serve` targets invoke `gtex-link serve …`.
+
+### Fixed
+
+- Version reporting is now sourced from `gtex_link.__version__` in `app.py`,
+  the FastAPI app version, and the `/api/health` / `/api/version` responses
+  (previously hardcoded `1.0.0`).
+
+### Confirmed
+
+- `gtex_link/logging_config.py` remains on the structlog canon (contextvars +
+  log level + ISO timestamp + stack-info + exc-info + static fields, JSON in
+  prod / console in dev, `asgi-correlation-id` binding). No regression.
+
 ## [1.0.0] - 2026-06-15
 
 ### Changed (BREAKING — GeneFoundry Tool-Naming Standard v1)

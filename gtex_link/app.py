@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import __version__
 from .api.routes import expression_router, health_router, reference_router
 from .config import settings
 from .logging_config import configure_logging, log_server_startup
@@ -29,13 +30,14 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
 
 def create_app() -> FastAPI:
     """Create and configure FastAPI application."""
+    docs_enabled = not settings.disable_docs
     app = FastAPI(
         title="GTEx-Link",
         description=("High-performance MCP/API server for GTEx Portal genetic expression database"),
-        version="1.0.0",
-        docs_url="/docs",
-        redoc_url="/redoc",
-        openapi_url="/openapi.json",
+        version=__version__,
+        docs_url="/docs" if docs_enabled else None,
+        redoc_url="/redoc" if docs_enabled else None,
+        openapi_url="/openapi.json" if docs_enabled else None,
         lifespan=lifespan,
     )
 
@@ -72,11 +74,11 @@ def create_app() -> FastAPI:
         """Root endpoint with service information."""
         return {
             "name": "GTEx-Link",
-            "version": "1.0.0",
+            "version": __version__,
             "description": (
                 "High-performance MCP/API server for GTEx Portal genetic expression database"
             ),
-            "docs": "/docs",
+            "docs": "/docs" if not settings.disable_docs else None,
             "health": "/api/health",
             "metrics": "/metrics",
             "mcp_endpoint": settings.mcp_path,

@@ -26,7 +26,12 @@
    - Creates FastAPI app, configures CORS, includes routers
 
 7. **Server Management** (`gtex_link/server_manager.py`)
-   - Unified entry point for HTTP, stdio, and unified (HTTP + MCP) transports
+   - Unified entry point for the `http` and `unified` (HTTP + MCP) transports
+     (Streamable HTTP only — there is no stdio transport)
+
+8. **CLI** (`gtex_link/cli.py`)
+   - `typer` app (`gtex-link`) with `serve` / `config` / `health` / `cache` /
+     `version` commands; the server always boots via `gtex-link serve`
 
 ## Key Features
 
@@ -44,7 +49,7 @@ All settings use the `GTEX_LINK_` prefix:
 - `GTEX_LINK_PORT` (default `8000`)
 - `GTEX_LINK_LOG_LEVEL` (default `INFO`)
 - `GTEX_LINK_LOG_FORMAT` (`console` or `json`, default `console`)
-- `GTEX_LINK_TRANSPORT` (`unified` | `http` | `stdio`, default `unified`)
+- `GTEX_LINK_TRANSPORT` (`unified` | `http`, default `unified`)
 - `GTEX_LINK_MCP_PATH` (default `/mcp`)
 - `GTEX_LINK_MCP_PROFILE` (`full` | `lite`, default `full`)
 - `GTEX_LINK_API_RATE_LIMIT_PER_SECOND` (default `5.0`)

@@ -1,10 +1,12 @@
-"""Unified server manager for HTTP, stdio, and unified (HTTP+MCP) transports."""
+"""Unified server manager for HTTP and unified (HTTP+MCP) transports.
+
+Streamable HTTP only — there is no stdio transport.
+"""
 
 from __future__ import annotations
 
-import os
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import uvicorn
 
@@ -16,7 +18,7 @@ if TYPE_CHECKING:
 
 
 class UnifiedServerManager:
-    """Orchestrate startup of GTEx-Link in any transport mode."""
+    """Orchestrate startup of GTEx-Link over Streamable HTTP transports."""
 
     def __init__(self, logger: FilteringBoundLogger | None = None) -> None:
         """Build a manager.
@@ -100,18 +102,6 @@ class UnifiedServerManager:
         self._uvicorn_server = uvicorn.Server(config)
         await self._uvicorn_server.serve()
 
-    async def start_stdio_server(self) -> None:
-        """Start FastMCP stdio transport (for Claude Desktop)."""
-        self._configure_stdio_environment()
-        if self.logger:
-            self.logger.info("Starting stdio MCP server")
-        from gtex_link.mcp.facade import create_gtex_mcp
-
-        mcp = create_gtex_mcp()
-        # `show_banner=False` is critical: any non-JSON bytes on stdout
-        # would corrupt the JSON-RPC protocol stream.
-        await mcp.run_async(transport="stdio", show_banner=False)
-
     # --- Lifecycle ------------------------------------------------------
 
     async def shutdown(self) -> None:
@@ -120,22 +110,3 @@ class UnifiedServerManager:
             self._uvicorn_server.should_exit = True
         if self.logger:
             self.logger.info("Shutdown complete")
-
-    # --- Helpers --------------------------------------------------------
-
-    @staticmethod
-    def _configure_stdio_environment() -> None:
-        """Suppress non-JSON output that would corrupt stdio MCP framing."""
-        env_defaults: dict[str, Any] = {
-            "PYTHONUNBUFFERED": "1",
-            "GTEX_LINK_TRANSPORT": "stdio",
-            "FASTMCP_DISABLE_BANNER": "1",
-            "FASTMCP_NO_BANNER": "1",
-            "FASTMCP_QUIET": "1",
-            "NO_COLOR": "1",
-            "FORCE_COLOR": "0",
-            "TERM": "dumb",
-            "PYTHONWARNINGS": "ignore",
-        }
-        for key, value in env_defaults.items():
-            os.environ.setdefault(key, value)

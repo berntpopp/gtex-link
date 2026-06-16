@@ -1,522 +1,201 @@
-"""Comprehensive tests for CLI functionality - simplified approach."""
+"""Tests for the GTEx-Link typer CLI (GeneFoundry Logging & CLI Standard v1)."""
 
-import argparse
-from unittest.mock import AsyncMock, MagicMock, patch
+from __future__ import annotations
 
-import pytest
+import re
+from importlib.metadata import entry_points
+from unittest.mock import MagicMock, patch
 
-from gtex_link.cli import (
-    create_parser,
-    main,
-    show_config,
-)
+from typer.testing import CliRunner
+
+from gtex_link import __version__
+from gtex_link.cli import app
+from gtex_link.config import settings
+
+runner = CliRunner()
+
+# rich wraps `--help` output to the terminal width. Force a wide, color-free
+# render and collapse whitespace so option-name substring checks are stable
+# regardless of the CI terminal size (which is narrow and lacks a TTY).
+_HELP_ENV = {"COLUMNS": "200", "TERM": "dumb", "NO_COLOR": "1"}
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
-class TestConfigDisplay:
-    """Test configuration display functionality."""
+def _help(args: list[str]) -> str:
+    """Return the de-styled, whitespace-collapsed help text for ``args``."""
+    result = runner.invoke(app, args, env=_HELP_ENV)
+    assert result.exit_code == 0, result.output
+    plain = _ANSI_RE.sub("", result.output)
+    return re.sub(r"\s+", " ", plain)
 
-    def test_show_config(self):
-        """Test show_config displays configuration correctly."""
-        with (
-            patch("gtex_link.cli.get_api_config") as mock_get_api_config,
-            patch("gtex_link.cli.get_cache_config") as mock_get_cache_config,
+
+class TestCliStructure:
+    """The CLI exposes the standard-mandated command surface."""
+
+    def test_no_args_is_help_not_bare_serve(self) -> None:
+        """Invoking with no arguments shows help and never bare-serves."""
+        result = runner.invoke(app, [], env=_HELP_ENV)
+        plain = re.sub(r"\s+", " ", _ANSI_RE.sub("", result.output))
+        for command in ("serve", "config", "health", "cache", "version"):
+            assert command in plain
+
+    def test_serve_command_present(self) -> None:
+        output = _help(["serve", "--help"])
+        for opt in (
+            "--transport",
+            "--host",
+            "--port",
+            "--mcp-path",
+            "--log-level",
+            "--disable-docs",
+            "--dev",
         ):
-            # Mock API config
-            mock_api_config = MagicMock()
-            mock_api_config.base_url = "https://gtexportal.org/api/v2/"
-            mock_api_config.timeout = 30.0
-            mock_api_config.rate_limit_per_second = 5.0
-            mock_api_config.burst_size = 10
-            mock_api_config.max_retries = 3
-            mock_api_config.retry_delay = 1.0
-            mock_api_config.user_agent = "GTEx-Link/1.0.0"
-            mock_get_api_config.return_value = mock_api_config
+            assert opt in output
 
-            # Mock cache config
-            mock_cache_config = MagicMock()
-            mock_cache_config.size = 1000
-            mock_cache_config.ttl = 3600
-            mock_cache_config.stats_enabled = True
-            mock_cache_config.cleanup_interval = 60
-            mock_get_cache_config.return_value = mock_cache_config
+    def test_config_command_present(self) -> None:
+        assert "--validate" in _help(["config", "--help"])
 
-            # Test show_config
-            show_config()
+    def test_health_command_present(self) -> None:
+        assert "--url" in _help(["health", "--help"])
 
-            mock_get_api_config.assert_called_once()
-            mock_get_cache_config.assert_called_once()
+    def test_cache_command_present(self) -> None:
+        output = _help(["cache", "--help"])
+        assert "stats" in output
+        assert "clear" in output
+
+    def test_version_command_present(self) -> None:
+        result = runner.invoke(app, ["version", "--help"], env=_HELP_ENV)
+        assert result.exit_code == 0
 
 
-class TestArgumentParser:
-    """Test argument parser functionality."""
+class TestVersion:
+    """`version` prints the installed version."""
 
-    def test_create_parser(self):
-        """Test create_parser creates parser correctly."""
-        parser = create_parser()
-
-        assert isinstance(parser, argparse.ArgumentParser)
-        assert "GTEx-Link" in parser.description
-
-    def test_parser_server_command(self):
-        """Test parser handles server command correctly."""
-        parser = create_parser()
-        args = parser.parse_args(
-            ["server", "--host", "0.0.0.0", "--port", "8080", "--mode", "http", "--reload"]
-        )
-
-        assert args.command == "server"
-        assert args.host == "0.0.0.0"
-        assert args.port == 8080
-        assert args.mode == "http"
-        assert args.reload is True
-
-    def test_parser_test_command(self):
-        """Test parser handles test command correctly."""
-        parser = create_parser()
-        args = parser.parse_args(["test"])
-
-        assert args.command == "test"
-
-    def test_parser_search_command(self):
-        """Test parser handles search command correctly."""
-        parser = create_parser()
-        args = parser.parse_args(["search", "BRCA1", "--limit", "20"])
-
-        assert args.command == "search"
-        assert args.query == "BRCA1"
-        assert args.limit == 20
-
-    def test_parser_config_command(self):
-        """Test parser handles config command correctly."""
-        parser = create_parser()
-        args = parser.parse_args(["config"])
-
-        assert args.command == "config"
+    def test_version_prints_version(self) -> None:
+        result = runner.invoke(app, ["version"])
+        assert result.exit_code == 0
+        assert __version__ in result.output
 
 
-class TestMainFunction:
-    """Test main function and CLI entry point."""
+class TestServeTransport:
+    """`serve --transport` accepts unified/http and rejects stdio."""
 
-    def test_main_no_command(self):
-        """Test main function with no command specified."""
+    def test_transport_rejects_stdio(self) -> None:
+        result = runner.invoke(app, ["serve", "--transport", "stdio"])
+        assert result.exit_code == 2
+        assert "stdio" in result.output
+
+    def test_transport_rejects_unknown(self) -> None:
+        result = runner.invoke(app, ["serve", "--transport", "bogus"])
+        assert result.exit_code == 2
+
+    def test_transport_accepts_unified(self) -> None:
         with (
-            patch("sys.argv", ["gtex-link"]),
-            patch("gtex_link.cli.create_parser") as mock_create_parser,
-            pytest.raises(SystemExit) as exc_info,
+            patch("gtex_link.cli.asyncio.run") as mock_run,
+            patch("gtex_link.cli._serve", new_callable=MagicMock) as mock_serve,
         ):
-            # Mock parser
-            mock_parser = MagicMock()
-            mock_args = MagicMock()
-            mock_args.command = None
-            mock_parser.parse_args.return_value = mock_args
-            mock_create_parser.return_value = mock_parser
+            result = runner.invoke(app, ["serve", "--transport", "unified", "--port", "8123"])
+            assert result.exit_code == 0
+            mock_run.assert_called_once()
+            mock_serve.assert_called_once_with(settings.host, 8123, unified=True)
 
-            # Test main with no command
-            main()
-
-        assert exc_info.value.code == 1
-        mock_parser.print_help.assert_called_once()
-
-    def test_main_server_command(self):
-        """Test main function with server command."""
+    def test_transport_accepts_http(self) -> None:
         with (
-            patch("sys.argv", ["gtex-link", "server"]),
-            patch("gtex_link.cli.create_parser") as mock_create_parser,
-            patch("gtex_link.cli.run_server", new_callable=MagicMock) as mock_run_server,
-            patch("asyncio.run") as mock_asyncio_run,
+            patch("gtex_link.cli.asyncio.run") as mock_run,
+            patch("gtex_link.cli._serve", new_callable=MagicMock) as mock_serve,
         ):
-            # Mock parser
-            mock_parser = MagicMock()
-            mock_args = MagicMock()
-            mock_args.command = "server"
-            mock_args.host = "127.0.0.1"
-            mock_args.port = 8000
-            mock_args.mode = "http"
-            mock_args.reload = False
-            mock_parser.parse_args.return_value = mock_args
-            mock_create_parser.return_value = mock_parser
-            mock_run_server.return_value = object()
+            result = runner.invoke(app, ["serve", "--transport", "http", "--port", "8124"])
+            assert result.exit_code == 0
+            mock_run.assert_called_once()
+            mock_serve.assert_called_once_with(settings.host, 8124, unified=False)
 
-            # Test main with server command
-            main()
-
-            mock_asyncio_run.assert_called_once()
-
-    def test_main_test_command_success(self):
-        """Test main function with test command (success)."""
+    def test_serve_dev_sets_debug_log_level(self) -> None:
         with (
-            patch("sys.argv", ["gtex-link", "test"]),
-            patch("gtex_link.cli.create_parser") as mock_create_parser,
-            patch("gtex_link.cli.test_connection", new_callable=MagicMock) as mock_test_connection,
-            patch("asyncio.run") as mock_asyncio_run,
+            patch("gtex_link.cli.asyncio.run"),
+            patch("gtex_link.cli._serve", new_callable=MagicMock),
         ):
-            # Mock parser
-            mock_parser = MagicMock()
-            mock_args = MagicMock()
-            mock_args.command = "test"
-            mock_parser.parse_args.return_value = mock_args
-            mock_create_parser.return_value = mock_parser
-            mock_test_connection.return_value = object()
-
-            # Mock asyncio.run to return True (success)
-            mock_asyncio_run.return_value = True
-
-            # Test main with test command (should exit 0)
-            with pytest.raises(SystemExit) as exc_info:
-                main()
-
-            assert exc_info.value.code == 0
-
-    def test_main_test_command_failure(self):
-        """Test main function with test command (failure)."""
-        with (
-            patch("sys.argv", ["gtex-link", "test"]),
-            patch("gtex_link.cli.create_parser") as mock_create_parser,
-            patch("gtex_link.cli.test_connection", new_callable=MagicMock) as mock_test_connection,
-            patch("asyncio.run") as mock_asyncio_run,
-        ):
-            # Mock parser
-            mock_parser = MagicMock()
-            mock_args = MagicMock()
-            mock_args.command = "test"
-            mock_parser.parse_args.return_value = mock_args
-            mock_create_parser.return_value = mock_parser
-            mock_test_connection.return_value = object()
-
-            # Mock asyncio.run to return False (failure)
-            mock_asyncio_run.return_value = False
-
-            # Test main with test command (should exit 1)
-            with pytest.raises(SystemExit) as exc_info:
-                main()
-
-            assert exc_info.value.code == 1
-
-    def test_main_search_command(self):
-        """Test main function with search command."""
-        with (
-            patch("sys.argv", ["gtex-link", "search", "BRCA1"]),
-            patch("gtex_link.cli.create_parser") as mock_create_parser,
-            patch("gtex_link.cli.search_genes", new_callable=MagicMock) as mock_search_genes,
-            patch("asyncio.run") as mock_asyncio_run,
-        ):
-            # Mock parser
-            mock_parser = MagicMock()
-            mock_args = MagicMock()
-            mock_args.command = "search"
-            mock_args.query = "BRCA1"
-            mock_args.limit = 10
-            mock_parser.parse_args.return_value = mock_args
-            mock_create_parser.return_value = mock_parser
-            mock_search_genes.return_value = object()
-
-            # Test main with search command
-            main()
-
-            mock_asyncio_run.assert_called_once()
-
-    def test_main_config_command(self):
-        """Test main function with config command."""
-        with (
-            patch("sys.argv", ["gtex-link", "config"]),
-            patch("gtex_link.cli.create_parser") as mock_create_parser,
-            patch("gtex_link.cli.show_config") as mock_show_config,
-        ):
-            # Mock parser
-            mock_parser = MagicMock()
-            mock_args = MagicMock()
-            mock_args.command = "config"
-            mock_parser.parse_args.return_value = mock_args
-            mock_create_parser.return_value = mock_parser
-
-            # Test main with config command
-            main()
-
-            mock_show_config.assert_called_once()
-
-    def test_main_unknown_command(self):
-        """Test main function with unknown command."""
-        with (
-            patch("sys.argv", ["gtex-link", "unknown"]),
-            patch("gtex_link.cli.create_parser") as mock_create_parser,
-            pytest.raises(SystemExit) as exc_info,
-        ):
-            # Mock parser
-            mock_parser = MagicMock()
-            mock_args = MagicMock()
-            mock_args.command = "unknown"
-            mock_parser.parse_args.return_value = mock_args
-            mock_create_parser.return_value = mock_parser
-
-            # Test main with unknown command
-            main()
-
-        assert exc_info.value.code == 1
-        mock_parser.print_help.assert_called_once()
-
-    def test_main_keyboard_interrupt(self):
-        """Test main function handles KeyboardInterrupt."""
-        with (
-            patch("sys.argv", ["gtex-link", "server"]),
-            patch("gtex_link.cli.create_parser") as mock_create_parser,
-            patch("gtex_link.cli.run_server", new_callable=MagicMock) as mock_run_server,
-            patch("asyncio.run") as mock_asyncio_run,
-            pytest.raises(SystemExit) as exc_info,
-        ):
-            # Mock parser
-            mock_parser = MagicMock()
-            mock_args = MagicMock()
-            mock_args.command = "server"
-            mock_args.host = "127.0.0.1"
-            mock_args.port = 8000
-            mock_args.mode = "http"
-            mock_args.reload = False
-            mock_parser.parse_args.return_value = mock_args
-            mock_create_parser.return_value = mock_parser
-            mock_run_server.return_value = object()
-
-            # Mock asyncio.run to raise KeyboardInterrupt
-            mock_asyncio_run.side_effect = KeyboardInterrupt()
-
-            # Test main with KeyboardInterrupt
-            main()
-
-        assert exc_info.value.code == 1
-
-    def test_main_value_error(self):
-        """Test main function handles ValueError."""
-        with (
-            patch("sys.argv", ["gtex-link", "server"]),
-            patch("gtex_link.cli.create_parser") as mock_create_parser,
-            patch("gtex_link.cli.run_server", new_callable=MagicMock) as mock_run_server,
-            patch("asyncio.run") as mock_asyncio_run,
-            pytest.raises(SystemExit) as exc_info,
-        ):
-            # Mock parser
-            mock_parser = MagicMock()
-            mock_args = MagicMock()
-            mock_args.command = "server"
-            mock_args.host = "127.0.0.1"
-            mock_args.port = 8000
-            mock_args.mode = "http"
-            mock_args.reload = False
-            mock_parser.parse_args.return_value = mock_args
-            mock_create_parser.return_value = mock_parser
-            mock_run_server.return_value = object()
-
-            # Mock asyncio.run to raise ValueError
-            mock_asyncio_run.side_effect = ValueError("Invalid argument")
-
-            # Test main with ValueError
-            main()
-
-        assert exc_info.value.code == 1
-
-    def test_main_runtime_error(self):
-        """Test main function handles RuntimeError."""
-        with (
-            patch("sys.argv", ["gtex-link", "server"]),
-            patch("gtex_link.cli.create_parser") as mock_create_parser,
-            patch("gtex_link.cli.run_server", new_callable=MagicMock) as mock_run_server,
-            patch("asyncio.run") as mock_asyncio_run,
-            pytest.raises(SystemExit) as exc_info,
-        ):
-            # Mock parser
-            mock_parser = MagicMock()
-            mock_args = MagicMock()
-            mock_args.command = "server"
-            mock_args.host = "127.0.0.1"
-            mock_args.port = 8000
-            mock_args.mode = "http"
-            mock_args.reload = False
-            mock_parser.parse_args.return_value = mock_args
-            mock_create_parser.return_value = mock_parser
-            mock_run_server.return_value = object()
-
-            # Mock asyncio.run to raise RuntimeError
-            mock_asyncio_run.side_effect = RuntimeError("Runtime error")
-
-            # Test main with RuntimeError
-            main()
-
-        assert exc_info.value.code == 1
-
-    def test_main_os_error(self):
-        """Test main function handles OSError."""
-        with (
-            patch("sys.argv", ["gtex-link", "server"]),
-            patch("gtex_link.cli.create_parser") as mock_create_parser,
-            patch("gtex_link.cli.run_server", new_callable=MagicMock) as mock_run_server,
-            patch("asyncio.run") as mock_asyncio_run,
-            pytest.raises(SystemExit) as exc_info,
-        ):
-            # Mock parser
-            mock_parser = MagicMock()
-            mock_args = MagicMock()
-            mock_args.command = "server"
-            mock_args.host = "127.0.0.1"
-            mock_args.port = 8000
-            mock_args.mode = "http"
-            mock_args.reload = False
-            mock_parser.parse_args.return_value = mock_args
-            mock_create_parser.return_value = mock_parser
-            mock_run_server.return_value = object()
-
-            # Mock asyncio.run to raise OSError
-            mock_asyncio_run.side_effect = OSError("OS error")
-
-            # Test main with OSError
-            main()
-
-        assert exc_info.value.code == 1
-
-
-# Test async functions with functional approach
-@pytest.mark.asyncio
-async def test_run_server_success():
-    """Test successful server startup using functional approach."""
-    with (
-        patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.UnifiedServerManager") as mock_manager_class,
-    ):
-        from gtex_link.cli import run_server
-
-        mock_logger = MagicMock()
-        mock_configure.return_value = mock_logger
-
-        mock_manager = AsyncMock()
-        mock_manager_class.return_value = mock_manager
-
-        await run_server(host="127.0.0.1", port=8000, mode="http", reload=False)
-
-        mock_manager.start_http_only_server.assert_called_once_with(host="127.0.0.1", port=8000)
-        mock_manager.shutdown.assert_awaited()
-
-
-@pytest.mark.asyncio
-async def test_run_server_keyboard_interrupt():
-    """Test server runner handles KeyboardInterrupt."""
-    with (
-        patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.UnifiedServerManager") as mock_manager_class,
-    ):
-        from gtex_link.cli import run_server
-
-        mock_logger = MagicMock()
-        mock_configure.return_value = mock_logger
-
-        mock_manager = AsyncMock()
-        mock_manager_class.return_value = mock_manager
-        mock_manager.start_unified_server = AsyncMock(side_effect=KeyboardInterrupt())
-
-        await run_server()
-        mock_manager.shutdown.assert_awaited()
-
-
-@pytest.mark.asyncio
-async def test_run_server_os_error():
-    """Test server runner handles OSError."""
-    with (
-        patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.UnifiedServerManager") as mock_manager_class,
-        pytest.raises(SystemExit) as exc_info,
-    ):
-        from gtex_link.cli import run_server
-
-        mock_logger = MagicMock()
-        mock_configure.return_value = mock_logger
-
-        mock_manager = AsyncMock()
-        mock_manager_class.return_value = mock_manager
-        mock_manager.start_unified_server = AsyncMock(side_effect=OSError("Port already in use"))
-
-        await run_server()
-
-    assert exc_info.value.code == 1
-
-
-@pytest.mark.asyncio
-async def test_run_server_runtime_error():
-    """Test server runner handles RuntimeError."""
-    with (
-        patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.UnifiedServerManager") as mock_manager_class,
-        pytest.raises(SystemExit) as exc_info,
-    ):
-        from gtex_link.cli import run_server
-
-        mock_logger = MagicMock()
-        mock_configure.return_value = mock_logger
-
-        mock_manager = AsyncMock()
-        mock_manager_class.return_value = mock_manager
-        mock_manager.start_unified_server = AsyncMock(side_effect=RuntimeError("Server error"))
-
-        await run_server()
-
-    assert exc_info.value.code == 1
-
-
-# Test connection and search functions by mocking at module level
-@pytest.mark.asyncio
-async def test_connection_success():
-    """Test connection function with successful result."""
-    with (
-        patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.get_api_config") as mock_get_config,
-    ):
-        from gtex_link.cli import test_connection
-
-        # Setup basic mocks
-        mock_logger = MagicMock()
-        mock_configure.return_value = mock_logger
-        mock_get_config.return_value = MagicMock()
-
-        with patch("gtex_link.api.client.GTExClient") as mock_gtex_client_class:
-            mock_gtex_client = MagicMock()
-            mock_gtex_client.get_service_info = AsyncMock(return_value={"version": "2.0"})
-            mock_gtex_client.__aenter__ = AsyncMock(return_value=mock_gtex_client)
-            mock_gtex_client.__aexit__ = AsyncMock(return_value=None)
-            mock_gtex_client_class.return_value = mock_gtex_client
-
-            # Test the function - it should succeed
-            result = await test_connection()
-            assert result is True
-
-
-@pytest.mark.asyncio
-async def test_search_genes_function():
-    """Test search genes function with successful result."""
-    with (
-        patch("gtex_link.cli.configure_logging") as mock_configure,
-        patch("gtex_link.cli.get_api_config") as mock_get_config,
-        patch("gtex_link.cli.get_cache_config") as mock_get_cache_config,
-    ):
-        from gtex_link.cli import search_genes
-
-        # Setup basic mocks
-        mock_logger = MagicMock()
-        mock_configure.return_value = mock_logger
-        mock_get_config.return_value = MagicMock()
-        mock_get_cache_config.return_value = MagicMock()
-
-        with (
-            patch("gtex_link.api.client.GTExClient") as mock_gtex_client_class,
-            patch("gtex_link.services.gtex_service.GTExService") as mock_gtex_service_class,
-        ):
-            # Mock GTExClient
-            mock_gtex_client = MagicMock()
-            mock_gtex_client.__aenter__ = AsyncMock(return_value=mock_gtex_client)
-            mock_gtex_client.__aexit__ = AsyncMock(return_value=None)
-            mock_gtex_client_class.return_value = mock_gtex_client
-
-            # Mock GTExService and results
-            mock_service = MagicMock()
-            mock_result = MagicMock()
-            mock_result.data = []  # Empty results to test no-results path
-            mock_service.search_genes = AsyncMock(return_value=mock_result)
-            mock_gtex_service_class.return_value = mock_service
-
-            # Test the function
-            await search_genes("TEST", 10)
-            mock_service.search_genes.assert_called_once_with(query="TEST", page_size=10)
+            result = runner.invoke(app, ["serve", "--transport", "http", "--dev"])
+            assert result.exit_code == 0
+            assert settings.log_level == "DEBUG"
+            assert settings.disable_docs is False
+
+
+class TestConfig:
+    """`config` shows and validates the resolved configuration."""
+
+    def test_config_shows_settings(self) -> None:
+        result = runner.invoke(app, ["config"])
+        assert result.exit_code == 0
+        assert "transport" in result.output
+        assert "mcp_path" in result.output
+
+    def test_config_validate_ok(self) -> None:
+        result = runner.invoke(app, ["config", "--validate"])
+        assert result.exit_code == 0
+        assert "valid" in result.output.lower()
+
+
+class TestHealth:
+    """`health` probes the running server's /api/health endpoint."""
+
+    def test_health_connection_failure_exits_nonzero(self) -> None:
+        import httpx
+
+        with patch("gtex_link.cli.httpx.get", side_effect=httpx.ConnectError("nope")):
+            result = runner.invoke(app, ["health", "--url", "http://127.0.0.1:9"])
+            assert result.exit_code == 1
+
+    def test_health_probes_api_health_path(self) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": "healthy",
+            "version": __version__,
+            "gtex_api": "available",
+        }
+        with patch("gtex_link.cli.httpx.get", return_value=mock_response) as mock_get:
+            result = runner.invoke(app, ["health", "--url", "http://127.0.0.1:8000"])
+            assert result.exit_code == 0
+            assert "healthy" in result.output
+            mock_get.assert_called_once()
+            called_url = mock_get.call_args[0][0]
+            assert called_url == "http://127.0.0.1:8000/api/health"
+
+    def test_health_non_200_exits_nonzero(self) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 503
+        with patch("gtex_link.cli.httpx.get", return_value=mock_response):
+            result = runner.invoke(app, ["health"])
+            assert result.exit_code == 1
+
+
+class TestCache:
+    """`cache stats|clear` operate on the in-process service cache."""
+
+    def test_cache_stats(self) -> None:
+        result = runner.invoke(app, ["cache", "stats"])
+        assert result.exit_code == 0
+        assert "cache statistics" in result.output.lower()
+
+    def test_cache_clear(self) -> None:
+        result = runner.invoke(app, ["cache", "clear"])
+        assert result.exit_code == 0
+        assert "cleared" in result.output.lower()
+
+
+class TestEntryPoint:
+    """The single console script resolves to the typer app."""
+
+    def test_console_script_resolves_to_app(self) -> None:
+        scripts = entry_points(group="console_scripts")
+        gtex = [ep for ep in scripts if ep.name == "gtex-link"]
+        assert gtex, "gtex-link console script not registered"
+        assert gtex[0].value == "gtex_link.cli:app"
+        # The loaded object is the typer app object.
+        assert gtex[0].load() is app
+
+    def test_no_stdio_entry_points(self) -> None:
+        scripts = entry_points(group="console_scripts")
+        names = {ep.name for ep in scripts}
+        assert "gtex-link-mcp" not in names
+        assert "gtex-mcp" not in names

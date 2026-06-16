@@ -3,7 +3,7 @@
         typecheck typecheck-fast typecheck-stop typecheck-fresh \
         test test-fast test-unit test-integration test-cov test-all \
         check ci-local precommit clean \
-        dev mcp-serve mcp-serve-http \
+        dev serve \
         docker-build docker-up docker-down docker-logs docker-prod-config docker-npm-config \
         setup info
 
@@ -26,40 +26,40 @@ upgrade: ## Upgrade locked dependencies
 	uv lock --upgrade
 
 format: ## Format Python code
-	uv run ruff format gtex_link tests server.py mcp_server.py
+	uv run ruff format gtex_link tests
 
 format-check: ## Check formatting without writing
-	uv run ruff format --check gtex_link tests server.py mcp_server.py
+	uv run ruff format --check gtex_link tests
 
 lint: ## Lint Python code
-	uv run ruff check gtex_link tests server.py mcp_server.py
+	uv run ruff check gtex_link tests
 
 lint-ci: ## Lint Python code with GitHub-Actions output
-	uv run ruff check gtex_link tests server.py mcp_server.py --output-format=github
+	uv run ruff check gtex_link tests --output-format=github
 
 lint-fix: ## Lint and apply safe fixes
-	uv run ruff check gtex_link tests server.py mcp_server.py --fix
+	uv run ruff check gtex_link tests --fix
 
 lint-loc: ## Enforce per-file line budget (see AGENTS.md "File Size Discipline")
 	uv run python scripts/check_file_size.py
 
 typecheck: ## Type check package
-	uv run mypy gtex_link server.py mcp_server.py
+	uv run mypy gtex_link
 
 typecheck-fast: ## Type check with mypy daemon and fallback
 	@tmp_log=$$(mktemp); \
-	if uv run dmypy run -- gtex_link server.py mcp_server.py >$$tmp_log 2>&1; then \
+	if uv run dmypy run -- gtex_link >$$tmp_log 2>&1; then \
 		cat $$tmp_log; \
 	elif grep -Eq "Daemon crashed!|INTERNAL ERROR|No data received" $$tmp_log; then \
 		echo "dmypy crashed; retrying with a fresh daemon..."; \
 		uv run dmypy stop >/dev/null 2>&1 || true; \
-		if uv run dmypy run -- gtex_link server.py mcp_server.py >$$tmp_log 2>&1; then \
+		if uv run dmypy run -- gtex_link >$$tmp_log 2>&1; then \
 			cat $$tmp_log; \
 		else \
 			cat $$tmp_log; \
 			echo "Falling back to plain mypy..."; \
 			uv run dmypy stop >/dev/null 2>&1 || true; \
-			uv run mypy gtex_link server.py mcp_server.py; \
+			uv run mypy gtex_link; \
 		fi; \
 	else \
 		cat $$tmp_log; \
@@ -73,7 +73,7 @@ typecheck-stop: ## Stop mypy daemon
 
 typecheck-fresh: ## Clear mypy cache and run typecheck
 	rm -rf .mypy_cache
-	uv run mypy gtex_link server.py mcp_server.py
+	uv run mypy gtex_link
 
 test: ## Run tests quickly
 	uv run pytest tests -q
@@ -102,13 +102,10 @@ clean: ## Remove local caches and generated reports
 	rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage coverage.xml dist build
 
 dev: ## Start unified REST + MCP development server
-	uv run python server.py --transport unified --host 127.0.0.1 --port 8000
+	uv run gtex-link serve --transport unified --host 127.0.0.1 --port 8000 --dev
 
-mcp-serve: ## Start local stdio MCP server
-	uv run python mcp_server.py
-
-mcp-serve-http: ## Alias for `dev` (unified REST + MCP)
-	uv run python server.py --transport unified --host 127.0.0.1 --port 8000
+serve: ## Start unified REST + MCP server (Streamable HTTP)
+	uv run gtex-link serve --transport unified --host 127.0.0.1 --port 8000
 
 docker-build: ## Build Docker image
 	$(DOCKER_COMPOSE) -f docker/docker-compose.yml build

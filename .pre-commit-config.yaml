@@ -22,6 +22,6 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: uv run mypy gtex_link server.py mcp_server.py
+        entry: uv run mypy gtex_link
         language: system
         pass_filenames: false
