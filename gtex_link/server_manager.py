@@ -56,7 +56,7 @@ class UnifiedServerManager:
         from gtex_link.mcp.facade import create_gtex_mcp
 
         mcp = create_gtex_mcp()
-        mcp_asgi = mcp.http_app(path=settings.mcp_path)
+        mcp_asgi = mcp.http_app(path=settings.mcp_path, stateless_http=True, json_response=True)
 
         # Compose the FastAPI lifespan with the MCP ASGI app's lifespan so
         # the streamable-http session manager is initialised when uvicorn
