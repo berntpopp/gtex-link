@@ -84,6 +84,16 @@ def create_app() -> FastAPI:
             "mcp_endpoint": settings.mcp_path,
         }
 
+    # MCP Transport Standard v1 health endpoint (probe-compatible)
+    @app.get("/health")
+    async def health() -> dict[str, Any]:
+        """Lightweight health endpoint required by MCP Transport Standard v1."""
+        return {
+            "status": "ok",
+            "version": __version__,
+            "transport": "streamable-http-stateless",
+        }
+
     return app
 
 
