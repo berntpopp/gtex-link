@@ -29,6 +29,26 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    # Container & Deployment Hardening Standard v1: the base compose carries the
+    # same hardening as the prod/npm overlays so running it directly is still safe.
+    # The prod overlay inherits these (Compose appends list fields across -f
+    # overlays, so re-declaring tmpfs/security_opt/cap_drop there would duplicate
+    # them); the base file is the single source of those controls.
+    read_only: true
+    tmpfs:
+      - /tmp/gtex-link:rw,noexec,nosuid,size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    init: true
+    pids_limit: 256
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+          pids: 256
     logging:
       driver: "json-file"
       options:

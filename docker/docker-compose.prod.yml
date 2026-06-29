@@ -17,17 +17,11 @@ services:
     volumes: []
     ports: !reset []
 
-    read_only: true
-    tmpfs:
-      - /tmp/gtex-link:rw,noexec,nosuid,size=64m,mode=1777
-
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-
-    pids_limit: 256
-    init: true
+    # Runtime hardening (read_only, tmpfs, cap_drop: ALL, no-new-privileges, init,
+    # pids_limit) is inherited from the base docker-compose.yml so it applies to
+    # every invocation. Compose *appends* list fields across -f overlays, so
+    # re-declaring tmpfs/security_opt/cap_drop here would duplicate them and fail
+    # validation. The base file is the single source of those controls.
 
     # Unified server (FastAPI on / and MCP on /mcp via the same port).
     command: ["gtex-link", "serve", "--transport", "unified", "--host", "0.0.0.0", "--port", "8000"]

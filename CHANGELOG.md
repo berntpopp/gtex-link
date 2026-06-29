@@ -4,6 +4,16 @@ All notable changes to GTEx-Link are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security (Container & Deployment Hardening Standard v1)
+
+- Pinned the `python:3.14-slim` base image by digest, added a `container-security`
+  CI workflow (Trivy scan + CycloneDX SBOM), and brought the base
+  `docker-compose.yml` to hardening parity with the prod/npm overlays
+  (`read_only`, tmpfs, `cap_drop: ALL`, `no-new-privileges`, `init`, pids/mem/cpu);
+  the prod overlay now inherits those controls from the base.
+
 ## [2.0.0] - 2026-06-16
 
 ### Changed (BREAKING — GeneFoundry Logging & CLI Standard v1)
