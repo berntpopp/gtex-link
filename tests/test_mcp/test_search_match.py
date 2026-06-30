@@ -80,6 +80,8 @@ def test_gencode_version_for_dataset_maps_known_datasets() -> None:
 
     assert gencode_version_for_dataset("gtex_v8") == "v26"
     assert gencode_version_for_dataset("gtex_v10") == "v39"
+    # gtex_snrnaseq_pilot is an explicit key in DATASET_GENCODE_VERSION → v26.
+    assert gencode_version_for_dataset("gtex_snrnaseq_pilot") == "v26"
     # Unknown datasets fall back to the upstream default release.
     assert gencode_version_for_dataset("something_else") == "v26"
 
