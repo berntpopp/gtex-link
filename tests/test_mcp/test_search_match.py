@@ -92,3 +92,18 @@ async def test_resolve_gene_ids_raises_invalid_input_for_unknown() -> None:
         await resolve_gene_ids(service, ["NOTAGENE123"])
     assert excinfo.value.error_code == "invalid_input"
     assert "NOTAGENE123" in excinfo.value.message
+
+
+def test_gtex_v10_uses_gencode_v39_regression() -> None:
+    """Regression: gtex_v10 must map to GENCODE v39, not v26.
+
+    Before fix (8c48b7c), gencode_version_for_dataset did not exist; all
+    datasets silently used the gtex_v8/GENCODE-v26 default, so a PKD1 lookup
+    on gtex_v10 returned .19 (v26) instead of .20 (v39) and expression
+    queries came back empty.  This test proves the root cause is fixed.
+    """
+    from gtex_link.models.gtex import gencode_version_for_dataset
+
+    assert gencode_version_for_dataset("gtex_v10") == "v39", (
+        "gtex_v10 must resolve genes against GENCODE v39 (not the v8/v26 default)"
+    )
