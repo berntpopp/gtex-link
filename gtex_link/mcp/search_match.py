@@ -13,6 +13,18 @@ from typing import TYPE_CHECKING
 
 from gtex_link.mcp.envelope import McpToolError
 from gtex_link.models import GeneRequest
+from gtex_link.models.gtex import (
+    DEFAULT_GENCODE_VERSION,
+    gencode_version_for_dataset,
+)
+
+__all__ = [
+    "DEFAULT_GENCODE_VERSION",
+    "classify_match",
+    "gencode_version_for_dataset",
+    "recall_terms",
+    "resolve_gene_ids",
+]
 
 if TYPE_CHECKING:
     from gtex_link.services.gtex_service import GTExService
@@ -103,20 +115,40 @@ def is_versioned_gencode(value: str) -> bool:
     return bool(_VERSIONED_GENCODE_RE.match(value))
 
 
-async def resolve_gene_ids(service: GTExService, raw_ids: list[str]) -> list[str]:
-    """Resolve symbols / unversioned ids to versioned GENCODE ids.
+def _unversioned(value: str) -> str:
+    """Strip a trailing GENCODE version suffix (ENSG...19 -> ENSG...)."""
+    return value.split(".")[0] if is_versioned_gencode(value) else value
 
-    Inputs already shaped like ENSG00000169344.15 pass through untouched. Anything
-    else is resolved via get_genes (which accepts symbols). Raises McpToolError
-    (invalid_input) listing any token that cannot be resolved -- never returns a
-    silently shorter list.
+
+async def resolve_gene_ids(
+    service: GTExService,
+    raw_ids: list[str],
+    *,
+    gencode_version: str | None = None,
+) -> list[str]:
+    """Resolve symbols / ids to GENCODE ids for *gencode_version*'s release.
+
+    ``gencode_version`` is the release the caller's dataset uses (see
+    ``gencode_version_for_dataset``); ``None`` means the upstream default (v26).
+    Versioned ids matching the default release pass through untouched. For any
+    other release the version suffix is stripped and re-resolved via get_genes so
+    a v26 id (e.g. ENSG00000008710.19) becomes the dataset's id (.20) instead of
+    silently returning zero expression rows. Raises McpToolError (invalid_input)
+    listing any token that cannot be resolved -- never returns a shorter list.
     """
-    if all(is_versioned_gencode(rid) for rid in raw_ids):
+    target = gencode_version or DEFAULT_GENCODE_VERSION
+    if target == DEFAULT_GENCODE_VERSION and all(is_versioned_gencode(rid) for rid in raw_ids):
         return raw_ids
 
-    request = GeneRequest.model_validate(
-        {"geneId": raw_ids, "page": 0, "itemsPerPage": len(raw_ids)}
-    )
+    query_ids = [_unversioned(rid) for rid in raw_ids]
+    payload: dict[str, object] = {
+        "geneId": query_ids,
+        "page": 0,
+        "itemsPerPage": len(query_ids),
+    }
+    if gencode_version is not None:
+        payload["gencodeVersion"] = gencode_version
+    request = GeneRequest.model_validate(payload)
     result = await service.get_genes(request)
     by_input: dict[str, str] = {}
     for gene in result.data:
@@ -127,10 +159,9 @@ async def resolve_gene_ids(service: GTExService, raw_ids: list[str]) -> list[str
     resolved: list[str] = []
     unresolved: list[str] = []
     for rid in raw_ids:
-        if is_versioned_gencode(rid):
-            resolved.append(rid)
-        elif rid.lower() in by_input:
-            resolved.append(by_input[rid.lower()])
+        match = by_input.get(rid.lower()) or by_input.get(_unversioned(rid).lower())
+        if match is not None:
+            resolved.append(match)
         else:
             unresolved.append(rid)
     if unresolved:
