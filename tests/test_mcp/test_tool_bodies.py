@@ -933,6 +933,11 @@ async def test_median_gtex_v10_resolves_gene_to_v39_id() -> None:
     assert payload["success"] is True
     assert captured["genes_req"].gencode_version == "v39"
     assert captured["median_req"].gencode_id == ["ENSG00000008710.20"]
+    # Acceptance: gtex_v10 median must return non-empty rows for a known gene.
+    assert payload["genes"], "gtex_v10 median returned no gene groups"
+    tissues = payload["genes"][0]["tissues"]
+    assert tissues, "gtex_v10 median returned empty tissue rows"
+    assert tissues[0]["median"] == 510.7
 
 
 @pytest.mark.asyncio
