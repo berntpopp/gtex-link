@@ -52,7 +52,7 @@ class GeneSearchRequest(BaseRequest):
         None,
         alias="gencodeVersion",
         description="GENCODE annotation release",
-        examples=["v26", "v32"],
+        examples=["v26", "v39"],
     )
     genome_build: GenomeBuild | None = Field(
         None, alias="genomeBuild", description="Genome build version", examples=["GRCh38", "GRCh37"]
@@ -73,7 +73,7 @@ class GeneRequest(BaseRequest):
         None,
         alias="gencodeVersion",
         description="GENCODE annotation release",
-        examples=["v26", "v32"],
+        examples=["v26", "v39"],
     )
     genome_build: GenomeBuild | None = Field(
         None, alias="genomeBuild", description="Genome build version", examples=["GRCh38", "GRCh37"]
@@ -92,7 +92,7 @@ class TranscriptRequest(BaseRequest):
         None,
         alias="gencodeVersion",
         description="GENCODE annotation release",
-        examples=["v26", "v32"],
+        examples=["v26", "v39"],
     )
     genome_build: GenomeBuild | None = Field(
         None, alias="genomeBuild", description="Genome build version", examples=["GRCh38", "GRCh37"]

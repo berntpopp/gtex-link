@@ -41,7 +41,7 @@ Chromosome = Literal[
 
 DatasetId = Literal["gtex_v8", "gtex_snrnaseq_pilot", "gtex_v10"]
 
-GencodeVersion = Literal["v19", "v26", "v32", "v43"]
+GencodeVersion = Literal["v19", "v26", "v39"]
 
 GenomeBuild = Literal["GRCh37", "GRCh38", "GRCh38/hg38"]
 
