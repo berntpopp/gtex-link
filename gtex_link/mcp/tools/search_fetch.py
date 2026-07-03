@@ -95,7 +95,11 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
             name="fetch",
             title="Fetch",
             annotations=READ_ONLY_OPEN_WORLD,
-            tags={"search"},
+            # `meta` puts fetch under the ratified ops/meta verb-rule carve-out
+            # (its name is fixed verbatim by the OpenAI Apps-SDK / deep-research
+            # contract and is not a canonical verb); `search` keeps it grouped
+            # with its deep-research partner. Mirrors router check_leaf_name.
+            tags={"meta", "search"},
             description=(
                 "Retrieve full details for a gene from the GTEx Portal database. "
                 "Use the `id` returned by `search` (`gene:<GENCODE_ID>`); a bare "
