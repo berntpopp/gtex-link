@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastmcp import FastMCP
 
+from gtex_link import __version__
 from gtex_link.config import settings
 from gtex_link.mcp.capabilities_resources import register_capability_resources
 from gtex_link.mcp.metadata import register_metadata_tools
@@ -34,6 +35,7 @@ def create_gtex_mcp(profile: MCPToolProfile | str | None = None) -> FastMCP:
 
     mcp = FastMCP(
         name="gtex-link",
+        version=__version__,
         instructions=GTEX_SERVER_INSTRUCTIONS,
         mask_error_details=True,
     )
