@@ -5,7 +5,6 @@ from __future__ import annotations
 import functools
 import hashlib
 import json
-from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Any
 
 from gtex_link.mcp.envelope import McpToolError
@@ -31,10 +30,9 @@ _ALL_TOOLS = (
 
 
 def _server_version() -> str:
-    try:
-        return version("gtex-link")
-    except PackageNotFoundError:
-        return "0.0.0"
+    from gtex_link import __version__
+
+    return __version__
 
 
 def valid_tissues() -> list[str]:
