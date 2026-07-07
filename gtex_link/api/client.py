@@ -316,11 +316,16 @@ class GTExClient:
                     return result
                 except json.JSONDecodeError as e:
                     if self.logger:
+                        # Log only the request path, not the full upstream URL
+                        # (host), to match the path-only ``log_api_request``.
                         log_error_with_context(
                             self.logger,
                             e,
                             "JSON parsing failed",
-                            {"url": url, "response_text": response.text[:200]},
+                            {
+                                "path": urlsplit(url).path,
+                                "response_text": response.text[:200],
+                            },
                         )
                     msg = f"Invalid JSON response from {url}: {e}"
                     raise GTExAPIError(
@@ -345,12 +350,14 @@ class GTExClient:
 
                 if attempt < self.config.max_retries:
                     if self.logger:
+                        # Log only the request path, not the full upstream URL
+                        # (host), to match the path-only ``log_api_request``.
                         self.logger.warning(
                             "Request failed, retrying",
                             attempt=attempt + 1,
                             max_retries=self.config.max_retries,
                             error=str(e),
-                            url=url,
+                            path=urlsplit(url).path,
                         )
                     await asyncio.sleep(
                         self.config.retry_delay * (2**attempt)

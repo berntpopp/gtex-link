@@ -168,9 +168,11 @@ async def search_genes(
 ) -> PaginatedGeneResponse:
     """Search for genes."""
     try:
+        # Do not log `gene_id`: it is the caller's free-text search query and a
+        # PII / leakage vector (may carry patient-derived text). Log only
+        # non-identifying request metadata (release enums, result counts).
         logger.info(
             "Gene search request",
-            gene_id=gene_id,
             gencode_version=gencode_version,
             genome_build=genome_build,
         )
@@ -185,18 +187,17 @@ async def search_genes(
 
         logger.info(
             "Gene search completed",
-            gene_id=gene_id,
             result_count=len(result.data) if result.data else 0,
         )
 
     except ValidationError as e:
-        logger.warning("Gene search validation error", error=str(e), gene_id=gene_id)
+        logger.warning("Gene search validation error", error=str(e))
         raise HTTPException(status_code=400, detail=str(e)) from e
     except GTExAPIError as e:
-        logger.exception("GTEx API error during gene search", gene_id=gene_id)
+        logger.exception("GTEx API error during gene search")
         raise HTTPException(status_code=502, detail=f"GTEx Portal API error: {e}") from e
     except Exception as e:
-        logger.exception("Unexpected error during gene search", gene_id=gene_id)
+        logger.exception("Unexpected error during gene search")
         raise HTTPException(status_code=500, detail="Internal server error") from e
     else:
         return result
