@@ -6,6 +6,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-07-07
+
+### Security (inbound-boundary hardening)
+
+- **CORS credentials off by default.** `cors_allow_credentials` now defaults to
+  `False` (the backend is unauthenticated and holds no cookies/session), and a
+  startup guard rejects the insecure `allow_credentials=True` + wildcard `*`
+  origin combination rather than silently misconfiguring. The dev compose no
+  longer sets credentials on.
+- **Base `docker-compose.yml` loopback-bound.** The base compose publishes the
+  host port on `127.0.0.1` only, so copying it to a server never exposes the
+  unauthenticated backend on the public IP (Docker otherwise binds `0.0.0.0` and
+  bypasses the host firewall). Production reaches the backend only via the
+  router / reverse proxy.
+- **No PII in logs.** Stopped logging free-text gene-search queries, subject and
+  sample identifiers, and the full upstream URL (scheme + host). Request
+  diagnostics now retain only the request path plus non-identifying metadata.
+  Added route-, service-, and client-level sentinel guards.
+
+## [2.0.1] - 2026-06-29
+
 ### Security (Container & Deployment Hardening Standard v1)
 
 - Pinned the `python:3.14-slim` base image by digest, added a `container-security`
