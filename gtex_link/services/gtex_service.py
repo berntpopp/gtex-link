@@ -189,21 +189,45 @@ class GTExService:
 
     async def _get_genes_impl(self, params: GeneRequest) -> PaginatedGeneResponse:
         """Get gene information."""
-        self.logger.info("Fetching genes", **params.model_dump()) if self.logger else None
+        # Do not log gene identifiers; log only non-identifying request metadata.
+        (
+            self.logger.info(
+                "Fetching genes",
+                gencode_version=params.gencode_version,
+                genome_build=params.genome_build,
+                gene_count=len(params.gene_id),
+                page=params.page,
+                items_per_page=params.items_per_page,
+            )
+            if self.logger
+            else None
+        )
         api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_genes(api_params)
         return PaginatedGeneResponse(**raw_data)
 
     async def _get_transcripts_impl(self, params: TranscriptRequest) -> PaginatedTranscriptResponse:
         """Get transcript information."""
-        self.logger.info("Fetching transcripts", **params.model_dump()) if self.logger else None
+        # Do not log the GENCODE identifier; log only non-identifying metadata.
+        (
+            self.logger.info(
+                "Fetching transcripts",
+                gencode_version=params.gencode_version,
+                genome_build=params.genome_build,
+                page=params.page,
+                items_per_page=params.items_per_page,
+            )
+            if self.logger
+            else None
+        )
         api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_transcripts(api_params)
         return PaginatedTranscriptResponse(**raw_data)
 
     async def _get_exons_impl(self, params: dict[str, Any]) -> PaginatedExonResponse:
         """Get exon information."""
-        self.logger.info("Fetching exons", **params) if self.logger else None
+        # Do not spread the raw upstream params (may carry gene identifiers).
+        self.logger.info("Fetching exons", param_count=len(params)) if self.logger else None
         raw_data = await self.client.get_exons(params)
         return PaginatedExonResponse(**raw_data)
 
@@ -213,8 +237,16 @@ class GTExService:
         self, params: MedianGeneExpressionRequest
     ) -> PaginatedMedianGeneExpressionResponse:
         """Get median gene expression data."""
+        # Do not log the GENCODE identifiers; log only non-identifying metadata.
         (
-            self.logger.info("Fetching median gene expression", **params.model_dump())
+            self.logger.info(
+                "Fetching median gene expression",
+                tissue_site_detail_id=params.tissue_site_detail_id,
+                dataset_id=params.dataset_id,
+                gene_count=len(params.gencode_id),
+                page=params.page,
+                items_per_page=params.items_per_page,
+            )
             if self.logger
             else None
         )
@@ -229,7 +261,20 @@ class GTExService:
         self, params: GeneExpressionRequest
     ) -> PaginatedGeneExpressionResponse:
         """Get gene expression data."""
-        self.logger.info("Fetching gene expression", **params.model_dump()) if self.logger else None
+        # Do not log the GENCODE identifiers; log only non-identifying metadata.
+        (
+            self.logger.info(
+                "Fetching gene expression",
+                tissue_site_detail_id=params.tissue_site_detail_id,
+                attribute_subset=params.attribute_subset,
+                dataset_id=params.dataset_id,
+                gene_count=len(params.gencode_id),
+                page=params.page,
+                items_per_page=params.items_per_page,
+            )
+            if self.logger
+            else None
+        )
         api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         # Convert empty string tissue filter to None for GTEx API compatibility
         if api_params.get("tissueSiteDetailId") == "":
@@ -302,7 +347,22 @@ class GTExService:
 
     async def _get_variants_impl(self, params: VariantRequest) -> PaginatedVariantResponse:
         """Get variant information."""
-        self.logger.info("Fetching variants", **params.model_dump()) if self.logger else None
+        # Do not log variant identifiers or coordinates (chrom/pos/ref/alt): these
+        # are potential patient-derived genetic data (GDPR Art. 9). Log only
+        # non-identifying request metadata.
+        (
+            self.logger.info(
+                "Fetching variants",
+                dataset_id=params.dataset_id,
+                sort_by=params.sort_by,
+                sort_direction=params.sort_direction,
+                variant_count=len(params.variant_id or []),
+                page=params.page,
+                items_per_page=params.items_per_page,
+            )
+            if self.logger
+            else None
+        )
         api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_variants(api_params)
         return PaginatedVariantResponse(**raw_data)
@@ -311,8 +371,16 @@ class GTExService:
         self, params: VariantByLocationRequest
     ) -> PaginatedVariantResponse:
         """Get variants by genomic location."""
+        # Do not log the queried coordinates (chromosome/start/end): a genomic
+        # locus is potential patient-derived genetic data (GDPR Art. 9). Log only
+        # non-identifying request metadata.
         (
-            self.logger.info("Fetching variants by location", **params.model_dump())
+            self.logger.info(
+                "Fetching variants by location",
+                dataset_id=params.dataset_id,
+                page=params.page,
+                items_per_page=params.items_per_page,
+            )
             if self.logger
             else None
         )

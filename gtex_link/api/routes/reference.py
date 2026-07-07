@@ -288,7 +288,15 @@ async def get_genes(
     )
 
     try:
-        logger.info("Get genes request", **request.model_dump(exclude_none=True))
+        # Do not log gene identifiers; log only non-identifying request metadata.
+        logger.info(
+            "Get genes request",
+            gencode_version=gencode_version,
+            genome_build=genome_build,
+            gene_count=len(request.gene_id),
+            page=page,
+            items_per_page=items_per_page,
+        )
 
         result = await service.get_genes(request)
 
@@ -387,7 +395,14 @@ async def get_transcripts(
     )
 
     try:
-        logger.info("Get transcripts request", **request.model_dump(exclude_none=True))
+        # Do not log the GENCODE identifier; log only non-identifying metadata.
+        logger.info(
+            "Get transcripts request",
+            gencode_version=gencode_version,
+            genome_build=genome_build,
+            page=page,
+            items_per_page=items_per_page,
+        )
 
         result = await service.get_transcripts(request)
 

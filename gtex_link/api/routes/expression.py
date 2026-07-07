@@ -123,7 +123,15 @@ async def get_median_gene_expression(
     )
 
     try:
-        logger.info("Get median gene expression request", **request.model_dump(exclude_none=True))
+        # Do not log the GENCODE identifiers; log only non-identifying metadata.
+        logger.info(
+            "Get median gene expression request",
+            tissue_site_detail_id=tissue_site_detail_id,
+            dataset_id=dataset_id,
+            gene_count=len(request.gencode_id),
+            page=page,
+            items_per_page=items_per_page,
+        )
 
         result = await service.get_median_gene_expression(request)
 
@@ -247,7 +255,16 @@ async def get_gene_expression(
     )
 
     try:
-        logger.info("Get gene expression request", **request.model_dump(exclude_none=True))
+        # Do not log the GENCODE identifiers; log only non-identifying metadata.
+        logger.info(
+            "Get gene expression request",
+            tissue_site_detail_id=tissue_site_detail_id,
+            attribute_subset=attribute_subset,
+            dataset_id=dataset_id,
+            gene_count=len(request.gencode_id),
+            page=page,
+            items_per_page=items_per_page,
+        )
 
         result = await service.get_gene_expression(request)
 

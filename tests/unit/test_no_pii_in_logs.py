@@ -19,13 +19,28 @@ from gtex_link.app import create_app
 from gtex_link.config import GTExAPIConfigModel
 from gtex_link.exceptions import GTExAPIError
 from gtex_link.logging_config import log_api_request
-from gtex_link.models import DatasetSampleRequest, SubjectRequest
+from gtex_link.models import (
+    DatasetSampleRequest,
+    GeneExpressionRequest,
+    GeneRequest,
+    MedianGeneExpressionRequest,
+    SubjectRequest,
+    TranscriptRequest,
+    VariantByLocationRequest,
+    VariantRequest,
+)
 from gtex_link.services.gtex_service import GTExService
 
 if TYPE_CHECKING:
     import respx
 
 SENTINEL = "SENTINEL-PII-7f3a"
+# Distinct high-entropy tokens for genetic coordinates / identifiers. Variant
+# coordinates (chrom/pos/ref/alt) are potential patient-derived genetic data
+# (GDPR Art. 9) and must never reach a log value.
+SENTINEL_VARIANT = "chr7_SENTINEL7f3a_A_G_b38"
+SENTINEL_POS = 987654321
+SENTINEL_GENCODE = "ENSGSENTINEL7f3a.7"
 
 # The router/app default to the real GTEx Portal base URL; respx patterns target
 # it so the running app's / client's outbound httpx calls are intercepted.
@@ -81,6 +96,115 @@ async def test_sample_ids_not_logged(mock_gtex_client, test_cache_config, mock_l
     await service._get_samples_impl(DatasetSampleRequest(sample_id=[SENTINEL]))
 
     assert SENTINEL not in _logged_text(mock_logger)
+
+
+@pytest.mark.asyncio
+async def test_variant_ids_not_logged(mock_gtex_client, test_cache_config, mock_logger):
+    """Variant identifiers/coordinates (chrom_pos_ref_alt) must not be logged."""
+    mock_gtex_client.get_variants.return_value = _EMPTY_PAGINATED
+    service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
+
+    await service._get_variants_impl(VariantRequest(variant_id=[SENTINEL_VARIANT]))
+
+    assert SENTINEL_VARIANT not in _logged_text(mock_logger)
+    assert "SENTINEL7f3a" not in _logged_text(mock_logger)
+
+
+@pytest.mark.asyncio
+async def test_variant_location_coordinates_not_logged(
+    mock_gtex_client, test_cache_config, mock_logger
+):
+    """Genomic coordinates (chromosome/start/end) must not be logged."""
+    mock_gtex_client.get_variants_by_location.return_value = _EMPTY_PAGINATED
+    service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
+
+    await service._get_variants_by_location_impl(
+        VariantByLocationRequest(chromosome="chr7", start=SENTINEL_POS, end=SENTINEL_POS + 1)
+    )
+
+    assert str(SENTINEL_POS) not in _logged_text(mock_logger)
+
+
+@pytest.mark.asyncio
+async def test_gene_ids_not_logged(mock_gtex_client, test_cache_config, mock_logger):
+    """Gene identifiers must not be logged by the service."""
+    mock_gtex_client.get_genes.return_value = _EMPTY_PAGINATED
+    service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
+
+    await service._get_genes_impl(GeneRequest(gene_id=[SENTINEL_GENCODE]))
+
+    assert SENTINEL_GENCODE not in _logged_text(mock_logger)
+
+
+@pytest.mark.asyncio
+async def test_transcript_gencode_id_not_logged(mock_gtex_client, test_cache_config, mock_logger):
+    """Transcript GENCODE identifiers must not be logged by the service."""
+    mock_gtex_client.get_transcripts.return_value = _EMPTY_PAGINATED
+    service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
+
+    await service._get_transcripts_impl(TranscriptRequest(gencode_id=SENTINEL_GENCODE))
+
+    assert SENTINEL_GENCODE not in _logged_text(mock_logger)
+
+
+@pytest.mark.asyncio
+async def test_median_expression_gencode_id_not_logged(
+    mock_gtex_client, test_cache_config, mock_logger
+):
+    """Median-expression GENCODE identifiers must not be logged by the service."""
+    mock_gtex_client.get_median_gene_expression.return_value = _EMPTY_PAGINATED
+    service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
+
+    await service._get_median_gene_expression_impl(
+        MedianGeneExpressionRequest(gencode_id=[SENTINEL_GENCODE])
+    )
+
+    assert SENTINEL_GENCODE not in _logged_text(mock_logger)
+
+
+@pytest.mark.asyncio
+async def test_gene_expression_gencode_id_not_logged(
+    mock_gtex_client, test_cache_config, mock_logger
+):
+    """Gene-expression GENCODE identifiers must not be logged by the service."""
+    mock_gtex_client.get_gene_expression.return_value = _EMPTY_PAGINATED
+    service = GTExService(mock_gtex_client, test_cache_config, mock_logger)
+
+    await service._get_gene_expression_impl(GeneExpressionRequest(gencode_id=[SENTINEL_GENCODE]))
+
+    assert SENTINEL_GENCODE not in _logged_text(mock_logger)
+
+
+def test_get_genes_route_gene_id_not_logged(respx_mock: respx.MockRouter) -> None:
+    """Route-level guard: the /reference/gene handler must not log the geneId."""
+    respx_mock.get(f"{GTEX_DEFAULT_BASE}/reference/gene").respond(200, json=_EMPTY_PAGINATED)
+    mock = MagicMock()
+    app = create_app()
+    app.dependency_overrides[get_logger_dependency] = lambda: mock
+    try:
+        client = TestClient(app)
+        resp = client.get("/api/reference/gene", params={"geneId": SENTINEL_GENCODE})
+        assert resp.status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+
+    assert SENTINEL_GENCODE not in _logged_text(mock)
+
+
+def test_get_transcripts_route_gencode_id_not_logged(respx_mock: respx.MockRouter) -> None:
+    """Route-level guard: the /reference/transcript handler must not log gencodeId."""
+    respx_mock.get(f"{GTEX_DEFAULT_BASE}/reference/transcript").respond(200, json=_EMPTY_PAGINATED)
+    mock = MagicMock()
+    app = create_app()
+    app.dependency_overrides[get_logger_dependency] = lambda: mock
+    try:
+        client = TestClient(app)
+        resp = client.get("/api/reference/transcript", params={"gencodeId": SENTINEL_GENCODE})
+        assert resp.status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+
+    assert SENTINEL_GENCODE not in _logged_text(mock)
 
 
 def test_upstream_url_not_logged(mock_logger):
