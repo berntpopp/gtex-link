@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-07-07
+
+### Security (PII in logs)
+
+- **Variant coordinates and gene/transcript identifiers no longer logged.**
+  Closed the remaining PII-in-logs leak (GDPR Art. 9) that the 2.0.2 pass scoped
+  out: the service-layer variant lookups (`_get_variants_impl`,
+  `_get_variants_by_location_impl`) and the gene/transcript/expression request
+  diagnostics spread the raw request into logs via `**params.model_dump()`,
+  emitting variant coordinates (chrom/pos/ref/alt) and gene/GENCODE identifiers.
+  These sites now emit only non-identifying metadata (dataset/tissue enums, sort
+  fields, page counts, and identifier-list counts) at both the service and route
+  layers. Added sentinel guards for each anchor.
+
 ## [2.0.2] - 2026-07-07
 
 ### Security (inbound-boundary hardening)
