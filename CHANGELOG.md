@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-07-07
+
+### Changed (dependencies)
+
+- Integrated the consolidated Dependabot sweep (`fastapi` 0.138.1 → 0.139.0,
+  `fastmcp` / `fastmcp-slim` 3.4.2 → 3.4.3, `uvicorn` 0.50.2) on top of the
+  2.0.3 PII-in-logs security fixes. This release carries both the dependency
+  bumps and the security remediation; no functional change beyond the merge.
+
 ## [2.0.3] - 2026-07-07
 
 ### Security (PII in logs)
