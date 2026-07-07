@@ -56,7 +56,17 @@ class UnifiedServerManager:
         from gtex_link.mcp.facade import create_gtex_mcp
 
         mcp = create_gtex_mcp()
-        mcp_asgi = mcp.http_app(path=settings.mcp_path, stateless_http=True, json_response=True)
+        # host_origin_protection defaults to True since fastmcp 3.4.3, which 421s
+        # every request whose Host is not localhost -- including legitimate proxied
+        # traffic from the genefoundry-router. The reverse proxy (NPM) already
+        # validates the Host via server_name + TLS SNI, so disable the redundant
+        # app-layer guard here to keep the public /mcp reachable.
+        mcp_asgi = mcp.http_app(
+            path=settings.mcp_path,
+            stateless_http=True,
+            json_response=True,
+            host_origin_protection=False,
+        )
 
         # Compose the FastAPI lifespan with the MCP ASGI app's lifespan so
         # the streamable-http session manager is initialised when uvicorn
