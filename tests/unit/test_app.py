@@ -64,14 +64,38 @@ class TestAppCreation:
     def test_app_middleware_configuration(self) -> None:
         """Test CORS middleware configuration."""
         with patch("gtex_link.app.settings") as mock_settings:
+            # Valid config: a wildcard origin is only permitted with credentials
+            # off (the startup guard rejects '*' + credentials=True).
             mock_settings.cors_origins = ["*"]
-            mock_settings.cors_allow_credentials = True
+            mock_settings.cors_allow_credentials = False
             mock_settings.cors_allow_methods = ["GET", "POST"]
             mock_settings.cors_allow_headers = ["*"]
 
             test_app = create_app()
 
             assert len(test_app.user_middleware) > 0
+
+    def test_cors_startup_guard_rejects_credentials_with_wildcard(self) -> None:
+        """Startup guard: allow_credentials=True combined with a '*' origin is an
+        insecure combination and must fail fast rather than silently misconfigure
+        an unauthenticated backend."""
+        with patch("gtex_link.app.settings") as mock_settings:
+            mock_settings.cors_origins = ["*"]
+            mock_settings.cors_allow_credentials = True
+            mock_settings.cors_allow_methods = ["GET", "POST", "OPTIONS"]
+            mock_settings.cors_allow_headers = ["*"]
+
+            with pytest.raises(RuntimeError, match="allow_credentials"):
+                create_app()
+
+    def test_health_endpoint_get_allowed(self) -> None:
+        """GET /health must still return 200 — the CORS method list is preserved
+        (not collapsed to POST-only) so GET endpoints keep working."""
+        client = TestClient(create_app())
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
 
     def test_app_router_inclusion(self) -> None:
         """Test that all routers are included."""

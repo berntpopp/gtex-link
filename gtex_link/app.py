@@ -41,7 +41,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Add CORS middleware
+    # Add CORS middleware. Reject the insecure allow_credentials + '*' origin
+    # combination at startup: this backend is unauthenticated (no cookies/session),
+    # so credentialed CORS is meaningless and a wildcard origin with credentials is
+    # a footgun. Fail fast rather than silently misconfigure.
+    if settings.cors_allow_credentials and "*" in settings.cors_origins:
+        msg = (
+            "Insecure CORS: allow_credentials=True with a wildcard '*' origin is "
+            "forbidden. This backend is unauthenticated and holds no cookies or "
+            "session; set cors_allow_credentials=False or use explicit origins."
+        )
+        raise RuntimeError(msg)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
