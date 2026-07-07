@@ -33,6 +33,13 @@ class TestServerSettings:
         settings = ServerSettings(mcp_path="/gtex-link")
         assert settings.mcp_path == "/gtex-link"
 
+    def test_cors_allow_credentials_defaults_false(self):
+        """CORS credentials must default off: this backend is unauthenticated and
+        holds no cookies/session, so credentialed CORS is meaningless and a
+        footgun if origins are ever set to '*'."""
+        settings = ServerSettings()
+        assert settings.cors_allow_credentials is False
+
     def test_parse_cors_origins_from_string(self):
         """Test parsing CORS origins from comma-separated string."""
         settings = ServerSettings(

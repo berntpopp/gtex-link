@@ -10,6 +10,7 @@ import logging
 import logging.handlers
 import sys
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 import structlog
 from rich.console import Console
@@ -159,10 +160,15 @@ def log_api_request(
     status_code: int,
     error: str | None = None,
 ) -> None:
-    """Log API request with structured data."""
+    """Log API request with structured data.
+
+    The full upstream URL is not logged: it exposes the upstream host and any
+    query string (which may carry user-supplied identifiers). Only the request
+    path is retained for debugging.
+    """
     log_data = {
         "method": method,
-        "url": url,
+        "path": urlsplit(url).path,
         "response_time_ms": round(response_time * 1000, 2),
         "status_code": status_code,
     }

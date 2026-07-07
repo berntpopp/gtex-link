@@ -7,8 +7,13 @@ services:
       dockerfile: docker/Dockerfile
       target: production
     container_name: gtex-link-prod
+    # Dev/local only — loopback-bound (127.0.0.1) so copying this file to a
+    # server never publishes the unauthenticated backend on the public IP
+    # (Docker would otherwise bind 0.0.0.0 and bypass the host firewall).
+    # Production fronts the container with a reverse proxy via the prod/npm
+    # overlays (ports: !reset []). Backends are unauthenticated by design.
     ports:
-      - "${GTEX_LINK_HOST_PORT:-8765}:8000"
+      - "127.0.0.1:${GTEX_LINK_HOST_PORT:-8765}:8000"
     env_file:
       - path: ../.env
         required: false
@@ -29,11 +34,12 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
-    # Container & Deployment Hardening Standard v1: the base compose carries the
-    # same hardening as the prod/npm overlays so running it directly is still safe.
-    # The prod overlay inherits these (Compose appends list fields across -f
-    # overlays, so re-declaring tmpfs/security_opt/cap_drop there would duplicate
-    # them); the base file is the single source of those controls.
+    # Container & Deployment Hardening Standard v1: this base file is the single
+    # source of the tmpfs/security_opt/cap_drop controls. The prod/npm overlays
+    # inherit them (Compose appends list fields across -f overlays, so
+    # re-declaring them there would duplicate them). The base file is dev/local
+    # only and loopback-bound (see the ports stanza above); it is NOT for direct
+    # server deployment — production fronts the backend with a reverse proxy.
     read_only: true
     tmpfs:
       - /tmp/gtex-link:rw,noexec,nosuid,size=64m,mode=1777

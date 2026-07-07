@@ -17,9 +17,11 @@ services:
       - GTEX_LINK_LOG_LEVEL=DEBUG
       - GTEX_LINK_LOG_FORMAT=console
       - GTEX_LINK_RELOAD=true
-      # Development CORS settings (more permissive)
+      # Development CORS settings (more permissive). Credentials stay OFF: this
+      # backend is unauthenticated (no cookies/session), and the startup guard
+      # rejects a '*' origin combined with allow_credentials=true.
       - GTEX_LINK_CORS_ORIGINS=["http://localhost:3000","http://localhost:8000","http://localhost:8002","*"]
-      - GTEX_LINK_CORS_ALLOW_CREDENTIALS=true
+      - GTEX_LINK_CORS_ALLOW_CREDENTIALS=false
     volumes:
       # Mount source code for development (read-write for hot reload)
       - ../gtex_link:/home/app/web/gtex_link

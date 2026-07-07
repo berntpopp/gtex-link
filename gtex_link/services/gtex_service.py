@@ -162,10 +162,10 @@ class GTExService:
         page_size: int = 250,
     ) -> PaginatedGeneResponse:
         """Search for genes in GTEx database."""
+        # Do not log the free-text `query` (potential PII / user-supplied text).
         (
             self.logger.info(
                 "Searching genes",
-                query=query,
                 gencode_version=gencode_version,
                 genome_build=genome_build,
             )
@@ -267,7 +267,16 @@ class GTExService:
 
     async def _get_subjects_impl(self, params: SubjectRequest) -> PaginatedSubjectResponse:
         """Get subject information."""
-        self.logger.info("Fetching subjects", **params.model_dump()) if self.logger else None
+        # Do not log subject identifiers (PII); log only non-identifying context.
+        (
+            self.logger.info(
+                "Fetching subjects",
+                dataset_id=str(params.dataset_id),
+                subject_count=len(params.subject_id or []),
+            )
+            if self.logger
+            else None
+        )
         api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_subjects(api_params)
         return PaginatedSubjectResponse(**raw_data)
@@ -276,7 +285,17 @@ class GTExService:
         self, params: DatasetSampleRequest
     ) -> PaginatedDatasetSampleResponse:
         """Get sample information."""
-        self.logger.info("Fetching samples", **params.model_dump()) if self.logger else None
+        # Do not log sample/subject identifiers (PII); log only non-identifying
+        # context.
+        (
+            self.logger.info(
+                "Fetching samples",
+                dataset_id=str(params.dataset_id),
+                sample_count=len(params.sample_id or []),
+            )
+            if self.logger
+            else None
+        )
         api_params = params.model_dump(by_alias=True, exclude_none=True, mode="json")
         raw_data = await self.client.get_samples(api_params)
         return PaginatedDatasetSampleResponse(**raw_data)
