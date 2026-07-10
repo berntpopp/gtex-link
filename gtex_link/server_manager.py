@@ -6,7 +6,7 @@ Streamable HTTP only — there is no stdio transport.
 from __future__ import annotations
 
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import uvicorn
 
@@ -15,6 +15,53 @@ if TYPE_CHECKING:
 
     from fastapi import FastAPI
     from structlog.typing import FilteringBoundLogger
+
+
+def create_http_app(extra_lifespan: Any = None) -> FastAPI:
+    """Create the REST host behind the strict outer request guard."""
+    from fastmcp.server.http import HostOriginGuardMiddleware
+
+    from gtex_link.app import create_app
+    from gtex_link.config import settings
+
+    application = create_app()
+    if extra_lifespan is not None:
+        original_lifespan = application.router.lifespan_context
+
+        @asynccontextmanager
+        async def combined_lifespan(app: FastAPI) -> AsyncIterator[None]:
+            async with AsyncExitStack() as stack:
+                await stack.enter_async_context(original_lifespan(app))
+                await stack.enter_async_context(extra_lifespan(app))
+                yield
+
+        application.router.lifespan_context = combined_lifespan
+    application.add_middleware(
+        HostOriginGuardMiddleware,
+        allowed_hosts=settings.allowed_hosts,
+        allowed_origins=settings.allowed_origins,
+        mode="strict",
+    )
+    return application
+
+
+def create_unified_app() -> FastAPI:
+    """Create the guarded REST host and mount the native-guarded MCP app."""
+    from gtex_link.config import settings
+    from gtex_link.mcp.facade import create_gtex_mcp
+
+    mcp = create_gtex_mcp()
+    mcp_asgi = mcp.http_app(
+        path=settings.mcp_path,
+        stateless_http=True,
+        json_response=True,
+        host_origin_protection=True,
+        allowed_hosts=settings.allowed_hosts,
+        allowed_origins=settings.allowed_origins,
+    )
+    application = create_http_app(extra_lifespan=mcp_asgi.router.lifespan_context)
+    application.mount("/", mcp_asgi)
+    return application
 
 
 class UnifiedServerManager:
@@ -51,40 +98,7 @@ class UnifiedServerManager:
                 mcp_path="/mcp",
             )
 
-        from gtex_link.app import app as fastapi_app
-        from gtex_link.config import settings
-        from gtex_link.mcp.facade import create_gtex_mcp
-
-        mcp = create_gtex_mcp()
-        # host_origin_protection defaults to True since fastmcp 3.4.3, which 421s
-        # every request whose Host is not localhost -- including legitimate proxied
-        # traffic from the genefoundry-router. The reverse proxy (NPM) already
-        # validates the Host via server_name + TLS SNI, so disable the redundant
-        # app-layer guard here to keep the public /mcp reachable.
-        mcp_asgi = mcp.http_app(
-            path=settings.mcp_path,
-            stateless_http=True,
-            json_response=True,
-            host_origin_protection=False,
-        )
-
-        # Compose the FastAPI lifespan with the MCP ASGI app's lifespan so
-        # the streamable-http session manager is initialised when uvicorn
-        # starts the combined app.
-        original_lifespan = fastapi_app.router.lifespan_context
-
-        @asynccontextmanager
-        async def combined_lifespan(app: FastAPI) -> AsyncIterator[None]:
-            async with AsyncExitStack() as stack:
-                await stack.enter_async_context(original_lifespan(app))
-                await stack.enter_async_context(mcp_asgi.router.lifespan_context(app))
-                yield
-
-        fastapi_app.router.lifespan_context = combined_lifespan
-        # Mount the MCP ASGI sub-app at the project root: the MCP path
-        # itself ("/mcp") is already baked into the StarletteWithLifespan
-        # routes returned by `http_app(path=...)`.
-        fastapi_app.mount("/", mcp_asgi)
+        fastapi_app = create_unified_app()
 
         config = uvicorn.Config(
             app=fastapi_app,
@@ -100,10 +114,8 @@ class UnifiedServerManager:
         """Start FastAPI only (no MCP)."""
         if self.logger:
             self.logger.info("Starting HTTP-only server", host=host, port=port)
-        from gtex_link.app import app as fastapi_app
-
         config = uvicorn.Config(
-            app=fastapi_app,
+            app=create_http_app(),
             host=host,
             port=port,
             log_config=None,

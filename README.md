@@ -87,6 +87,12 @@ default so it can run beside sibling projects that commonly use `8000`/`8001`.
 The unified server exposes both REST and MCP (`/mcp`) on that single port.
 Override the host port with `GTEX_LINK_HOST_PORT`.
 
+Every HTTP route is protected by exact Host and browser Origin allowlists. The
+defaults admit only `localhost`, `127.0.0.1`, and IPv6 loopback (`::1`). Add the
+public proxy hostname explicitly for deployment; do not include a scheme or
+port, and write IPv6 as bare `::1`, not `[::1]`. Wildcard Host or Origin
+patterns (`*`, `?`, or bracket expressions) are rejected at configuration time.
+
 ## API Endpoints
 
 ### Reference Data
@@ -180,6 +186,13 @@ GTEx-Link can be configured via environment variables or `.env` file:
 - `GTEX_LINK_TRANSPORT` - Transport mode: unified/http (default: unified)
 - `GTEX_LINK_MCP_PROFILE` - MCP tool profile: full/lite (default: full)
 - `GTEX_LINK_MCP_PATH` - MCP endpoint path (default: /mcp)
+- `GTEX_LINK_ALLOWED_HOSTS` - Exact JSON Host list (default: `["localhost","127.0.0.1","::1"]`)
+- `GTEX_LINK_ALLOWED_ORIGINS` - Exact JSON browser Origin list (default: `[]`)
+
+`GTEX_LINK_ALLOWED_ORIGINS` is the request-boundary policy;
+`GTEX_LINK_CORS_ORIGINS` controls browser response headers. Keep both lists in
+sync for browser clients. Requests without an `Origin` header, such as normal
+router-to-backend MCP traffic, remain allowed when their Host is trusted.
 
 ### Caching Configuration
 - `GTEX_LINK_CACHE_SIZE` - Maximum cached items (default: 1000)

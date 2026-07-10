@@ -14,6 +14,8 @@ services:
       - GTEX_LINK_PORT=8000
       - GTEX_LINK_TRANSPORT=unified
       - GTEX_LINK_MCP_PATH=/mcp
+      - GTEX_LINK_ALLOWED_HOSTS=["localhost","127.0.0.1","::1"]
+      - GTEX_LINK_ALLOWED_ORIGINS=["http://localhost:3000","http://localhost:8000","http://localhost:8002"]
       - GTEX_LINK_LOG_LEVEL=DEBUG
       - GTEX_LINK_LOG_FORMAT=console
       - GTEX_LINK_RELOAD=true
