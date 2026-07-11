@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 
+from gtex_link.mcp.untrusted_content import sanitize_message
+
 if TYPE_CHECKING:
     from fastmcp import FastMCP
 
@@ -36,7 +38,10 @@ class _OutputValidationMiddleware(Middleware):
                 extra={
                     "tool": tool_name,
                     "error_type": type(exc).__name__,
-                    "error": str(exc),
+                    # Sanitize before logging: the exception text can carry a
+                    # caller-influenced upstream value with forbidden code points
+                    # (no raw control/zero-width/bidi/NUL in the log sink).
+                    "error": sanitize_message(str(exc)),
                 },
             )
             raise

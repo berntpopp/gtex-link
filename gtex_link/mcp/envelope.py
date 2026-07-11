@@ -24,7 +24,7 @@ from gtex_link.exceptions import (
     ValidationError,
 )
 from gtex_link.mcp.resources import GTEX_DATA_RELEASE, RECOMMENDED_CITATION
-from gtex_link.mcp.untrusted_content import UntrustedTextLimitError
+from gtex_link.mcp.untrusted_content import UntrustedTextLimitError, sanitize_message
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,9 @@ def _provenance_meta(context: McpErrorContext | None = None) -> dict[str, Any]:
 
 
 def _safe_message(exc: BaseException) -> str:
-    return (str(exc) or exc.__class__.__name__)[:240]
+    # Strip forbidden control/zero-width/bidi/NUL code points (and length-cap)
+    # from any exception text before it can reach a caller-visible surface.
+    return sanitize_message(str(exc) or exc.__class__.__name__)
 
 
 def _classify(exc: BaseException) -> tuple[str, str, bool]:
@@ -119,7 +121,12 @@ def _field_errors(exc: BaseException) -> list[dict[str, str]] | None:
     if not isinstance(exc, PydanticValidationError):
         return None
     return [
-        {"field": ".".join(str(p) for p in e["loc"]) or "input", "reason": e["msg"]}
+        {
+            "field": ".".join(str(p) for p in e["loc"]) or "input",
+            # pydantic echoes the offending input value into the reason, so a
+            # caller-supplied string can carry forbidden code points here too.
+            "reason": sanitize_message(e["msg"]),
+        }
         for e in exc.errors()
     ]
 
@@ -129,7 +136,10 @@ def _error_envelope(exc: BaseException, context: McpErrorContext) -> dict[str, A
     envelope: dict[str, Any] = {
         "success": False,
         "error_code": error_code,
-        "message": message,
+        # Defense in depth: no forbidden control/zero-width/bidi/NUL code points
+        # reach the caller, whatever error path (classified message, McpToolError,
+        # or a caller-influenced identifier interpolated into a message) produced it.
+        "message": sanitize_message(message),
         "retryable": retryable,
         "recovery_action": _recovery_action(error_code, retryable),
         "_meta": {"tool": context.tool_name, **_provenance_meta(context)},

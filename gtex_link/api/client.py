@@ -290,8 +290,13 @@ class GTExClient:
                         msg,
                     )
                 if response.status_code >= self._HTTP_CLIENT_ERROR:
-                    error_text = response.text[:200] if response.text else "Unknown error"
-                    msg = f"HTTP {response.status_code}: {error_text}"
+                    # Do NOT interpolate the upstream response BODY: a
+                    # caller-influenced query can make GTEx Portal reflect hostile
+                    # prose (incl. control/zero-width/bidi/NUL) into a 4xx body, and
+                    # echoing it would smuggle attacker-controlled text into a
+                    # caller-visible message. The HTTP status is a safe, bounded
+                    # scalar; the body is neither surfaced nor logged.
+                    msg = f"GTEx Portal rejected the request (HTTP {response.status_code})."
                     raise GTExAPIError(
                         msg,
                         status_code=response.status_code,
@@ -316,22 +321,21 @@ class GTExClient:
                     return result
                 except json.JSONDecodeError as e:
                     if self.logger:
-                        # Log only the request path, not the full upstream URL
-                        # (host), to match the path-only ``log_api_request``.
+                        # Log only the request path -- never the raw upstream body
+                        # (no-PII-in-logs invariant); the response body can carry
+                        # caller-influenced hostile prose.
                         log_error_with_context(
                             self.logger,
                             e,
                             "JSON parsing failed",
-                            {
-                                "path": urlsplit(url).path,
-                                "response_text": response.text[:200],
-                            },
+                            {"path": urlsplit(url).path},
                         )
-                    msg = f"Invalid JSON response from {url}: {e}"
+                    # Fixed, body-free message: neither the raw body nor the URL
+                    # (host) nor the decoder's position text is surfaced or stored.
+                    msg = f"Invalid JSON response from GTEx Portal (HTTP {response.status_code})."
                     raise GTExAPIError(
                         msg,
                         status_code=response.status_code,
-                        response_data={"raw_text": response.text[:200]},
                     ) from e
 
             except (httpx.RequestError, httpx.TimeoutException) as e:
