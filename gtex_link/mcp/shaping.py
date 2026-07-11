@@ -1,17 +1,69 @@
-"""Group flat median rows into the token-efficient gene-grouped result."""
+"""Group flat median rows into the token-efficient gene-grouped result.
+
+Also fences upstream free-text (the GENCODE `description` on `Gene`, v1.1
+untrusted-content standard) at this MCP serialization boundary -- see
+`fence_gene_response`.
+"""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from gtex_link.models.mcp_results import GeneMedianGroup, MedianExpressionResult, TissueMedian
-from gtex_link.models.responses import PaginationInfo
+from gtex_link.mcp.untrusted_content import (
+    UntrustedText,
+    enforce_untrusted_text_limits,
+    fence_untrusted_text,
+)
+from gtex_link.models.mcp_results import (
+    GeneMedianGroup,
+    MCPGene,
+    MedianExpressionResult,
+    TissueMedian,
+)
+from gtex_link.models.responses import PaginatedResponse, PaginationInfo
 
 if TYPE_CHECKING:
-    from gtex_link.models.responses import MedianGeneExpression
+    from gtex_link.models.responses import MedianGeneExpression, PaginatedGeneResponse
 
 SortMode = Literal["desc", "asc", "none"]
 ResponseMode = Literal["compact", "full"]
+
+# `search_genes`' `limit` query param has no declared upper bound (plain `int`
+# default=20, not a constrained Field), so its real result cap is effectively
+# unbounded by GTEx's own upstream page-size ceiling. Use a generous ceiling
+# per Global Constraints ("object-count = real cap, never the bare default
+# 128") rather than the 128 default so a legitimately large search never
+# raises. `get_gene_information`'s cap is `GeneRequest.gene_id` `max_length=50`
+# (models/requests.py), comfortably inside the untrusted-text module default
+# (128), so it is passed explicitly for clarity but needs no override.
+SEARCH_GENES_MAX_OBJECTS = 10_000
+
+
+def fence_gene_response(result: PaginatedGeneResponse, *, max_objects: int) -> dict[str, Any]:
+    """Fence each gene's upstream GENCODE `description` as an untrusted_text object.
+
+    Applied at the MCP serialization boundary only: the internal `Gene`/
+    `PaginatedGeneResponse` models (also used by the REST API) are untouched --
+    this builds the MCP-only `PaginatedResponse[MCPGene]` shape and dumps it.
+    Shared by the `search_genes` and `get_gene_information` MCP tools, which
+    both return a `PaginatedGeneResponse`.
+    """
+    fenced_objects: list[UntrustedText] = []
+    mcp_genes: list[MCPGene] = []
+    for gene in result.data:
+        fenced_description: UntrustedText | None = None
+        if gene.description is not None:
+            fenced_description = fence_untrusted_text(
+                gene.description, source="gtex", record_id=gene.gencode_id
+            )
+            fenced_objects.append(fenced_description)
+        mcp_genes.append(
+            MCPGene(**gene.model_dump(exclude={"description"}), description=fenced_description)
+        )
+    enforce_untrusted_text_limits(fenced_objects, max_objects=max_objects)
+    return PaginatedResponse[MCPGene](data=mcp_genes, pagingInfo=result.paging_info).model_dump(
+        by_alias=True
+    )
 
 
 def median_headline(genes: list[GeneMedianGroup]) -> str:

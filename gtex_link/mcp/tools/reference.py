@@ -8,12 +8,26 @@ from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, McpToolError, run_mcp_tool
 from gtex_link.mcp.next_commands import after_gene_search
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
+from gtex_link.mcp.schema_relax import relax_output_schema
 from gtex_link.mcp.service_adapters import get_gtex_service
+from gtex_link.mcp.shaping import SEARCH_GENES_MAX_OBJECTS, fence_gene_response
+from gtex_link.mcp.untrusted_content import DEFAULT_MAX_OBJECTS
 from gtex_link.models import GeneRequest, TranscriptRequest
+from gtex_link.models.mcp_results import MCPGene
+from gtex_link.models.responses import PaginatedResponse
 from gtex_link.observability.metrics import record_mcp_tool_call
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
+
+# `GeneRequest.gene_id` caps `get_gene_information` at max_length=50
+# (models/requests.py) -- comfortably inside the module default; named here
+# only so the ceiling used by each tool is explicit at the call site.
+_GET_GENE_INFORMATION_MAX_OBJECTS = DEFAULT_MAX_OBJECTS
+
+_MCP_PAGINATED_GENE_SCHEMA = relax_output_schema(
+    PaginatedResponse[MCPGene].model_json_schema(by_alias=True)
+)
 
 
 def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
@@ -25,6 +39,7 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             title="Search GTEx Genes",
             annotations=READ_ONLY_OPEN_WORLD,
             tags={"reference", "search"},
+            output_schema=_MCP_PAGINATED_GENE_SCHEMA,
             description=(
                 "Search the GTEx Portal gene catalog by gene symbol or partial "
                 "match. Returns a paginated list of genes with GENCODE IDs, "
@@ -47,8 +62,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     page=offset // limit if limit else 0,
                     page_size=limit,
                 )
-                payload = result.model_dump(by_alias=True)
-                gencode_ids = [g["gencodeId"] for g in payload["data"]]
+                gencode_ids = [gene.gencode_id for gene in result.data]
+                payload = fence_gene_response(result, max_objects=SEARCH_GENES_MAX_OBJECTS)
                 if gencode_ids:
                     payload["_meta"] = {"next_commands": after_gene_search(gencode_ids)}
                 return payload
@@ -70,6 +85,7 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             title="Get Gene Information",
             annotations=READ_ONLY_OPEN_WORLD,
             tags={"reference"},
+            output_schema=_MCP_PAGINATED_GENE_SCHEMA,
             description=(
                 "Retrieve detailed gene information from GTEx Portal for one "
                 "or more GENCODE IDs or gene symbols. Returns chromosome, "
@@ -104,7 +120,7 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                             "ENSG00000169344.15)."
                         ),
                     )
-                return result.model_dump(by_alias=True)
+                return fence_gene_response(result, max_objects=_GET_GENE_INFORMATION_MAX_OBJECTS)
 
             success = False
             try:
