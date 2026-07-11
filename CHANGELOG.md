@@ -6,6 +6,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-07-11
+
+### Security (defense in depth)
+
+- **FastMCP-core not-found reflection guarded.** FastMCP core reflected the
+  caller's own requested tool name / resource URI back to the caller (and to
+  logs) before gtex-link middleware ran: an unknown tool surfaced as
+  `Unknown tool: '<name>'` (raised on the direct path, returned as an isError
+  `TextContent` via the client) and an unknown resource URI surfaced as
+  `Unknown resource: '<uri>'`. A layered guard now closes this — a registry
+  preflight in `on_call_tool` returns a fixed, name-free `not_found` envelope
+  (no `_meta.tool` echo); `on_read_resource` re-raises a fixed, URI-free
+  `ResourceError`; and an outermost protocol backstop wraps the raw
+  tool/resource/prompt request handlers. A validation-log scrub filter also
+  neutralizes the framework log records that reflected the raw name/URI (with its
+  control/zero-width/bidi/NUL code points) into a log sink at every level — the
+  FastMCP pre-middleware DEBUG traces (`Handler called`, `Tool cache miss`), the
+  arg-validation WARNING, and the MCP SDK session's root-logger
+  `Failed to validate request` / `Message that failed validation` records for a
+  malformed or forbidden-code-point resource URI (rejected in request
+  deserialization before any handler runs). Fixed messages are built from
+  constants only (never the requested name/URI/`str(exc)`/request). No success
+  schema or error-envelope shape changed. Research use only; not for clinical
+  decision support.
+
 ## [3.0.1] - 2026-07-11
 
 ### Security (defense in depth)
