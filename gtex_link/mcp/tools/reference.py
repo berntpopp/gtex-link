@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
+
+from pydantic import Field
 
 from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, McpToolError, run_mcp_tool
@@ -10,10 +12,14 @@ from gtex_link.mcp.next_commands import after_gene_search
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.schema_relax import relax_output_schema
 from gtex_link.mcp.service_adapters import get_gtex_service
-from gtex_link.mcp.shaping import SEARCH_GENES_MAX_OBJECTS, fence_gene_response
+from gtex_link.mcp.shaping import (
+    SEARCH_GENES_LIMIT_MAX,
+    SEARCH_GENES_MAX_OBJECTS,
+    MCPGene,
+    fence_gene_response,
+)
 from gtex_link.mcp.untrusted_content import DEFAULT_MAX_OBJECTS
 from gtex_link.models import GeneRequest, TranscriptRequest
-from gtex_link.models.mcp_results import MCPGene
 from gtex_link.models.responses import PaginatedResponse
 from gtex_link.observability.metrics import record_mcp_tool_call
 
@@ -50,8 +56,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
         )
         async def search_genes(
             query: str,
-            offset: int = 0,
-            limit: int = 20,
+            offset: Annotated[int, Field(ge=0)] = 0,
+            limit: Annotated[int, Field(ge=1, le=SEARCH_GENES_LIMIT_MAX)] = 20,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()

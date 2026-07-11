@@ -24,6 +24,7 @@ from gtex_link.exceptions import (
     ValidationError,
 )
 from gtex_link.mcp.resources import GTEX_DATA_RELEASE, RECOMMENDED_CITATION
+from gtex_link.mcp.untrusted_content import UntrustedTextLimitError
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,18 @@ def _classify(exc: BaseException) -> tuple[str, str, bool]:
             exc.message,
             exc.error_code in {"rate_limited", "upstream_unavailable"},
         )
+    # Response-Envelope v1.1: a fenced untrusted-text response exceeded a size
+    # ceiling. Surface an explicit typed limit error, not a generic
+    # internal_error, so the host can narrow the request. Checked before the
+    # generic `ValidationError` branch (UntrustedTextLimitError subclasses
+    # ValueError, not gtex_link's ValidationError, but keep it explicit + first).
+    if isinstance(exc, UntrustedTextLimitError):
+        return (
+            "output_limit_exceeded",
+            "The response exceeded the untrusted-content size limit. Narrow the "
+            "request (fewer genes or a more specific query) and retry.",
+            False,
+        )
     if isinstance(exc, RateLimitError):
         return "rate_limited", "GTEx Portal rate limit exceeded. Try again shortly.", True
     if isinstance(exc, ServiceUnavailableError):
@@ -97,7 +110,7 @@ def _classify(exc: BaseException) -> tuple[str, str, bool]:
 def _recovery_action(error_code: str, retryable: bool) -> str:
     if retryable:
         return "retry_backoff"
-    if error_code in {"invalid_input", "validation_failed", "not_found"}:
+    if error_code in {"invalid_input", "validation_failed", "not_found", "output_limit_exceeded"}:
         return "reformulate_input"
     return "switch_tool"
 

@@ -21,18 +21,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   router already treats a `kind: untrusted_text` subtree opaque) so a host
   cannot confuse a GENCODE descriptor with instructions. The internal `Gene`
   model and REST API (`/api/v1/reference/genes*`) are unchanged — only the MCP
-  tool output reshapes. `search_genes`' result cap has no declared upper bound
-  (`limit` has no `Field` maximum), so its untrusted-object ceiling is set to
-  10,000 rather than the 128 default; `get_gene_information` is capped by
-  `GeneRequest.gene_id` (`max_length=50`), well inside the 128 default.
+  tool output reshapes. `search_genes`' `limit` param is now bounded
+  (`ge=1, le=1000`) so its untrusted-object ceiling (1000, == the `limit`
+  maximum) is real and coherent — one search page never returns more genes than
+  `limit`; `get_gene_information` is capped by `GeneRequest.gene_id`
+  (`max_length=50`), well inside the 128 default. When a fenced response
+  exceeds a v1.1 size ceiling the MCP envelope returns an explicit
+  `error_code: "output_limit_exceeded"` (`recovery_action:
+  "reformulate_input"`), not a generic `internal_error`.
   Research use only; not clinical decision support.
-- **`search`/`fetch` (ChatGPT/deep-research contract) also sanitize
-  `description`.** These two tools return an OpenAI Apps-SDK-shaped flat text
-  document (`title`, `text`), fixed by an external contract, so `description`
-  cannot be reshaped into the typed `untrusted_text` envelope there without
-  breaking ChatGPT compatibility. They now strip the same ratified
-  control/zero-width/bidi-override code points before embedding the
-  descriptor, closing the same injection vector for this compact surface too.
+- **`search`/`fetch` (ChatGPT/deep-research contract) no longer embed the
+  upstream `description`.** These two tools return an OpenAI Apps-SDK-shaped
+  flat text document (`title`, `text`) that cannot carry the typed
+  `untrusted_text` envelope. Rather than emit the descriptor as a bare (even
+  sanitized) string — still unfenced upstream prose on a flat surface — the
+  free-text GENCODE descriptor is dropped from `search`'s `results[].title`
+  and `fetch`'s `title`/`text`, which now carry only curated identifiers (gene
+  symbol, GENCODE ID, chromosome/coordinates/enums, numeric expression). The
+  fenced typed descriptor remains available via `get_gene_information`.
 
 ## [2.0.5] - 2026-07-11
 

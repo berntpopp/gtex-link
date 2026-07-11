@@ -9,18 +9,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
+from pydantic import Field
+
 from gtex_link.mcp.untrusted_content import (
     UntrustedText,
     enforce_untrusted_text_limits,
     fence_untrusted_text,
 )
-from gtex_link.models.mcp_results import (
-    GeneMedianGroup,
-    MCPGene,
-    MedianExpressionResult,
-    TissueMedian,
+from gtex_link.models.mcp_results import GeneMedianGroup, MedianExpressionResult, TissueMedian
+from gtex_link.models.responses import (
+    BaseResponse,
+    Chromosome,
+    GencodeVersion,
+    GenomeBuild,
+    PaginatedResponse,
+    PaginationInfo,
+    Strand,
 )
-from gtex_link.models.responses import PaginatedResponse, PaginationInfo
 
 if TYPE_CHECKING:
     from gtex_link.models.responses import MedianGeneExpression, PaginatedGeneResponse
@@ -28,15 +33,45 @@ if TYPE_CHECKING:
 SortMode = Literal["desc", "asc", "none"]
 ResponseMode = Literal["compact", "full"]
 
-# `search_genes`' `limit` query param has no declared upper bound (plain `int`
-# default=20, not a constrained Field), so its real result cap is effectively
-# unbounded by GTEx's own upstream page-size ceiling. Use a generous ceiling
-# per Global Constraints ("object-count = real cap, never the bare default
-# 128") rather than the 128 default so a legitimately large search never
-# raises. `get_gene_information`'s cap is `GeneRequest.gene_id` `max_length=50`
-# (models/requests.py), comfortably inside the untrusted-text module default
-# (128), so it is passed explicitly for clarity but needs no override.
-SEARCH_GENES_MAX_OBJECTS = 10_000
+# `search_genes`' real result cap == its `limit` parameter maximum. That param
+# is now bounded `le=SEARCH_GENES_LIMIT_MAX` (mcp/tools/reference.py) so the
+# untrusted-object ceiling below is coherent with the largest page a single
+# call can return -- one search page never yields more than `limit` genes, so a
+# legitimately large search never trips the fence while an attacker cannot ask
+# for an unbounded page. `get_gene_information`'s cap is `GeneRequest.gene_id`
+# `max_length=50` (models/requests.py), comfortably inside the untrusted-text
+# module default (128), so it passes the default explicitly for clarity.
+SEARCH_GENES_LIMIT_MAX = 1_000
+SEARCH_GENES_MAX_OBJECTS = SEARCH_GENES_LIMIT_MAX
+
+
+class MCPGene(BaseResponse):
+    """Gene information with the upstream GENCODE `description` fenced (v1.1).
+
+    Mirrors `gtex_link.models.responses.Gene` field-for-field except
+    `description`, which is a typed `UntrustedText` object (or None) instead of
+    a bare string -- this is the MCP-facing shape only; the internal `Gene`
+    model (also used by the REST API) is untouched. Lives in the `gtex_link.mcp`
+    package (not `gtex_link.models`) so nothing under `gtex_link.models` imports
+    back into `gtex_link.mcp` (whose `__init__` eagerly builds the facade),
+    avoiding a circular import.
+    """
+
+    chromosome: Chromosome
+    data_source: str = Field(alias="dataSource")
+    description: UntrustedText | None = None
+    end: int
+    entrez_gene_id: int | None = Field(alias="entrezGeneId")
+    gencode_id: str = Field(alias="gencodeId")
+    gencode_version: GencodeVersion = Field(alias="gencodeVersion")
+    gene_status: str = Field(alias="geneStatus")
+    gene_symbol: str = Field(alias="geneSymbol")
+    gene_symbol_upper: str = Field(alias="geneSymbolUpper")
+    gene_type: str = Field(alias="geneType")
+    genome_build: GenomeBuild = Field(alias="genomeBuild")
+    start: int
+    strand: Strand
+    tss: int
 
 
 def fence_gene_response(result: PaginatedGeneResponse, *, max_objects: int) -> dict[str, Any]:

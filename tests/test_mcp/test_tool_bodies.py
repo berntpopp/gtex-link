@@ -415,7 +415,7 @@ async def test_search_tool_returns_chatgpt_shape() -> None:
     assert payload["results"] == [
         {
             "id": "gene:ENSG00000012048.22",
-            "title": "BRCA1 - BRCA1 DNA repair associated",
+            "title": "BRCA1 (ENSG00000012048.22)",
             "url": "https://gtexportal.org/home/gene/BRCA1",
         }
     ]
@@ -459,7 +459,9 @@ async def test_fetch_tool_returns_gene_document() -> None:
         payload = await _call_tool("fetch", {"id": "gene:ENSG00000012048.22"})
 
     assert payload["id"] == "gene:ENSG00000012048.22"
-    assert payload["title"].startswith("BRCA1 - ")
+    assert payload["title"] == "BRCA1 (ENSG00000012048.22)"
+    # Upstream free-text descriptor is not embedded in the flat ChatGPT document.
+    assert "Description:" not in payload["text"]
     assert "Gene Symbol: BRCA1" in payload["text"]
     assert "Entrez Gene ID: 672" in payload["text"]
     assert "Breast_Mammary_Tissue" in payload["text"]
@@ -478,7 +480,7 @@ async def test_fetch_tool_handles_expression_failure_gracefully() -> None:
     with patch_service(mock_service):
         payload = await _call_tool("fetch", {"id": "gene:ENSG00000012048.22"})
 
-    assert payload["title"].startswith("BRCA1 - ")
+    assert payload["title"] == "BRCA1 (ENSG00000012048.22)"
     assert "Expression Data" not in payload["text"]
 
 
@@ -601,7 +603,7 @@ async def test_fetch_accepts_bare_gencode_id() -> None:
         payload = await _call_tool("fetch", {"id": "ENSG00000169344.15"})
 
     assert payload["id"] == "ENSG00000169344.15"
-    assert payload["title"].startswith("UMOD - ")
+    assert payload["title"] == "UMOD (ENSG00000169344.15)"
 
 
 @pytest.mark.asyncio
