@@ -58,6 +58,25 @@ def fence_untrusted_text(raw: str, *, source: str, record_id: str) -> UntrustedT
     )
 
 
+#: Length cap for caller-visible free-text message/error strings.
+MAX_MESSAGE_CHARS = 280
+
+
+def sanitize_message(text: str) -> str:
+    """Strip the fence's forbidden control/zero-width/bidi code points + length-cap.
+
+    A defensive belt-and-suspenders applied to EVERY caller-visible message/error
+    string. A hostile upstream (or a caller-influenced 4xx/5xx body) must never
+    smuggle control, zero-width, bidirectional, or NUL code points into an error
+    frame, diagnostics, or any status message. Caller-visible messages are
+    server-authored guidance data, never instructions and never fenced objects;
+    upstream response bodies are additionally kept out of them at the source
+    (severed at the API client), so this is a secondary, defense-in-depth surface.
+    """
+    clean = "".join(char for char in text if ord(char) not in FORBIDDEN_CODEPOINTS)
+    return clean[:MAX_MESSAGE_CHARS]
+
+
 DEFAULT_MAX_TEXT_BYTES = 2_097_152
 DEFAULT_MAX_OBJECTS = 128
 DEFAULT_MAX_TOTAL_TEXT_BYTES = 8_388_608
