@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-07-11
+
+### Security (defense in depth)
+
+- Caller-visible error messages and error `_meta` (incl. the caller-supplied
+  `dataset_id`) are sanitized of control/zero-width/bidi/NUL code points;
+  argument-validation returns a fixed `invalid_input` frame (no echoed input)
+  with the raw validation log suppressed; the upstream GTEx Portal 4xx body and
+  transport error text are no longer echoed or logged. Research use only.
+
 ## [3.0.0] - 2026-07-11
 
 ### Security (BREAKING)
