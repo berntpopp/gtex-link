@@ -10,7 +10,6 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastmcp.exceptions import ValidationError as FastMCPValidationError
 
 from gtex_link.mcp.facade import create_gtex_mcp
 from gtex_link.mcp.profiles import MCPToolProfile
@@ -185,14 +184,22 @@ async def test_search_genes_large_result_does_not_raise_object_ceiling() -> None
 
 @pytest.mark.asyncio
 async def test_search_genes_limit_over_maximum_is_rejected() -> None:
-    """The `limit` param is bounded (le=1000) so the object ceiling is real."""
+    """The `limit` param is bounded (le=1000) so the object ceiling is real.
+
+    An out-of-range argument now returns a FIXED, body-free `invalid_input`
+    envelope (the arg-validation frame is fenced rather than surfacing the raw
+    pydantic message), instead of raising a FastMCP ValidationError.
+    """
     mock_service = AsyncMock()
     mock_service.search_genes = AsyncMock(
         return_value=PaginatedGeneResponse(data=[], pagingInfo=_paging(0))
     )
     mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
-    with patch_service(mock_service), pytest.raises(FastMCPValidationError):
-        await mcp.call_tool("search_genes", {"query": "BRCA1", "limit": 2000})
+    with patch_service(mock_service):
+        result = await mcp.call_tool("search_genes", {"query": "BRCA1", "limit": 2000})
+    payload = result.structured_content
+    assert payload["success"] is False
+    assert payload["error_code"] == "invalid_input"
 
 
 @pytest.mark.asyncio

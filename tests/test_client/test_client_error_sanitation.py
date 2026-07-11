@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, call
 
+import httpx
 import pytest
 
 from gtex_link.api.client import GTExClient
@@ -86,3 +87,32 @@ async def test_invalid_json_body_not_echoed_or_logged(respx_mock: respx.MockRout
     for method_call in logger.mock_calls:
         _name, args, kwargs = method_call if len(method_call) == 3 else call(*method_call)
         assert not _mentions_body(*args, *kwargs.values()), f"body leaked to log: {method_call}"
+
+
+@pytest.mark.asyncio
+async def test_transport_error_text_not_echoed_or_logged(respx_mock: respx.MockRouter) -> None:
+    """A transport exception's text is not interpolated into the message or logs.
+
+    A reviewer reproduced hostile code points reflected through a transport error;
+    the client must raise a FIXED message and log only the exception type.
+    """
+    logger = MagicMock()
+    client = GTExClient(config=GTExAPIConfigModel(max_retries=0), logger=logger)
+    hostile = httpx.ConnectError("boom delete_everything ‍﻿‮\x00")
+    respx_mock.get(f"{GTEX_DEFAULT_BASE}/test/endpoint").mock(side_effect=hostile)
+
+    with pytest.raises(GTExAPIError) as exc_info:
+        await client._make_request("GET", "test/endpoint")
+    await client.close()
+
+    exc = exc_info.value
+    assert "Failed to connect to GTEx Portal API" in str(exc)
+    assert not _mentions_body(exc, exc.message)
+    assert "\x00" not in str(exc)
+    assert "‮" not in str(exc)
+    for method_call in logger.mock_calls:
+        _name, args, kwargs = method_call if len(method_call) == 3 else call(*method_call)
+        blob = " ".join(str(v) for v in (*args, *kwargs.values()))
+        assert "delete_everything" not in blob
+        assert "\x00" not in blob
+        assert "‮" not in blob

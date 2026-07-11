@@ -262,7 +262,10 @@ class TestGTExClientErrorHandling:
         with pytest.raises(GTExAPIError) as exc_info:
             await client.search_genes(query="BRCA1")
 
-        assert "timed out" in str(exc_info.value).lower()
+        # The fixed, detail-free message is raised (the raw transport text --
+        # which can reflect a caller-influenced value -- is not interpolated).
+        assert "Failed to connect to GTEx Portal API" in str(exc_info.value)
+        assert "timed out" not in str(exc_info.value).lower()
 
         await client.close()
 

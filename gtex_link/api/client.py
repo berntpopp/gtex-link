@@ -343,24 +343,27 @@ class GTExClient:
                 response_time = time.time() - start_time
 
                 if self.logger:
+                    # Log only the exception TYPE (and path), never str(e): a
+                    # transport error's text can reflect a caller-influenced
+                    # value, so keep it out of the log sink.
                     log_api_request(
                         self.logger,
                         method,
                         url,
                         response_time,
                         0,
-                        error=str(e),
+                        error=type(e).__name__,
                     )
 
                 if attempt < self.config.max_retries:
                     if self.logger:
-                        # Log only the request path, not the full upstream URL
-                        # (host), to match the path-only ``log_api_request``.
+                        # Log only the request path + exception type, not str(e)
+                        # (no caller-influenced transport text in the log sink).
                         self.logger.warning(
                             "Request failed, retrying",
                             attempt=attempt + 1,
                             max_retries=self.config.max_retries,
-                            error=str(e),
+                            error_type=type(e).__name__,
                             path=urlsplit(url).path,
                         )
                     await asyncio.sleep(
@@ -378,7 +381,11 @@ class GTExClient:
         self.total_requests += 1
         if last_error:
             attempts = self.config.max_retries + 1
-            msg = f"Failed to connect to GTEx Portal API after {attempts} attempts: {last_error}"
+            # Do NOT interpolate the transport exception text: a reviewer probe
+            # reproduced hostile control/zero-width/bidi/NUL code points reflected
+            # through it. A fixed, detail-free message is raised (the exception
+            # type is available in logs, not in the caller-visible message).
+            msg = f"Failed to connect to GTEx Portal API after {attempts} attempts."
             raise GTExAPIError(
                 msg,
             )

@@ -55,7 +55,10 @@ class McpToolError(Exception):
 def _provenance_meta(context: McpErrorContext | None = None) -> dict[str, Any]:
     meta = dict(_BASE_META)
     if context is not None and context.dataset_id:
-        meta["dataset_id"] = context.dataset_id
+        # dataset_id is a caller-supplied argument copied verbatim into the
+        # caller-visible _meta; strip forbidden control/zero-width/bidi/NUL code
+        # points so it cannot smuggle them through the provenance frame.
+        meta["dataset_id"] = sanitize_message(context.dataset_id)
     return meta
 
 
@@ -148,6 +151,29 @@ def _error_envelope(exc: BaseException, context: McpErrorContext) -> dict[str, A
     if field_errors is not None:
         envelope["field_errors"] = field_errors
     return envelope
+
+
+def build_arg_error_envelope(tool_name: str | None) -> dict[str, Any]:
+    """Fixed, body-free error frame for an argument-validation failure.
+
+    FastMCP validates tool arguments during dispatch, BEFORE ``run_mcp_tool``
+    runs, and would otherwise surface the raw pydantic message (which echoes the
+    caller's input value) to the model. Return the same envelope shape with a
+    FIXED ``invalid_input`` message and no echoed argument value, so the
+    arg-validation path is fenced identically to the classified error path.
+    """
+    ctx = McpErrorContext(tool_name=tool_name or "unknown")
+    return {
+        "success": False,
+        "error_code": "invalid_input",
+        "message": (
+            "Invalid arguments for this tool. Check the required parameters, "
+            "their types, and any documented limits, then retry."
+        ),
+        "retryable": False,
+        "recovery_action": _recovery_action("invalid_input", retryable=False),
+        "_meta": {"tool": ctx.tool_name, **_provenance_meta(ctx)},
+    }
 
 
 async def run_mcp_tool(

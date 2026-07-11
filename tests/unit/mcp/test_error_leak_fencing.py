@@ -70,6 +70,19 @@ def _assert_no_forbidden(message: str) -> None:
         assert ch not in message, f"forbidden code point survived in message: {ch!r}"
 
 
+def _assert_clean_recursive(obj: Any) -> None:
+    """Assert NO forbidden code point survives anywhere in a payload tree."""
+    if isinstance(obj, str):
+        _assert_no_forbidden(obj)
+    elif isinstance(obj, dict):
+        for key, value in obj.items():
+            _assert_clean_recursive(key)
+            _assert_clean_recursive(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            _assert_clean_recursive(item)
+
+
 def _empty_genes() -> PaginatedGeneResponse:
     return PaginatedGeneResponse(
         data=[],
@@ -168,3 +181,77 @@ async def test_transport_error_yields_clean_fixed_message() -> None:
         assert payload["error_code"] == "upstream_unavailable"
         assert payload["message"] == "GTEx Portal is temporarily unavailable. Try again later."
         _assert_no_forbidden(payload["message"])
+
+
+@pytest.mark.asyncio
+async def test_error_meta_caller_dataset_id_is_sanitized_recursively() -> None:
+    """A caller-supplied hostile dataset_id copied into error _meta is stripped.
+
+    The full error payload (walked recursively, both mirrors) must carry no
+    forbidden code points -- including the provenance `_meta.dataset_id`.
+    """
+    hostile_dataset = f"gtex_v8{_CTRL}"
+    mock_service = AsyncMock()
+    mock_service.get_top_expressed_genes = AsyncMock(side_effect=ServiceUnavailableError())
+
+    with patch_service(mock_service):
+        structured, mirror = await _call_tool_both(
+            "get_top_expressed_genes_by_tissue",
+            {"tissue_site_detail_id": "Whole_Blood", "dataset_id": hostile_dataset},
+        )
+
+    for payload in (structured, mirror):
+        assert payload["success"] is False
+        assert payload["_meta"]["dataset_id"] == "gtex_v8"
+        _assert_clean_recursive(payload)
+
+
+@pytest.mark.asyncio
+async def test_arg_validation_returns_fixed_invalid_input_frame() -> None:
+    """Out-of-schema args are fenced into a FIXED invalid_input frame.
+
+    Argument validation happens in FastMCP dispatch, before run_mcp_tool; the raw
+    pydantic message (which echoes the caller's input) must NOT reach the model.
+    The tool returns a body-free invalid_input envelope (not a raised error, not
+    the echoed input) on both mirrors.
+    """
+    hostile = f"BRCA1{_CTRL}"
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(return_value=_empty_genes())
+    mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
+
+    with patch_service(mock_service):
+        # gene_id must be a list; a hostile bare string fails argument validation.
+        result = await mcp.call_tool("get_gene_information", {"gene_id": hostile})
+
+    assert result.is_error is True
+    structured = result.structured_content
+    assert structured is not None
+    mirror = json.loads(result.content[0].text)
+    for payload in (structured, mirror):
+        assert payload["success"] is False
+        assert payload["error_code"] == "invalid_input"
+        assert "BRCA1" not in payload["message"]  # no caller input echoed
+        _assert_clean_recursive(payload)
+
+
+def test_fastmcp_arg_validation_log_filter_suppresses_raw_detail() -> None:
+    """FastMCP's raw arg-validation warning (which echoes caller input) is scrubbed."""
+    import logging
+
+    from gtex_link.mcp.output_validation import _SanitizeArgValidationLog
+
+    record = logging.LogRecord(
+        name="fastmcp.server.server",
+        level=logging.WARNING,
+        pathname=__file__,
+        lineno=1,
+        msg="Invalid arguments for tool %r: %s",
+        args=("get_gene_information", [{"input": f"SECRET{_CTRL}", "loc": ("gene_id",)}]),
+        exc_info=None,
+    )
+    assert _SanitizeArgValidationLog().filter(record) is True
+    rendered = record.getMessage()
+    assert "SECRET" not in rendered
+    _assert_no_forbidden(rendered)
+    assert "get_gene_information" in rendered
