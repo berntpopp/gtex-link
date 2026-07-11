@@ -23,13 +23,36 @@ from gtex_link.mcp.search_match import (
     recall_terms,
 )
 from gtex_link.mcp.service_adapters import get_gtex_service
+from gtex_link.mcp.untrusted_content import fence_untrusted_text
 from gtex_link.models import GeneRequest, MedianGeneExpressionRequest
 from gtex_link.observability.metrics import record_mcp_tool_call
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
 
+    from gtex_link.models.responses import Gene
+
 _FETCH_TISSUE_LIMIT = 10
+
+
+def _sanitized_description(gene: Gene) -> str | None:
+    """Strip hostile control/zero-width/bidi code points from `description`.
+
+    `search`/`fetch` return an OpenAI Apps-SDK-shaped flat text document
+    (`title`, `text`), fixed by an external contract, so this upstream GENCODE
+    descriptor cannot be reshaped into the v1.1 typed `untrusted_text` envelope
+    the way `search_genes`/`get_gene_information` do (see
+    `gtex_link.mcp.shaping.fence_gene_response`) without breaking ChatGPT
+    compatibility. Reusing `fence_untrusted_text` for its normalization here
+    still removes the same ratified control/zero-width/bidi-override code
+    points before the descriptor is embedded in the flat document, so an
+    embedded RTL override or zero-width payload cannot alter how the text
+    renders to a host -- defense in depth for this compact surface too, per
+    the "fence every prose surface" rule (Response-Envelope v1.1 adoption).
+    """
+    if gene.description is None:
+        return None
+    return fence_untrusted_text(gene.description, source="gtex", record_id=gene.gencode_id).text
 
 
 def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
@@ -74,7 +97,7 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
                 items = [
                     {
                         "id": f"gene:{gene.gencode_id}",
-                        "title": f"{gene.gene_symbol} - {gene.description or 'Gene'}",
+                        "title": f"{gene.gene_symbol} - {_sanitized_description(gene) or 'Gene'}",
                         "url": f"{GTEX_PORTAL_URL}/home/gene/{gene.gene_symbol}",
                     }
                     for _rank, gene in ordered
@@ -126,10 +149,11 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
                 gene = gene_result.data[0]
 
                 expression_text = await _expression_lines(service, gene.gencode_id)
+                sanitized_description = _sanitized_description(gene)
                 lines = [
                     f"Gene Symbol: {gene.gene_symbol}",
                     f"GENCODE ID: {gene.gencode_id}",
-                    f"Description: {gene.description or 'Not available'}",
+                    f"Description: {sanitized_description or 'Not available'}",
                     f"Chromosome: {gene.chromosome}",
                     f"Position: {gene.start:,}-{gene.end:,}",
                     f"Strand: {gene.strand}",
@@ -142,7 +166,7 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
                 success = True
                 return {
                     "id": id,
-                    "title": f"{gene.gene_symbol} - {gene.description or 'Gene'}",
+                    "title": f"{gene.gene_symbol} - {sanitized_description or 'Gene'}",
                     "text": "\n".join(lines),
                     "url": f"{GTEX_PORTAL_URL}/home/gene/{gene.gene_symbol}",
                     "metadata": {

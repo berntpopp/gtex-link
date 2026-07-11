@@ -26,6 +26,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   10,000 rather than the 128 default; `get_gene_information` is capped by
   `GeneRequest.gene_id` (`max_length=50`), well inside the 128 default.
   Research use only; not clinical decision support.
+- **`search`/`fetch` (ChatGPT/deep-research contract) also sanitize
+  `description`.** These two tools return an OpenAI Apps-SDK-shaped flat text
+  document (`title`, `text`), fixed by an external contract, so `description`
+  cannot be reshaped into the typed `untrusted_text` envelope there without
+  breaking ChatGPT compatibility. They now strip the same ratified
+  control/zero-width/bidi-override code points before embedding the
+  descriptor, closing the same injection vector for this compact surface too.
 
 ## [2.0.5] - 2026-07-11
 
