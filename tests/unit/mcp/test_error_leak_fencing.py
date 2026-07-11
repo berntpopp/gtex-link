@@ -239,7 +239,7 @@ def test_fastmcp_arg_validation_log_filter_suppresses_raw_detail() -> None:
     """FastMCP's raw arg-validation warning (which echoes caller input) is scrubbed."""
     import logging
 
-    from gtex_link.mcp.output_validation import _SanitizeArgValidationLog
+    from gtex_link.mcp.output_validation import _ValidationLogScrubFilter
 
     record = logging.LogRecord(
         name="fastmcp.server.server",
@@ -250,8 +250,10 @@ def test_fastmcp_arg_validation_log_filter_suppresses_raw_detail() -> None:
         args=("get_gene_information", [{"input": f"SECRET{_CTRL}", "loc": ("gene_id",)}]),
         exc_info=None,
     )
-    assert _SanitizeArgValidationLog().filter(record) is True
+    assert _ValidationLogScrubFilter().filter(record) is True
     rendered = record.getMessage()
     assert "SECRET" not in rendered
     _assert_no_forbidden(rendered)
-    assert "get_gene_information" in rendered
+    # The whole record payload is replaced by a fixed constant (args cleared), so
+    # neither the caller input nor the tool name survives.
+    assert "get_gene_information" not in rendered

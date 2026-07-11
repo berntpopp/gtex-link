@@ -8,7 +8,10 @@ from gtex_link import __version__
 from gtex_link.config import settings
 from gtex_link.mcp.capabilities_resources import register_capability_resources
 from gtex_link.mcp.metadata import register_metadata_tools
-from gtex_link.mcp.output_validation import install_output_validation_error_handler
+from gtex_link.mcp.output_validation import (
+    install_output_validation_error_handler,
+    install_protocol_error_handler,
+)
 from gtex_link.mcp.profiles import MCPToolProfile, normalize_mcp_profile
 from gtex_link.mcp.resources import GTEX_SERVER_INSTRUCTIONS
 from gtex_link.mcp.tools import (
@@ -47,4 +50,7 @@ def create_gtex_mcp(profile: MCPToolProfile | str | None = None) -> FastMCP:
     register_capability_resources(mcp)
 
     install_output_validation_error_handler(mcp)
+    # Layer 3 not-found backstop: install AFTER the middleware handler so it wraps
+    # the raw request handlers as the OUTERMOST layer (see output_validation.py).
+    install_protocol_error_handler(mcp)
     return mcp

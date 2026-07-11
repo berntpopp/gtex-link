@@ -27,6 +27,9 @@ async def test_middleware_logs_and_reraises_on_tool_error(
     context = MagicMock()
     context.message = MagicMock()
     context.message.name = "broken_tool"
+    # No fastmcp_context => skip the Layer 1 unknown-tool preflight (covered by the
+    # real-Client tests in test_notfound_guard.py) and isolate the re-raise branch.
+    context.fastmcp_context = None
 
     async def boom(_ctx: object) -> None:
         raise ValueError("simulated tool failure")

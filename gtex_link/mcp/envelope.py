@@ -153,6 +153,31 @@ def _error_envelope(exc: BaseException, context: McpErrorContext) -> dict[str, A
     return envelope
 
 
+def build_unknown_tool_envelope() -> dict[str, Any]:
+    """Fixed, name-free error frame for an unknown / unavailable tool.
+
+    FastMCP core reflects the caller-supplied tool NAME verbatim -- it raises
+    ``NotFoundError("Unknown tool: '<name>'")`` on the direct dispatch path and
+    returns that string in an ``isError`` ``TextContent`` via the client transport
+    -- BEFORE ``run_mcp_tool``'s envelope can run. Return the standard envelope
+    shape with a FIXED ``not_found`` message and NO echoed name, so the requested
+    name (and any control/zero-width/bidi/NUL code points or injection prose it
+    carries) can never reach the caller. The requested name is deliberately NOT
+    echoed into ``_meta`` (no ``tool`` key), matching the fleet not-found guard.
+    """
+    return {
+        "success": False,
+        "error_code": "not_found",
+        "message": (
+            "The requested tool is not available. Call get_server_capabilities "
+            "for the supported tools."
+        ),
+        "retryable": False,
+        "recovery_action": "switch_tool",
+        "_meta": {**_provenance_meta()},
+    }
+
+
 def build_arg_error_envelope(tool_name: str | None) -> dict[str, Any]:
     """Fixed, body-free error frame for an argument-validation failure.
 
