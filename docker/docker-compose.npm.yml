@@ -16,6 +16,8 @@ services:
       - GTEX_LINK_PORT=8000
       - GTEX_LINK_TRANSPORT=unified
       - GTEX_LINK_MCP_PATH=/mcp
+      - GTEX_LINK_ALLOWED_HOSTS=["localhost","127.0.0.1","::1","gtex-link.genefoundry.org"]
+      - GTEX_LINK_ALLOWED_ORIGINS=["https://gtex-link.genefoundry.org"]
       - GTEX_LINK_LOG_LEVEL=${LOG_LEVEL_API:-INFO}
       - GTEX_LINK_LOG_FORMAT=json
       - GTEX_LINK_RELOAD=false
@@ -23,12 +25,12 @@ services:
       - GTEX_LINK_CACHE_SIZE=${GTEX_CACHE_SIZE:-1000}
       - GTEX_LINK_CACHE_TTL=${GTEX_CACHE_TTL:-3600}
       # CORS configuration for production
-      - GTEX_LINK_CORS_ORIGINS=["https://gtex-link.example.com"]
-      - GTEX_LINK_CORS_ALLOW_CREDENTIALS=true
+      - GTEX_LINK_CORS_ORIGINS=["https://gtex-link.genefoundry.org"]
+      - GTEX_LINK_CORS_ALLOW_CREDENTIALS=false
     # env_file is specified via --env-file flag for consistency with phentrieve
     command: ["gtex-link", "serve", "--transport", "unified", "--host", "0.0.0.0", "--port", "8000"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      test: ["CMD", "curl", "-f", "-H", "Host: localhost", "http://localhost:8000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 5

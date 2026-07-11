@@ -145,6 +145,14 @@ class ServerSettings(BaseSettings):
         default="full",
         description="MCP tool profile (full or lite)",
     )
+    allowed_hosts: list[str] = Field(
+        default_factory=lambda: ["localhost", "127.0.0.1", "::1"],
+        description="Exact Host header values accepted by the request guard",
+    )
+    allowed_origins: list[str] = Field(
+        default_factory=list,
+        description="Browser Origin values accepted by the request guard",
+    )
 
     # CORS settings
     cors_origins: list[str] = Field(
@@ -197,6 +205,14 @@ class ServerSettings(BaseSettings):
         """Ensure MCP path starts with forward slash."""
         if not v.startswith("/"):
             return f"/{v}"
+        return v
+
+    @field_validator("allowed_hosts", "allowed_origins")
+    @classmethod
+    def reject_wildcard_allowlists(cls, v: list[str]) -> list[str]:
+        """Require exact Host and Origin values rather than wildcard patterns."""
+        if any(any(marker in value for marker in "*?[]") for value in v):
+            raise ValueError("wildcard patterns are not allowed in request allowlists")
         return v
 
     @field_validator("cors_origins", mode="before")

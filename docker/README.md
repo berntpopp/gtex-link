@@ -28,6 +28,12 @@ GTEX_LINK_HOST_PORT=8120 make docker-up
 The container-internal port stays standard (`8000`), which keeps reverse-proxy
 and container-to-container routing predictable.
 
+The server enforces exact Host and browser Origin allowlists across REST and
+MCP. Base Compose admits loopback only. Production overlays add
+`gtex-link.genefoundry.org` and couple the permitted browser Origin to the CORS
+list. Host entries omit schemes and ports; use bare `::1` for IPv6. Wildcards
+are rejected in both request-boundary allowlists.
+
 ## Compose Files
 
 - `docker-compose.yml` - base unified service, published on host port 8765.
