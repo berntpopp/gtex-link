@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.5] - 2026-07-11
+
+### Security
+
+- **Re-enabled FastMCP 3.4.4 strict Host/Origin protection with configurable
+  allowlists.** Every REST and MCP route is now guarded by exact Host and
+  browser Origin allowlists (`GTEX_LINK_ALLOWED_HOSTS` /
+  `GTEX_LINK_ALLOWED_ORIGINS`), defaulting to loopback only and rejecting
+  wildcard patterns at configuration time. Bumped `fastmcp` 3.4.3 → 3.4.4 for
+  the `host_origin_protection` / `allowed_hosts` / `allowed_origins` guard API.
+  DEPLOY PREREQUISITE: set the proxied public host or router federation 421s.
+
 ## [2.0.4] - 2026-07-07
 
 ### Changed (dependencies)
