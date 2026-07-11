@@ -6,6 +6,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-07-11
+
+### Security (BREAKING)
+
+- **Upstream GENCODE `description` now fenced as a typed `untrusted_text`
+  object (Response-Envelope Standard v1.1).** `search_genes` and
+  `get_gene_information` (`/data/*/description`) no longer emit a bare string;
+  the field is now `{kind: "untrusted_text", text, provenance: {source,
+  record_id, retrieved_at}, raw_sha256}` — NFC-normalized with control,
+  zero-width, and bidi-override code points stripped, digested over the
+  pre-normalization raw bytes. `record_id` is the gene's GENCODE ID. This types
+  externally sourced prose as data at the MCP boundary (defense in depth; the
+  router already treats a `kind: untrusted_text` subtree opaque) so a host
+  cannot confuse a GENCODE descriptor with instructions. The internal `Gene`
+  model and REST API (`/api/v1/reference/genes*`) are unchanged — only the MCP
+  tool output reshapes. `search_genes`' result cap has no declared upper bound
+  (`limit` has no `Field` maximum), so its untrusted-object ceiling is set to
+  10,000 rather than the 128 default; `get_gene_information` is capped by
+  `GeneRequest.gene_id` (`max_length=50`), well inside the 128 default.
+  Research use only; not clinical decision support.
+
 ## [2.0.5] - 2026-07-11
 
 ### Security
