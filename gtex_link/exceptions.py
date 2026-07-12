@@ -83,6 +83,20 @@ class CacheError(GTExAPIError):
     """Exception raised for cache-related errors."""
 
 
+class UpstreamPolicyError(GTExAPIError):
+    """A response/redirect violated an outbound URL/size policy (F-17).
+
+    DETERMINISTIC and NON-RETRYABLE: a disallowed redirect (cross-host,
+    http-downgrade, userinfo) or an oversized response body recurs identically
+    on retry. It is a dedicated ``GTExAPIError`` subclass so the MCP error
+    mapping can classify it ``retryable=False`` -- unlike a bare
+    ``GTExAPIError``, which maps to a transient (retryable) upstream fault.
+
+    The message MUST stay fixed and host-free: the offending redirect host is
+    caller-influenced and must never reach a log record or the caller response.
+    """
+
+
 class ServiceUnavailableError(GTExAPIError):
     """Exception raised when the GTEx Portal service is unavailable."""
 

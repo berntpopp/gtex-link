@@ -28,7 +28,20 @@ class DisallowedURLError(Exception):
     NON-RETRYABLE: deliberately does not subclass ``httpx.RequestError`` /
     ``httpx.TimeoutException`` so the client's transport-retry branch never
     swallows and re-attempts a policy violation.
+
+    HOST-FREE MESSAGE: the caller/attacker-controlled offending value (redirect
+    host or scheme) is NEVER interpolated into the exception ``message`` -- a
+    host in the message reaches the logs via chained-exception rendering
+    (``raise ... from e`` + ``logger.exception``) or any ``str(exc)`` surface.
+    The offending value is kept only in the non-logged ``detail`` attribute for
+    in-process debugging; ``detail`` must never be logged or surfaced.
     """
+
+    def __init__(self, message: str, *, detail: str | None = None) -> None:
+        super().__init__(message)
+        # Non-logged internal debug detail. NEVER put this in a log record or a
+        # caller-visible response: it can carry the attacker-controlled host.
+        self.detail = detail
 
 
 class ResponseTooLargeError(Exception):
@@ -61,13 +74,16 @@ def make_url_guard(allowed_hosts: frozenset[str]) -> RequestHook:
     """
 
     async def _guard(request: httpx.Request) -> None:
+        # Messages are FIXED and host/scheme-free (both are caller-influenced on
+        # an auto-followed redirect); the offending value goes only into the
+        # non-logged ``detail`` attribute.
         url = request.url
         if url.scheme != "https":
-            raise DisallowedURLError(f"non-https scheme: {url.scheme}")
+            raise DisallowedURLError("non-https scheme rejected", detail=f"scheme={url.scheme!r}")
         if url.username or url.password:
             raise DisallowedURLError("userinfo is not permitted in request URLs")
         host = (url.host or "").lower()
         if host not in allowed_hosts:
-            raise DisallowedURLError(f"host not allowlisted: {host}")
+            raise DisallowedURLError("host not allowlisted", detail=f"host={host!r}")
 
     return _guard

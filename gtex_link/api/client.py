@@ -22,6 +22,7 @@ from gtex_link.exceptions import (
     GTExAPIError,
     RateLimitError,
     ServiceUnavailableError,
+    UpstreamPolicyError,
 )
 from gtex_link.logging_config import log_api_request, log_error_with_context
 from gtex_link.observability.metrics import (
@@ -403,9 +404,13 @@ class GTExClient:
 
             except (DisallowedURLError, ResponseTooLargeError) as e:
                 # Fail-closed URL/size policy violation on some hop (F-17).
-                # NON-RETRYABLE (not an httpx retryable type) and body-free:
-                # str(e) can name a caller-influenced redirect host -> log only
-                # the exception type + path, surface only a fixed message.
+                # NON-RETRYABLE: mapped to the dedicated UpstreamPolicyError so
+                # the MCP error mapping classifies it retryable=False (a
+                # deterministic policy block, not a transient upstream fault).
+                # Body-free: str(e) can name a caller-influenced redirect host,
+                # so log only the exception type + path. Chain with `from None`
+                # (NOT `from e`) so a chained-exception log (`logger.exception`)
+                # up the stack can never render the host via __cause__/__context__.
                 if self.logger:
                     self.logger.warning(
                         "Outbound request blocked by URL/size policy",
@@ -413,7 +418,7 @@ class GTExClient:
                         path=urlsplit(url).path,
                     )
                 msg = "GTEx Portal request blocked by the URL/size policy."
-                raise GTExAPIError(msg) from e
+                raise UpstreamPolicyError(msg) from None
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 last_error = e
                 response_time = time.time() - start_time

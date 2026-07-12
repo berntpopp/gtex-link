@@ -10,6 +10,7 @@ the https-only check correctly rejects.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import httpx
@@ -79,6 +80,25 @@ def test_guard_exceptions_are_not_httpx_retryable() -> None:
     assert not issubclass(ResponseTooLargeError, httpx.TimeoutException)
 
 
+@pytest.mark.asyncio
+async def test_guard_message_is_host_free() -> None:
+    """The guard's exception message must NEVER carry the attacker-controlled host.
+
+    F-17 residual: a host in the message reaches the logs via chained-exception
+    rendering (``raise ... from e`` + ``logger.exception``) and any ``str(exc)``
+    surface. The message must be FIXED/host-free (the host may only live in a
+    non-logged internal attribute).
+    """
+    guard = make_url_guard(frozenset({"gtexportal.org"}))
+    attacker = "evil-guard-host.example"
+    with pytest.raises(DisallowedURLError) as exc_info:
+        await guard(httpx.Request("GET", f"https://{attacker}/api/v2/x"))
+    exc = exc_info.value
+    assert attacker not in str(exc)
+    assert attacker not in repr(exc)
+    assert attacker not in "".join(str(a) for a in exc.args)
+
+
 # --------------------------------------------------------------------------- #
 # Integration: the guard wired through GTExClient._make_request                #
 # --------------------------------------------------------------------------- #
@@ -103,6 +123,72 @@ async def test_cross_host_redirect_fails_closed(respx_mock: respx.MockRouter) ->
     # Non-retryable path -> the "blocked" message, not the retry-exhaustion one.
     assert "blocked" in str(exc).lower()
     assert "after" not in str(exc).lower()
+
+
+@pytest.mark.asyncio
+async def test_cross_host_redirect_leaves_no_host_in_logs(
+    respx_mock: respx.MockRouter, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A cross-host redirect must leave NO attacker host in any log record.
+
+    Adversarial reproduction of the F-17 residual: the mapped policy error must
+    not carry the redirect host through chained-exception rendering. We
+    reproduce the route-layer ``logger.exception(...)`` (which logs the handled
+    exception AND its ``__cause__`` chain) and assert the attacker host appears
+    in neither the log records nor the caller-visible message nor the raised
+    exception's cause/context chain.
+    """
+    attacker = "evil-redirect-sink.example"
+    client = GTExClient(config=GTExAPIConfigModel(max_retries=1), logger=None)
+    respx_mock.get(f"{GTEX_DEFAULT_BASE}/test/endpoint").respond(
+        302, headers={"Location": f"https://{attacker}/steal"}
+    )
+
+    route_logger = logging.getLogger("gtex_link.api.routes.reference")
+    with caplog.at_level(logging.DEBUG), pytest.raises(GTExAPIError) as exc_info:
+        try:
+            await client._make_request("GET", "test/endpoint")
+        except GTExAPIError:
+            # The route layer logs the handled exception (and its cause chain);
+            # this is the exact leak vector Codex flagged.
+            route_logger.exception("GTEx API error during request")
+            raise
+    await client.close()
+
+    exc = exc_info.value
+    # (a) No log record (message OR rendered exc chain) names the attacker host.
+    assert attacker not in caplog.text
+    # No caller-visible response/message field names the attacker host.
+    assert attacker not in str(exc)
+    # The full cause/context chain is host-free, so any chained
+    # logger.exception up the stack cannot render it.
+    seen: set[int] = set()
+    node: BaseException | None = exc
+    while node is not None and id(node) not in seen:
+        seen.add(id(node))
+        assert attacker not in str(node)
+        assert attacker not in "".join(str(a) for a in node.args)
+        node = node.__cause__ or node.__context__
+
+
+@pytest.mark.asyncio
+async def test_mapped_policy_error_is_non_retryable_type(respx_mock: respx.MockRouter) -> None:
+    """The mapped policy error is a dedicated NON-RETRYABLE GTExAPIError subclass.
+
+    A disallowed redirect is deterministic, so the client raises
+    ``UpstreamPolicyError`` (not a bare GTExAPIError that the MCP layer would
+    classify retryable).
+    """
+    from gtex_link.exceptions import UpstreamPolicyError
+
+    client = GTExClient(config=GTExAPIConfigModel(max_retries=3), logger=None)
+    respx_mock.get(f"{GTEX_DEFAULT_BASE}/test/endpoint").respond(
+        302, headers={"Location": "https://evil.example/steal"}
+    )
+
+    with pytest.raises(UpstreamPolicyError):
+        await client._make_request("GET", "test/endpoint")
+    await client.close()
 
 
 @pytest.mark.asyncio

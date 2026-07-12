@@ -21,6 +21,7 @@ from gtex_link.exceptions import (
     GTExAPIError,
     RateLimitError,
     ServiceUnavailableError,
+    UpstreamPolicyError,
     ValidationError,
 )
 from gtex_link.mcp.resources import GTEX_DATA_RELEASE, RECOMMENDED_CITATION
@@ -103,6 +104,16 @@ def _classify(exc: BaseException) -> tuple[str, str, bool]:
     if isinstance(exc, ValidationError):
         field = f"`{exc.field}`: " if exc.field else ""
         return "invalid_input", f"Invalid input -- {field}{exc.message}", False
+    # A redirect/size POLICY violation (F-17) is deterministic, not transient:
+    # classify NON-RETRYABLE with a fixed, host-free message. Checked BEFORE the
+    # generic GTExAPIError branch (which UpstreamPolicyError subclasses) so it
+    # never falls through to the retryable `upstream_unavailable` mapping.
+    if isinstance(exc, UpstreamPolicyError):
+        return (
+            "internal_error",
+            "The request was blocked by an outbound URL/size policy and was not completed.",
+            False,
+        )
     if isinstance(exc, GTExAPIError):
         return (
             "upstream_unavailable",

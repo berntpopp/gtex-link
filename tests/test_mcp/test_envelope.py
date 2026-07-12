@@ -79,6 +79,28 @@ async def test_invalid_input_is_not_retryable_reformulate() -> None:
 
 
 @pytest.mark.asyncio
+async def test_upstream_policy_error_is_non_retryable() -> None:
+    """A mapped redirect/size policy violation must classify NON-RETRYABLE.
+
+    F-17 residual: a disallowed redirect or oversized response is deterministic,
+    not transient. The generic ``GTExAPIError`` branch maps to a retryable
+    ``upstream_unavailable``; ``UpstreamPolicyError`` must NOT inherit that.
+    """
+    from gtex_link.exceptions import UpstreamPolicyError
+
+    async def call() -> dict[str, object]:
+        raise UpstreamPolicyError("GTEx Portal request blocked by the URL/size policy.")
+
+    result = await run_mcp_tool("demo", call)
+
+    assert result["success"] is False
+    assert result["retryable"] is False
+    assert result["recovery_action"] != "retry_backoff"
+    # A fixed, host-free message reaches the caller.
+    assert isinstance(result["message"], str)
+
+
+@pytest.mark.asyncio
 async def test_pydantic_error_lists_field_errors() -> None:
     from gtex_link.models import MedianGeneExpressionRequest
 
