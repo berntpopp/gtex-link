@@ -5,12 +5,19 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Self
 from urllib.parse import urljoin, urlsplit
 
 import httpx
 from asgi_correlation_id import correlation_id as _correlation_id_ctx
 
+from gtex_link.api.url_guard import (
+    DisallowedURLError,
+    ResponseTooLargeError,
+    build_host_allowlist,
+    make_url_guard,
+)
 from gtex_link.exceptions import (
     GTExAPIError,
     RateLimitError,
@@ -41,6 +48,12 @@ if TYPE_CHECKING:
 
 # Constants
 MAX_RESPONSE_TIMES = 100
+
+# Fail-closed response byte cap (F-17). GTEx is GET-only JSON; a real multi-gene
+# payload of ~1.73 MB has been observed, so the cap is generous (16 MB, never
+# 2 MB) -- but a body past it is REFUSED, never truncated (a truncated JSON body
+# is unparseable). Read as a module global at call time so tests can shrink it.
+MAX_RESPONSE_BYTES = 16 * 1024 * 1024
 
 
 class TokenBucketRateLimiter:
@@ -139,6 +152,11 @@ class GTExClient:
         self.config = config
         self.logger = logger
 
+        # Exact host allowlist for every outbound hop (F-17). Derived from the
+        # configured base URL -- never hardcoded -- so an operator override of
+        # base_url stays enforceable.
+        self._allowed_hosts = build_host_allowlist(config.base_url)
+
         # Initialize statistics tracking
         self.total_requests = 0
         self.successful_requests = 0
@@ -165,6 +183,11 @@ class GTExClient:
             HTTP client session
         """
         if self._session is None:
+            # Keep httpx's redirect machinery, but validate every hop (initial
+            # request + each auto-followed redirect) via a request event-hook
+            # (F-17). A cross-host / http-downgrade / userinfo hop raises the
+            # non-retryable DisallowedURLError, mapped by _make_request.
+            request_hooks: list[Callable[..., Any]] = [make_url_guard(self._allowed_hosts)]
             self._session = httpx.AsyncClient(
                 timeout=httpx.Timeout(self.config.timeout),
                 headers={
@@ -172,6 +195,8 @@ class GTExClient:
                     "Accept": "application/json",
                 },
                 follow_redirects=True,
+                max_redirects=5,
+                event_hooks={"request": request_hooks},
             )
         return self._session
 
@@ -187,6 +212,36 @@ class GTExClient:
         path = urlsplit(url).path
         parts = [p for p in path.split("/") if p]
         return "/".join(parts[-3:]) if parts else "unknown"
+
+    async def _read_capped_bytes(self, response: httpx.Response) -> bytes:
+        """Read a response body under the fail-closed byte cap (F-17).
+
+        Content-Length is a cheap first guard but is NOT trusted alone
+        (chunked / gzip); the running total is enforced while streaming. A body
+        past the cap is REFUSED (never truncated).
+
+        Raises:
+            ResponseTooLargeError: when the body exceeds ``MAX_RESPONSE_BYTES``.
+        """
+        max_bytes = MAX_RESPONSE_BYTES
+        declared = response.headers.get("Content-Length")
+        if declared is not None:
+            try:
+                declared_len = int(declared)
+            except ValueError:
+                declared_len = -1  # malformed -> rely on the streamed check
+            if declared_len > max_bytes:
+                msg = f"declared Content-Length exceeds {max_bytes} bytes"
+                raise ResponseTooLargeError(msg)
+        chunks: list[bytes] = []
+        total = 0
+        async for chunk in response.aiter_bytes():
+            total += len(chunk)
+            if total > max_bytes:
+                msg = f"response exceeded {max_bytes} bytes"
+                raise ResponseTooLargeError(msg)
+            chunks.append(chunk)
+        return b"".join(chunks)
 
     async def close(self) -> None:
         """Close HTTP client."""
@@ -255,89 +310,110 @@ class GTExClient:
             attempt_start = time.time()
             status_for_metric = 0
             try:
-                response = await session.request(
-                    method=method,
-                    url=url,
+                # Stream so the response body can be capped BEFORE decoding
+                # (F-17). The request event-hook validates every hop (initial +
+                # each auto-followed redirect) as it fires inside send().
+                async with session.stream(
+                    method,
+                    url,
                     params=params,
                     json=data,
                     headers=headers,
-                )
-                status_for_metric = response.status_code
+                ) as response:
+                    status_for_metric = response.status_code
 
-                response_time = time.time() - start_time
+                    response_time = time.time() - start_time
 
-                # Log successful request
-                if self.logger:
-                    log_api_request(
-                        self.logger,
-                        method,
-                        url,
-                        response_time,
-                        response.status_code,
-                    )
-
-                # Handle different status codes
-                if response.status_code == self._HTTP_TOO_MANY_REQUESTS:
-                    retry_after = float(response.headers.get("Retry-After", 60))
-                    msg = f"Rate limit exceeded for {url}"
-                    raise RateLimitError(
-                        msg,
-                        retry_after=retry_after,
-                    )
-                if response.status_code >= self._HTTP_SERVER_ERROR:
-                    msg = f"GTEx Portal service error: HTTP {response.status_code}"
-                    raise ServiceUnavailableError(
-                        msg,
-                    )
-                if response.status_code >= self._HTTP_CLIENT_ERROR:
-                    # Do NOT interpolate the upstream response BODY: a
-                    # caller-influenced query can make GTEx Portal reflect hostile
-                    # prose (incl. control/zero-width/bidi/NUL) into a 4xx body, and
-                    # echoing it would smuggle attacker-controlled text into a
-                    # caller-visible message. The HTTP status is a safe, bounded
-                    # scalar; the body is neither surfaced nor logged.
-                    msg = f"GTEx Portal rejected the request (HTTP {response.status_code})."
-                    raise GTExAPIError(
-                        msg,
-                        status_code=response.status_code,
-                    )
-
-                response.raise_for_status()
-
-                # Track successful request statistics
-                self.total_requests += 1
-                self.successful_requests += 1
-                self.response_times.append(response_time)
-                # Keep only recent response times (last MAX_RESPONSE_TIMES requests)
-                if len(self.response_times) > MAX_RESPONSE_TIMES:
-                    self.response_times = self.response_times[-MAX_RESPONSE_TIMES:]
-
-                # Parse JSON response
-                try:
-                    result = response.json()
-                    if not isinstance(result, dict):
-                        # If API returns a list or other type, wrap it
-                        return {"data": result}
-                    return result
-                except json.JSONDecodeError as e:
+                    # Log successful request
                     if self.logger:
-                        # Log only the request path -- never the raw upstream body
-                        # (no-PII-in-logs invariant); the response body can carry
-                        # caller-influenced hostile prose.
-                        log_error_with_context(
+                        log_api_request(
                             self.logger,
-                            e,
-                            "JSON parsing failed",
-                            {"path": urlsplit(url).path},
+                            method,
+                            url,
+                            response_time,
+                            response.status_code,
                         )
-                    # Fixed, body-free message: neither the raw body nor the URL
-                    # (host) nor the decoder's position text is surfaced or stored.
-                    msg = f"Invalid JSON response from GTEx Portal (HTTP {response.status_code})."
-                    raise GTExAPIError(
-                        msg,
-                        status_code=response.status_code,
-                    ) from e
 
+                    # Handle different status codes
+                    if response.status_code == self._HTTP_TOO_MANY_REQUESTS:
+                        retry_after = float(response.headers.get("Retry-After", 60))
+                        msg = f"Rate limit exceeded for {url}"
+                        raise RateLimitError(
+                            msg,
+                            retry_after=retry_after,
+                        )
+                    if response.status_code >= self._HTTP_SERVER_ERROR:
+                        msg = f"GTEx Portal service error: HTTP {response.status_code}"
+                        raise ServiceUnavailableError(
+                            msg,
+                        )
+                    if response.status_code >= self._HTTP_CLIENT_ERROR:
+                        # Do NOT interpolate the upstream response BODY: a
+                        # caller-influenced query can make GTEx reflect hostile
+                        # prose (control/zero-width/bidi/NUL) into a 4xx body.
+                        # The HTTP status is a safe bounded scalar; the body is
+                        # never surfaced or logged (and is left unread).
+                        msg = f"GTEx Portal rejected the request (HTTP {response.status_code})."
+                        raise GTExAPIError(
+                            msg,
+                            status_code=response.status_code,
+                        )
+
+                    response.raise_for_status()
+
+                    # Read the body under the fail-closed byte cap BEFORE decode
+                    # (F-17); an oversized body is REFUSED, never truncated.
+                    body = await self._read_capped_bytes(response)
+
+                    # Track successful request statistics
+                    self.total_requests += 1
+                    self.successful_requests += 1
+                    self.response_times.append(response_time)
+                    # Keep only recent response times (last MAX_RESPONSE_TIMES).
+                    if len(self.response_times) > MAX_RESPONSE_TIMES:
+                        self.response_times = self.response_times[-MAX_RESPONSE_TIMES:]
+
+                    # Parse JSON response
+                    try:
+                        result = json.loads(body)
+                        if not isinstance(result, dict):
+                            # If API returns a list or other type, wrap it
+                            return {"data": result}
+                        return result
+                    except json.JSONDecodeError as e:
+                        if self.logger:
+                            # Log only the request path -- never the raw upstream
+                            # body (no-PII-in-logs invariant); the response body
+                            # can carry caller-influenced hostile prose.
+                            log_error_with_context(
+                                self.logger,
+                                e,
+                                "JSON parsing failed",
+                                {"path": urlsplit(url).path},
+                            )
+                        # Fixed, body-free message: neither the raw body nor the
+                        # URL (host) nor the decoder position text is surfaced.
+                        msg = (
+                            f"Invalid JSON response from GTEx Portal (HTTP {response.status_code})."
+                        )
+                        raise GTExAPIError(
+                            msg,
+                            status_code=response.status_code,
+                        ) from e
+
+            except (DisallowedURLError, ResponseTooLargeError) as e:
+                # Fail-closed URL/size policy violation on some hop (F-17).
+                # NON-RETRYABLE (not an httpx retryable type) and body-free:
+                # str(e) can name a caller-influenced redirect host -> log only
+                # the exception type + path, surface only a fixed message.
+                if self.logger:
+                    self.logger.warning(
+                        "Outbound request blocked by URL/size policy",
+                        error_type=type(e).__name__,
+                        path=urlsplit(url).path,
+                    )
+                msg = "GTEx Portal request blocked by the URL/size policy."
+                raise GTExAPIError(msg) from e
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 last_error = e
                 response_time = time.time() - start_time
