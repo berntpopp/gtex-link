@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.3] - 2026-07-12
+
+### Fixed
+
+- Release the HTTP policy v1 remediation, including bounded retries, redirect
+  handling, and upstream request safety controls. Research use only; not for
+  clinical decision support.
+
 ## [3.0.2] - 2026-07-11
 
 ### Security (defense in depth)

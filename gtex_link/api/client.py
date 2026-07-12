@@ -15,7 +15,7 @@ from asgi_correlation_id import correlation_id as _correlation_id_ctx
 from gtex_link.api.url_guard import (
     DisallowedURLError,
     ResponseTooLargeError,
-    build_host_allowlist,
+    build_allowed_origins,
     make_url_guard,
 )
 from gtex_link.exceptions import (
@@ -153,10 +153,10 @@ class GTExClient:
         self.config = config
         self.logger = logger
 
-        # Exact host allowlist for every outbound hop (F-17). Derived from the
+        # Exact normalized origin allowlist for every outbound hop (F-17). Derived from the
         # configured base URL -- never hardcoded -- so an operator override of
         # base_url stays enforceable.
-        self._allowed_hosts = build_host_allowlist(config.base_url)
+        self._allowed_origins = build_allowed_origins(config.base_url)
 
         # Initialize statistics tracking
         self.total_requests = 0
@@ -188,7 +188,7 @@ class GTExClient:
             # request + each auto-followed redirect) via a request event-hook
             # (F-17). A cross-host / http-downgrade / userinfo hop raises the
             # non-retryable DisallowedURLError, mapped by _make_request.
-            request_hooks: list[Callable[..., Any]] = [make_url_guard(self._allowed_hosts)]
+            request_hooks: list[Callable[..., Any]] = [make_url_guard(self._allowed_origins)]
             self._session = httpx.AsyncClient(
                 timeout=httpx.Timeout(self.config.timeout),
                 headers={
@@ -232,15 +232,13 @@ class GTExClient:
             except ValueError:
                 declared_len = -1  # malformed -> rely on the streamed check
             if declared_len > max_bytes:
-                msg = f"declared Content-Length exceeds {max_bytes} bytes"
-                raise ResponseTooLargeError(msg)
+                raise ResponseTooLargeError()
         chunks: list[bytes] = []
         total = 0
         async for chunk in response.aiter_bytes():
             total += len(chunk)
             if total > max_bytes:
-                msg = f"response exceeded {max_bytes} bytes"
-                raise ResponseTooLargeError(msg)
+                raise ResponseTooLargeError()
             chunks.append(chunk)
         return b"".join(chunks)
 
@@ -402,7 +400,7 @@ class GTExClient:
                             status_code=response.status_code,
                         ) from e
 
-            except (DisallowedURLError, ResponseTooLargeError) as e:
+            except (DisallowedURLError, ResponseTooLargeError, httpx.TooManyRedirects) as e:
                 # Fail-closed URL/size policy violation on some hop (F-17).
                 # NON-RETRYABLE: mapped to the dedicated UpstreamPolicyError so
                 # the MCP error mapping classifies it retryable=False (a
