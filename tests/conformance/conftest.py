@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 
 import httpx
 import pytest
@@ -18,7 +18,9 @@ from gtex_link.config import GTExAPIConfigModel
 
 
 class _HttpPolicyAdapter:
-    async def _production_session(self) -> tuple[httpx.AsyncClient, object]:
+    async def _production_session(
+        self,
+    ) -> tuple[httpx.AsyncClient, Callable[[], Awaitable[None]]]:
         client = GTExClient(GTExAPIConfigModel(base_url="https://allowed.example/"))
         return await client._get_session(), client.close
 
