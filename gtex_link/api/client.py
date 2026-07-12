@@ -400,7 +400,7 @@ class GTExClient:
                             status_code=response.status_code,
                         ) from e
 
-            except (DisallowedURLError, ResponseTooLargeError) as e:
+            except (DisallowedURLError, ResponseTooLargeError, httpx.TooManyRedirects) as e:
                 # Fail-closed URL/size policy violation on some hop (F-17).
                 # NON-RETRYABLE: mapped to the dedicated UpstreamPolicyError so
                 # the MCP error mapping classifies it retryable=False (a

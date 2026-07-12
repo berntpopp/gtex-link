@@ -238,6 +238,24 @@ async def test_http_downgrade_redirect_fails_closed(respx_mock: respx.MockRouter
 
 
 @pytest.mark.asyncio
+async def test_redirect_limit_maps_to_non_retryable_policy_error(
+    respx_mock: respx.MockRouter,
+) -> None:
+    client = GTExClient(config=GTExAPIConfigModel(max_retries=3), logger=None)
+    respx_mock.get(f"{GTEX_DEFAULT_BASE}/loop").respond(
+        302, headers={"Location": f"{GTEX_DEFAULT_BASE}/loop"}
+    )
+
+    from gtex_link.exceptions import UpstreamPolicyError
+
+    with pytest.raises(UpstreamPolicyError) as exc_info:
+        await client._make_request("GET", "loop")
+    await client.close()
+
+    assert str(exc_info.value).endswith("GTEx Portal request blocked by the URL/size policy.")
+
+
+@pytest.mark.asyncio
 async def test_userinfo_redirect_fails_closed(respx_mock: respx.MockRouter) -> None:
     """A redirect carrying userinfo is rejected."""
     client = GTExClient(config=GTExAPIConfigModel(), logger=None)
