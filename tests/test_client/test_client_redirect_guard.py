@@ -66,6 +66,22 @@ async def test_guard_rejects_userinfo() -> None:
 
 
 @pytest.mark.asyncio
+async def test_guard_rejects_empty_userinfo() -> None:
+    """The empty ``:@`` userinfo form must be rejected too (recipe uniformity).
+
+    httpx parses ``https://:@gtexportal.org/`` to ``url.userinfo == b':'`` while
+    ``url.username`` and ``url.password`` are both ``""`` -- a ``username or
+    password`` check would MISS it. The guard tests the raw ``url.userinfo``
+    bytes, so any non-empty userinfo is rejected; a clean URL (``b''``) passes.
+    """
+    guard = make_url_guard(frozenset({"gtexportal.org"}))
+    with pytest.raises(DisallowedURLError):
+        await guard(httpx.Request("GET", "https://:@gtexportal.org/api/v2/x"))
+    # A clean allowlisted URL (no userinfo) still passes.
+    await guard(httpx.Request("GET", "https://gtexportal.org/api/v2/x"))
+
+
+@pytest.mark.asyncio
 async def test_guard_allows_configured_host() -> None:
     guard = make_url_guard(frozenset({"gtexportal.org"}))
     # Must not raise.
