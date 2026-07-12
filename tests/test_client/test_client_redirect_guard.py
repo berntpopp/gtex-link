@@ -19,8 +19,10 @@ import pytest
 from gtex_link.api import client as client_mod
 from gtex_link.api.client import GTExClient
 from gtex_link.api.url_guard import (
+    AllowedOrigin,
     DisallowedURLError,
     ResponseTooLargeError,
+    build_allowed_origins,
     build_host_allowlist,
     make_url_guard,
 )
@@ -42,6 +44,19 @@ def test_allowlist_derived_from_config_host() -> None:
     """The allowlist is derived from the configured base URL host, not hardcoded."""
     allowed = build_host_allowlist(GTExAPIConfigModel().base_url)
     assert allowed == frozenset({"gtexportal.org"})
+
+
+def test_allowed_origins_normalize_host_and_default_port() -> None:
+    assert build_allowed_origins("https://GTEXPORTAL.ORG:443/api") == frozenset(
+        {AllowedOrigin("gtexportal.org", 443)}
+    )
+
+
+@pytest.mark.asyncio
+async def test_guard_rejects_same_host_different_port() -> None:
+    guard = make_url_guard(frozenset({AllowedOrigin("gtexportal.org", 443)}))
+    with pytest.raises(DisallowedURLError, match="outbound URL rejected"):
+        await guard(httpx.Request("GET", "https://gtexportal.org:8443/api/v2/x"))
 
 
 @pytest.mark.asyncio
