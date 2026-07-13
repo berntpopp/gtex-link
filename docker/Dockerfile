@@ -30,24 +30,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.8.7@sha256:1e26f9a868360eeb32500a35e05787ffff
 RUN uv sync --frozen --no-dev --active --no-install-project
 
 
-FROM python:3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1 AS production
-
-
-ARG APP_VERSION=0.0.0
-ARG VCS_REF=unknown
-ARG BUILD_DATE=1970-01-01T00:00:00Z
-LABEL org.opencontainers.image.title="GTEx-Link" \
-      org.opencontainers.image.description="Research-use MCP/API server for GTEx Portal expression data." \
-      org.opencontainers.image.source="https://github.com/berntpopp/gtex-link" \
-      org.opencontainers.image.url="https://github.com/berntpopp/gtex-link" \
-      org.opencontainers.image.documentation="https://github.com/berntpopp/gtex-link#readme" \
-      org.opencontainers.image.version="${APP_VERSION}" \
-      org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.created="${BUILD_DATE}" \
-      org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.vendor="GeneFoundry"
-ENV APP_VERSION="${APP_VERSION}" \
-    VCS_REF="${VCS_REF}"
+FROM python:3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1 AS prepared
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -77,6 +60,49 @@ COPY --chown=app:app ./pyproject.toml ./README.md ./
 COPY --chown=app:app ./docker/gunicorn_conf.py ./
 
 RUN /opt/venv/bin/pip install . --no-deps
+
+RUN rm -rf /root/.cache/pip /usr/local/lib/python*/ensurepip/_bundled/*.whl \
+    && find / -xdev -type d -name __pycache__ -prune -exec rm -rf '{}' + \
+    && find / -xdev -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+
+RUN find / -xdev -perm /6000 -exec chmod a-s '{}' + \
+    && test -z "$(find / -xdev -perm /6000 -print -quit)"
+
+RUN actual="$(find / -xdev -type f -links +1 -printf '%i %p\n' | sort -k2,2)" \
+    && expected="$(printf '%s %s\n%s %s\n' \
+         "$(stat -c '%i' /usr/bin/perl)" /usr/bin/perl \
+         "$(stat -c '%i' /usr/bin/perl5.40.1)" /usr/bin/perl5.40.1 | sort -k2,2)" \
+    && { test "$actual" = "$expected" || { printf 'unexpected hardlinks:\n%s\n' "$actual"; exit 1; }; } \
+    && rm -f /usr/bin/perl5.40.1
+
+FROM scratch AS production
+COPY --from=prepared / /
+
+ARG APP_VERSION=0.0.0
+ARG VCS_REF=unknown
+ARG BUILD_DATE=1970-01-01T00:00:00Z
+LABEL org.opencontainers.image.title="GTEx-Link" \
+      org.opencontainers.image.description="Research-use MCP/API server for GTEx Portal expression data." \
+      org.opencontainers.image.source="https://github.com/berntpopp/gtex-link" \
+      org.opencontainers.image.url="https://github.com/berntpopp/gtex-link" \
+      org.opencontainers.image.documentation="https://github.com/berntpopp/gtex-link#readme" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.vendor="GeneFoundry"
+ENV APP_VERSION="${APP_VERSION}" \
+    VCS_REF="${VCS_REF}"
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    PYTHONPATH="/home/app/web" \
+    GTEX_LINK_HOST=0.0.0.0 \
+    GTEX_LINK_PORT=8000 \
+    TMPDIR=/tmp/gtex-link
+
+WORKDIR /home/app/web
 
 USER app
 
