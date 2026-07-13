@@ -1,120 +1,86 @@
-# Build optimization for GTEx-Link Docker images.
+# Keep the public application image code-only and the build context bounded.
 
-# Version control
+# Version control and CI metadata
+.git/
 .git
 .gitignore
 .gitattributes
 .github/
 
-# Python
+# Runtime secrets and local environments
+.env
+.env.*
+!.env.example
+!.env.docker.example
+.venv/
+venv/
+env/
+ENV/
+
+# Python caches, build output, and test artifacts
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
-.env/
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Testing and coverage
+.eggs/
+wheels/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
 .coverage
 .coverage.*
+coverage.xml
 htmlcov/
 .tox/
 .nox/
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
 
-# Documentation
+# Documentation and development-only helpers
 docs/
-*.md
-!README.md
-.readthedocs.yml
+scripts/
+tests/
+examples/
+dev/
+.pre-commit-config.yaml
+.loc-allowlist
 
-# IDE and editors
+# Docker Compose files are deployment inputs, not image content.
+docker/docker-compose*.yml
+docker/README.md
+.dockerignore
+
+# Authoritative data, runtime state, and bulky biomedical artifacts
+data/
+datasets/
+corpus/
+output/
+outputs/
+*.db
+*.sqlite
+*.sqlite3
+*.parquet
+*.vcf
+*.vcf.gz
+*.bcf
+*.obo
+*.owl
+*.zst
+
+# Logs, temporary files, editor state, and OS metadata
+*.log
+logs/
+*.tmp
+*.temp
+tmp/
+temp/
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# OS files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-
-# Logs and temporary files
-*.log
-logs/
-*.tmp
-*.temp
-.tmp/
-.temp/
-tmp/
-temp/
-
-# Development tools
-.pre-commit-config.yaml
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.ruff_cache/
-.loc-allowlist
-
-# Docker files not needed inside the build context
-Dockerfile*
-docker-compose*.yml
-.dockerignore
-
-# Environment files are passed at runtime
-.env*
-!.env.example
-
-# Development-only files
-scripts/
-tests/
-examples/
-dev/
-
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Databases and backups
-*.db
-*.sqlite
-*.sqlite3
-*.bak
-*.backup
