@@ -76,11 +76,12 @@ def _provenance_meta(context: McpErrorContext | None = None) -> dict[str, Any]:
     keep reporting the server default.
 
     SECURITY: `dataset_id` is caller-supplied and this runs on the ERROR path too
-    (an invalid dataset_id fails request validation and its error envelope also
-    carries `_meta`). Only a KNOWN dataset -- a key of `DATASET_GENCODE_VERSION`
-    -- may derive a release, and the emitted strings come from the mapping, not
-    from the caller. An unknown/invalid dataset_id keeps the server default: no
-    unvalidated input is ever echoed into a provenance field.
+    (an unknown dataset_id is rejected with `invalid_input`, and that error envelope
+    also carries `_meta`). `_meta.dataset_id` echoes the SANITIZED caller value, but
+    the RELEASE fields never echo anything: only a KNOWN dataset -- a key of
+    `DATASET_GENCODE_VERSION` -- may derive them, and the strings emitted come from
+    that mapping, not from the caller. An unknown dataset_id keeps the server
+    default and gets no `gencode_version`.
     """
     meta = dict(_BASE_META)
     if context is not None and context.dataset_id:
@@ -88,8 +89,13 @@ def _provenance_meta(context: McpErrorContext | None = None) -> dict[str, Any]:
         # caller-visible _meta; strip forbidden control/zero-width/bidi/NUL code
         # points so it cannot smuggle them through the provenance frame.
         meta["dataset_id"] = sanitize_message(context.dataset_id)
-        # Match on the RAW value: a string that only becomes a known dataset after
-        # sanitation is one the request layer rejects, so it must not drive provenance.
+        # Match on the RAW value, never the sanitized one: a string that only becomes
+        # a known dataset AFTER sanitation (e.g. "gtex_v10" + a zero-width joiner) is
+        # one the request layer REJECTS, so it must not drive provenance. Consequence,
+        # by design: on an error envelope the sanitized `dataset_id` can read
+        # "gtex_v10" while `gtex_release` stays at the default. That disagreement is
+        # safe -- an error envelope carries no rows, so no data is mislabelled --
+        # whereas deriving a release from a value the validator rejected would not be.
         known = _DATASET_PROVENANCE.get(context.dataset_id)
         if known is not None:
             meta["gtex_release"], meta["gencode_version"] = known

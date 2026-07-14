@@ -15,10 +15,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   GENCODE release (`gtex_v8`/`gtex_snrnaseq_pilot` -> `v26`, `gtex_v10` -> `v39`),
   that stamp re-introduced the release/GENCODE-mismatch hazard this server exists to
   remove. `gtex_release` now **follows `dataset_id`** on the three expression tools;
-  tools that take no `dataset_id` still report the server default. The release is
-  derived **only** from a known dataset (a key of `DATASET_GENCODE_VERSION`) — a
-  caller-supplied `dataset_id` is never echoed into a provenance field — so an
-  invalid dataset's error envelope keeps the default.
+  tools that take no `dataset_id` still report the server default. `dataset_id` is
+  caller-supplied, so the release fields are **never caller-controlled**: they are
+  derived only from a known dataset (a key of `DATASET_GENCODE_VERSION`) and only
+  ever take values from that map. (`_meta.dataset_id` continues to echo the
+  *sanitized* caller value, as before.) An unknown dataset's error envelope keeps
+  the server default release.
+- **An unknown `dataset_id` did upstream work before it was rejected.** The
+  expression tools resolved gene IDs *before* validating the request, and
+  `gencode_version_for_dataset` silently defaulted an unknown dataset to `v26` — so
+  `dataset_id="not_a_dataset"` resolved genes against the wrong GENCODE annotation
+  upstream and only then failed validation. Unknown datasets are now rejected with
+  `invalid_input` at the top of each dataset-scoped tool, before any upstream call,
+  and `gencode_version_for_dataset` raises instead of guessing. The valid-value list
+  is single-sourced from `DATASET_GENCODE_VERSION`; the caller's `dataset_id` is not
+  echoed into the error message.
 
 - **Nested settings never bound from the environment.** `ServerSettings` set no
   `env_nested_delimiter`, so every per-field name in the `api` and `cache` groups

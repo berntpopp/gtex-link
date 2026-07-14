@@ -62,6 +62,28 @@ def ensure_valid_tissue(tissue: str | None) -> None:
         )
 
 
+def ensure_known_dataset(dataset_id: str) -> None:
+    """Raise `invalid_input` unless *dataset_id* is a dataset this server serves.
+
+    Call this FIRST in every dataset-scoped tool, before any gene resolution or
+    upstream request. An unknown dataset must never reach the wire: gene ids are
+    resolved against the dataset's GENCODE release, so an unrecognized dataset
+    would otherwise be queried against the wrong annotation and only be rejected
+    afterwards by request validation.
+
+    The caller's `dataset_id` is deliberately NOT echoed into the message -- it is
+    untrusted text, and the valid values alone are the actionable part.
+    """
+    if dataset_id not in DATASET_GENCODE_VERSION:
+        raise McpToolError(
+            error_code="invalid_input",
+            message=(
+                f"Unknown dataset_id. Valid values: {', '.join(DATASET_GENCODE_VERSION)} "
+                "(see get_server_capabilities.datasets)."
+            ),
+        )
+
+
 @functools.cache
 def _surface() -> dict[str, Any]:
     surface: dict[str, Any] = {
@@ -147,7 +169,8 @@ def _surface() -> dict[str, Any]:
             "gtex_release": (
                 "_meta.gtex_release: the release the response's data came from -- it "
                 "FOLLOWS the requested dataset_id; tools that take no dataset_id "
-                "report default_dataset_id"
+                "report default_dataset_id. NOTE: `fetch` returns the flat Apps-SDK "
+                "document (id/title/text/url/metadata) and carries no _meta at all"
             ),
             "gencode_version": (
                 "_meta.gencode_version: the GENCODE release the gene IDs were resolved "

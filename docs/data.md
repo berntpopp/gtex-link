@@ -30,25 +30,40 @@ requested dataset's release for you (`DATASET_GENCODE_VERSION` in
 Provenance names the release the data in front of you **actually came from**:
 
 - **`_meta.gtex_release`** is the release that was queried — it **follows the
-  `dataset_id` you passed**. Tools that take no `dataset_id` (`search`, `fetch`,
-  `search_genes`, `get_gene_information`, `get_transcript_information`) report the
-  server default instead (`GTEX_DATA_RELEASE` in `gtex_link/mcp/resources.py`,
-  currently `gtex_v8`; also served as `default_dataset_id` in
-  `get_server_capabilities`).
+  `dataset_id` you passed**.
 - **`_meta.gencode_version`** is the GENCODE release the gene IDs were resolved
-  against, and is present on dataset-scoped calls only. It is the load-bearing
-  fact: `PKD1` is `ENSG00000008710.19` under `v26` but `.20` under `v39`.
-- **`_meta.dataset_id`** echoes the dataset argument back, and is likewise present
-  on the expression tools only.
+  against. It is the load-bearing fact: `PKD1` is `ENSG00000008710.19` under `v26`
+  but `.20` under `v39`.
+- **`_meta.dataset_id`** echoes the dataset argument back.
 
 So a call with `dataset_id="gtex_v10"` returns `_meta = {..., "gtex_release":
 "gtex_v10", "gencode_version": "v39", "dataset_id": "gtex_v10"}`.
 
-**Security note.** `dataset_id` is caller-supplied, so `gtex_release` is derived
-**only** from a dataset that is a known key of `DATASET_GENCODE_VERSION` — never
-echoed from the raw argument. An unknown or invalid `dataset_id` fails request
-validation, and its error envelope (which carries `_meta` too) keeps the server
-default release. See `_provenance_meta` in `gtex_link/mcp/envelope.py`.
+#### Which tools carry `_meta`
+
+Not every tool has a `_meta` frame — pinned by
+`tests/test_mcp/test_provenance_meta.py`, so this table cannot rot:
+
+| Tool | `_meta` | `gtex_release` reports |
+|---|---|---|
+| `get_median_expression_levels`, `get_individual_expression_data`, `get_top_expressed_genes_by_tissue` | yes | the `dataset_id` you passed, plus `gencode_version` and `dataset_id` |
+| `search`, `search_genes`, `get_gene_information`, `get_transcript_information` | yes | the server default (they take no `dataset_id`); no `gencode_version` |
+| `fetch` | **no** | — it returns the flat OpenAI Apps-SDK / deep-research document (`id`, `title`, `text`, `url`, `metadata`), a contractual shape with no `_meta` slot. Its `metadata.source` is a static label, **not** provenance. |
+| `get_server_capabilities` | **no** | — it *is* the provenance document: `gtex_release` and `default_dataset_id` there are the server **default**, and `dataset_gencode_versions` is the full map. |
+
+The server default is `GTEX_DATA_RELEASE` in `gtex_link/mcp/resources.py`
+(currently `gtex_v8`), served as `default_dataset_id` by `get_server_capabilities`.
+
+**Security note.** `dataset_id` is caller-supplied. The sanitized value is echoed
+back in `_meta.dataset_id`, but `gtex_release` and `gencode_version` are **never**
+caller-controlled: they are derived **only** from a dataset that is a known key of
+`DATASET_GENCODE_VERSION`, and only ever take values from that map. An unknown
+`dataset_id` is rejected with `invalid_input` before any upstream call, and its
+error envelope keeps the server default release — so on an *error* envelope
+`_meta.dataset_id` and `_meta.gtex_release` can legitimately disagree (the release
+is matched on the raw argument, never on a sanitized one the validator rejected).
+An error envelope carries no rows, so nothing is mislabelled. See
+`_provenance_meta` in `gtex_link/mcp/envelope.py`.
 
 ## Refresh model: none needed
 

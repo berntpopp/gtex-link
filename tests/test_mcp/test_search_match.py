@@ -82,8 +82,24 @@ def test_gencode_version_for_dataset_maps_known_datasets() -> None:
     assert gencode_version_for_dataset("gtex_v10") == "v39"
     # gtex_snrnaseq_pilot is an explicit key in DATASET_GENCODE_VERSION → v26.
     assert gencode_version_for_dataset("gtex_snrnaseq_pilot") == "v26"
-    # Unknown datasets fall back to the upstream default release.
-    assert gencode_version_for_dataset("something_else") == "v26"
+
+
+def test_gencode_version_for_dataset_rejects_an_unknown_dataset() -> None:
+    """It must NOT silently fall back to the default release.
+
+    The old fallback (`unknown -> v26`) meant an unrecognized dataset_id was
+    resolved against the WRONG annotation upstream before request validation ever
+    rejected it. Raising keeps a forgotten `ensure_known_dataset` guard from
+    silently reintroducing that: `ValidationError` maps to `invalid_input`.
+    """
+    from gtex_link.exceptions import ValidationError
+    from gtex_link.mcp.search_match import gencode_version_for_dataset
+
+    with pytest.raises(ValidationError) as exc:
+        gencode_version_for_dataset("something_else")
+
+    assert exc.value.field == "dataset_id"
+    assert "something_else" not in str(exc.value)  # no caller text echoed back
 
 
 @pytest.mark.asyncio
