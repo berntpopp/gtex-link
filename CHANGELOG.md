@@ -4,6 +4,18 @@ All notable changes to GTEx-Link are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.6] - 2026-07-14
+
+### Changed
+
+- **The NPM deployment pulls the released image instead of building from source.**
+  `docker/docker-compose.npm.yml` carried `build:`, so a deploy rebuilt the image on the
+  server even though CI had already published an attested, digest-addressable image to
+  GHCR. It now requires `GTEX_LINK_IMAGE` pinned to a digest and fails closed when it is
+  unset. Nothing else in the overlay changed: `container_name`, the Compose project name,
+  the healthcheck, networks and `command` are all preserved, so the deployed topology and
+  its named volumes are untouched.
+
 ## [Unreleased]
 
 ### Fixed
