@@ -51,6 +51,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   never produced by the error envelope. The advertised set now equals the
   emittable set, pinned by a test.
 
+- **The server's own MCP instructions were wrong.** `GTEX_SERVER_INSTRUCTIONS` — the
+  first thing every connecting client reads — said GTEx-Link "exposes GTEx Portal v8
+  expression data" (it serves three datasets) and promised that tool results carry a
+  `success` flag and `_meta` (`fetch` returns the flat Apps-SDK document and
+  `get_server_capabilities` its own document; neither has `_meta`). It now describes
+  the real dataset surface and names the two exceptions. The same false universal is
+  corrected in the README and `docs/data.md`, whose `_meta` table is now parsed by a
+  test and compared against live tool behaviour, so it cannot rot.
+
 ### Added
 
 - **`_meta.gencode_version`** on dataset-scoped calls: the GENCODE release the gene

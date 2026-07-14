@@ -41,15 +41,21 @@ So a call with `dataset_id="gtex_v10"` returns `_meta = {..., "gtex_release":
 
 #### Which tools carry `_meta`
 
-Not every tool has a `_meta` frame — pinned by
-`tests/test_mcp/test_provenance_meta.py`, so this table cannot rot:
+Not every tool has a `_meta` frame. This table is **machine-owned**:
+`tests/test_mcp/test_provenance_meta.py` parses it and calls every tool through
+the real MCP facade, so a wrong `yes`/`no` here fails CI.
 
 | Tool | `_meta` | `gtex_release` reports |
 |---|---|---|
-| `get_median_expression_levels`, `get_individual_expression_data`, `get_top_expressed_genes_by_tissue` | yes | the `dataset_id` you passed, plus `gencode_version` and `dataset_id` |
-| `search`, `search_genes`, `get_gene_information`, `get_transcript_information` | yes | the server default (they take no `dataset_id`); no `gencode_version` |
-| `fetch` | **no** | — it returns the flat OpenAI Apps-SDK / deep-research document (`id`, `title`, `text`, `url`, `metadata`), a contractual shape with no `_meta` slot. Its `metadata.source` is a static label, **not** provenance. |
-| `get_server_capabilities` | **no** | — it *is* the provenance document: `gtex_release` and `default_dataset_id` there are the server **default**, and `dataset_gencode_versions` is the full map. |
+| `get_median_expression_levels` | yes | the `dataset_id` you passed (+ `gencode_version`, `dataset_id`) |
+| `get_individual_expression_data` | yes | the `dataset_id` you passed (+ `gencode_version`, `dataset_id`) |
+| `get_top_expressed_genes_by_tissue` | yes | the `dataset_id` you passed (+ `gencode_version`, `dataset_id`) |
+| `search` | yes | the server default (takes no `dataset_id`; no `gencode_version`) |
+| `search_genes` | yes | the server default (takes no `dataset_id`; no `gencode_version`) |
+| `get_gene_information` | yes | the server default (takes no `dataset_id`; no `gencode_version`) |
+| `get_transcript_information` | yes | the server default (takes no `dataset_id`; no `gencode_version`) |
+| `fetch` | no | nothing — it returns the flat OpenAI Apps-SDK / deep-research document (`id`, `title`, `text`, `url`, `metadata`), a contractual shape with no `_meta` slot. Its `metadata.source` is a static label, **not** provenance |
+| `get_server_capabilities` | no | nothing — it *is* the provenance document: `gtex_release` and `default_dataset_id` there are the server **default**, and `dataset_gencode_versions` is the full map |
 
 The server default is `GTEX_DATA_RELEASE` in `gtex_link/mcp/resources.py`
 (currently `gtex_v8`), served as `default_dataset_id` by `get_server_capabilities`.
@@ -97,9 +103,11 @@ a `retry_backoff` recovery action.
 
 ## Required citation
 
-Every successful response carries this string verbatim in
-`_meta.recommended_citation`, and it is also served at the `gtex://citations`
-MCP resource. Paste it verbatim; do not paraphrase it.
+Every response that carries a `_meta` frame (see the table above — every tool
+except `fetch` and `get_server_capabilities`) stamps this string verbatim in
+`_meta.recommended_citation`. It is also served at the `gtex://citations` MCP
+resource and as `citation` in `get_server_capabilities`. Paste it verbatim; do
+not paraphrase it.
 
 > GTEx Consortium. The GTEx Consortium atlas of genetic regulatory effects
 > across human tissues. Science. 2020;369(6509):1318-1330.
@@ -118,7 +126,9 @@ MCP resource. Paste it verbatim; do not paraphrase it.
 - **`numSamples`** is the per-tissue RNA-seq sample denominator, and is
   **gene-independent** — it does not vary with the gene you queried.
 - **`_meta.next_commands`** carries ready-to-run follow-up calls so a client can
-  chain without guessing the next tool.
+  chain without guessing the next tool. It is emitted by `search_genes`,
+  `get_median_expression_levels`, and `get_top_expressed_genes_by_tissue` (the
+  tools that have an obvious next step), not by every tool.
 - **Error codes**: `not_found`, `invalid_input`, `rate_limited`,
   `upstream_unavailable`, `output_limit_exceeded`, `internal_error` — the same
   six that `get_server_capabilities` advertises, pinned to the set the error

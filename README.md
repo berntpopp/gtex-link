@@ -30,9 +30,11 @@ nothing.
 
 gtex-link answers that question in one call. Symbols are auto-resolved to GENCODE IDs
 **in the release backing the dataset you asked for**; tissue expression comes back ranked
-and compact by default; every response carries provenance, the required citation, and
-`_meta.next_commands` so a model chains without guessing; and a token-bucket limiter keeps
-the whole fleet inside GTEx's request budget.
+and compact by default; every result with a `_meta` frame (all but `fetch`, whose document
+shape is fixed by the Apps SDK) stamps provenance naming the release actually queried plus
+the required citation, and the tools with an obvious next step add `_meta.next_commands` so
+a model chains without guessing; and a token-bucket limiter keeps the whole fleet inside
+GTEx's request budget.
 
 ## Quick start
 

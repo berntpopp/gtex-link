@@ -7,14 +7,23 @@ RESEARCH_USE_NOTICE = (
     "treatment, or patient management."
 )
 
+# The server's own self-description: the first thing every connecting client reads.
+# Keep it TRUE -- it must name the real dataset surface (three datasets, not just v8)
+# and must not promise a `_meta` frame that `fetch` does not have.
 GTEX_SERVER_INSTRUCTIONS = (
-    "GTEx-Link exposes GTEx Portal v8 expression data. "
+    "GTEx-Link exposes GTEx Portal expression data across three datasets: "
+    "`gtex_v8` (the default), `gtex_v10`, and `gtex_snrnaseq_pilot`. The "
+    "expression tools take a `dataset_id`; each dataset is annotated against its "
+    "own GENCODE release, and gene IDs are resolved to the one you ask for. "
     "For ChatGPT-compatible workflows use `search` (natural language ok) then "
     "`fetch`. For programmatic access: `search_genes` -> "
     "`get_gene_information` -> `get_median_expression_levels` or "
     "`get_top_expressed_genes_by_tissue`. Gene IDs accept symbols or GENCODE "
     "IDs; symbols are auto-resolved. Tool results are structured JSON with a "
-    "`success` flag and `_meta`; errors carry an `error_code`. "
+    "`success` flag and a `_meta` frame whose `gtex_release` names the release "
+    "actually queried; errors carry an `error_code`. The exceptions are `fetch` "
+    "(flat search-document shape: id/title/text/url/metadata) and "
+    "`get_server_capabilities`, which carry no `_meta`. "
     f"{RESEARCH_USE_NOTICE}"
 )
 

@@ -11,14 +11,18 @@ So the provenance contract is pinned here, through `mcp.call_tool`:
      dataset must never be silently resolved against the default GENCODE
      release -- that is the same defect class as the false release stamp);
   3. exactly which tools carry a provenance `_meta` at all (`fetch` returns the
-     flat Apps SDK document shape and carries none) -- so the docs cannot rot.
+     flat Apps SDK document shape and carries none), AND that docs/data.md's
+     `_meta` table says the same thing -- the table is parsed here and compared
+     against live tool behaviour, so the docs genuinely cannot rot.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -270,6 +274,60 @@ def test_the_meta_partition_covers_every_registered_tool() -> None:
     assert set(_ALL_TOOLS) == PROVENANCE_META_TOOLS | NO_PROVENANCE_META_TOOLS
     assert not PROVENANCE_META_TOOLS & NO_PROVENANCE_META_TOOLS
     assert set(_MINIMAL_ARGS) == set(_ALL_TOOLS)
+
+
+# docs/data.md's "Which tools carry `_meta`" table: | `tool` | yes/no | ... |
+DATA_DOC = Path(__file__).resolve().parents[2] / "docs" / "data.md"
+_META_ROW_RE = re.compile(r"^\|\s*`(\w+)`\s*\|\s*(yes|no)\s*\|", re.MULTILINE)
+
+
+def _documented_meta_table() -> dict[str, bool]:
+    """Parse the docs table into {tool: carries_meta}."""
+    text = DATA_DOC.read_text(encoding="utf-8")
+    start = text.index("#### Which tools carry `_meta`")
+    end = text.index("\n## ", start)
+    return {tool: flag == "yes" for tool, flag in _META_ROW_RE.findall(text[start:end])}
+
+
+def test_docs_meta_table_is_actually_owned_by_this_test() -> None:
+    """The docs table must match the LIVE classification -- not just exist.
+
+    Claiming a fact is machine-checked while nothing checks it is worse than not
+    claiming it. `docs/data.md` says this test owns that table, so it must: flip
+    `fetch` to `yes` there and this test (plus the live-behaviour test below,
+    which the table drives) fails.
+    """
+    documented = _documented_meta_table()
+
+    assert set(documented) == set(_ALL_TOOLS), (
+        "docs/data.md's `_meta` table has drifted from the registered tools: "
+        f"doc={sorted(documented)} code={sorted(_ALL_TOOLS)}"
+    )
+    expected = {tool: tool in PROVENANCE_META_TOOLS for tool in _ALL_TOOLS}
+    assert documented == expected, (
+        "docs/data.md's `_meta` table disagrees with the live classification: "
+        f"doc={documented} code={expected}"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool", sorted(_ALL_TOOLS))
+async def test_each_tool_matches_what_the_docs_table_claims(tool: str) -> None:
+    """Drive the DOCUMENTED claim against the real MCP facade, tool by tool.
+
+    This closes the loop: the table is compared to what the server actually
+    returns, so a wrong `yes`/`no` in docs/data.md fails CI.
+    """
+    documented_has_meta = _documented_meta_table()[tool]
+
+    with patch_service(_v10_service()):
+        payload = await _call_tool(tool, _MINIMAL_ARGS[tool])
+
+    assert ("_meta" in payload) is documented_has_meta, (
+        f"docs/data.md claims {tool} "
+        f"{'has' if documented_has_meta else 'has no'} `_meta`, but the live tool "
+        f"{'has one' if '_meta' in payload else 'has none'}"
+    )
 
 
 @pytest.mark.asyncio
