@@ -1,0 +1,33 @@
+# CITATION.cff — GENERATED. Do not edit.
+# Source: genefoundry-router/fleet-metadata.yaml + this repo's pyproject.toml.
+# Regenerate: `make citation-write` in genefoundry-router.
+# See genefoundry-router/docs/REPO-METADATA-STANDARD-v1.md.
+cff-version: 1.2.0
+message: If you use this software, please cite it as below.
+title: gtex-link
+abstract: 'MCP server for the GTEx Portal: tissue-specific gene expression — median and per-sample TPM,
+  top expressed genes per tissue, and gene/transcript annotation — as typed tools for LLM agents.'
+type: software
+authors:
+- family-names: Popp
+  given-names: Bernt
+  email: bernt.popp@charite.de
+  affiliation: Charité – Universitätsmedizin Berlin
+version: 3.0.6
+license: MIT
+repository-code: https://github.com/berntpopp/gtex-link
+url: https://genefoundry.org
+keywords:
+- bioinformatics
+- claude
+- fastmcp
+- gene-expression
+- genefoundry
+- genomics
+- gtex
+- llm-tools
+- mcp
+- mcp-server
+- model-context-protocol
+- transcriptomics
+date-released: '2026-07-14'
