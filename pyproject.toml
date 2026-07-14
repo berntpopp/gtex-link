@@ -60,11 +60,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/gtex-link/gtex-link"
-Repository = "https://github.com/gtex-link/gtex-link"
-"Bug Tracker" = "https://github.com/gtex-link/gtex-link/issues"
-Changelog = "https://github.com/gtex-link/gtex-link/blob/main/CHANGELOG.md"
-
+Homepage = "https://github.com/berntpopp/gtex-link"
+Repository = "https://github.com/berntpopp/gtex-link"
+"Bug Tracker" = "https://github.com/berntpopp/gtex-link/issues"
+Changelog = "https://github.com/berntpopp/gtex-link/blob/main/CHANGELOG.md"
 [project.scripts]
 gtex-link = "gtex_link.cli:app"
 
