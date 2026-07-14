@@ -1,5 +1,10 @@
 # PR1 — Correctness Foundation Implementation Plan
 
+> **Historical design record — not a live contract.** This dated document is kept as
+> written: it records the intent at the time and may not describe current behaviour.
+> The live contract is `docs/data.md`, `README.md`, and the code. Excluded from the
+> docs prose lint in `tests/test_mcp/test_provenance_meta.py` for exactly that reason.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stop the gtex-link MCP surface from misleading agents — un-double-encode every tool, make `search` accept natural language, magnitude-sort `fetch`, and resolve gene symbols instead of returning silent empties.

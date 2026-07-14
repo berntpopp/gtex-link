@@ -10,10 +10,17 @@ So the provenance contract is pinned here, through `mcp.call_tool`:
   2. an unknown dataset_id is rejected BEFORE any upstream call (an unknown
      dataset must never be silently resolved against the default GENCODE
      release -- that is the same defect class as the false release stamp);
-  3. exactly which tools carry a provenance `_meta` at all (`fetch` returns the
-     flat Apps SDK document shape and carries none), AND that docs/data.md's
-     `_meta` table says the same thing -- the table is parsed here and compared
-     against live tool behaviour, so the docs genuinely cannot rot.
+  3. exactly which tools carry a provenance `_meta` at all -- `fetch` (the flat
+     Apps SDK document shape) and `get_server_capabilities` (its own document)
+     carry none -- AND that docs/data.md's `_meta` table says the same thing: the
+     table is parsed here and each row checked against live tool behaviour.
+
+That live classification is then the ORACLE for a prose lint over README.md, every
+docs/**/*.md, and the client-facing strings the server ships: no prose may claim
+`_meta` universality unscoped, nor name only SOME of the tools that lack it (the
+"all but `fetch`" bug, which dropped `get_server_capabilities` and shipped twice).
+docs/superpowers/** is excluded as a dated design archive -- and fenced: every file
+there must carry a "Historical design record" banner or this module fails.
 """
 
 from __future__ import annotations
@@ -281,18 +288,36 @@ ROOT = Path(__file__).resolve().parents[2]
 DATA_DOC = ROOT / "docs" / "data.md"
 _META_ROW_RE = re.compile(r"^\|\s*`(\w+)`\s*\|\s*(yes|no)\s*\|", re.MULTILINE)
 
-# Every prose surface that can make a claim about `_meta` to a human or a model:
-# the whole README (not one section -- a false claim in `## Why` is just as false as
-# one in `## Data & provenance`), the hand-written docs, and the client-facing strings
-# the server itself ships (MCP instructions, usage notes, capabilities descriptions).
-PROSE_SURFACES = [
-    ROOT / "README.md",
-    ROOT / "docs" / "data.md",
-    ROOT / "docs" / "architecture.md",
-    ROOT / "docs" / "configuration.md",
-    ROOT / "docs" / "conventions.md",
+# `docs/superpowers/` holds DATED design records (specs and plans, e.g.
+# 2026-06-01-mcp-excellence-design.md). They describe intent as it stood when written
+# -- some of it superseded -- and rewriting them to match today's code would falsify
+# the record. They are therefore excluded from the prose lint, and instead FENCED: every
+# file under here must carry a banner marking it as historical, enforced by
+# `test_archived_design_records_are_fenced` below, so the archive can never quietly
+# grow into a source of false current claims.
+ARCHIVE_ROOTS = (ROOT / "docs" / "superpowers",)
+ARCHIVE_BANNER = "**Historical design record"
+
+
+def _is_archived(path: Path) -> bool:
+    return any(root in path.parents for root in ARCHIVE_ROOTS)
+
+
+# Every prose surface that can make a claim about `_meta` to a human or a model. GLOBBED,
+# never hardcoded: a hand-maintained file list is the bug this guard exists to catch (the
+# previous list opened 5 of the repo's 61 markdown files, so a false claim in, say,
+# docs/deployment.md sailed through). The corpus is the whole README (a false claim in
+# `## Why` is just as false as one in `## Data & provenance`), every non-archived doc, and
+# the client-facing strings the server itself ships (MCP instructions, usage notes,
+# capabilities descriptions).
+CLIENT_FACING_STRINGS = [
     ROOT / "gtex_link" / "mcp" / "resources.py",
     ROOT / "gtex_link" / "mcp" / "metadata.py",
+]
+PROSE_SURFACES = [
+    *[p for p in sorted(ROOT.glob("docs/**/*.md")) if not _is_archived(p)],
+    ROOT / "README.md",
+    *CLIENT_FACING_STRINGS,
 ]
 
 # `_meta` as a token: matches "`_meta`" and "_meta.next_commands", but NOT the
@@ -335,6 +360,48 @@ def _prose_claims() -> list[tuple[str, str]]:
                 if _META_TOKEN.search(sentence):
                     claims.append((path.name, " ".join(sentence.split())))
     return claims
+
+
+def test_every_markdown_file_is_either_linted_or_fenced() -> None:
+    """No doc may be silently skipped -- that is how every false claim here survived.
+
+    Each markdown file under `docs/` (plus the README) must be EITHER in the linted
+    corpus OR under a fenced archive root. There is no third bucket, and no
+    hand-maintained skip list.
+    """
+    every_md = {*ROOT.glob("docs/**/*.md"), ROOT / "README.md"}
+    linted = set(PROSE_SURFACES) - set(CLIENT_FACING_STRINGS)
+    fenced = {p for p in every_md if _is_archived(p)}
+
+    assert linted | fenced == every_md, (
+        "markdown files that are neither linted nor fenced: "
+        f"{sorted(str(p.relative_to(ROOT)) for p in every_md - linted - fenced)}"
+    )
+    assert not linted & fenced
+
+
+def test_archived_design_records_are_fenced() -> None:
+    """Every archived doc must SAY it is archived -- the exclusion must be honest.
+
+    The lint skips `docs/superpowers/`, so nothing checks those files' claims. That is
+    only defensible if a reader (or an agent) can see at a glance that they are dated
+    records, not the live contract. Enforcing the banner here means the convention
+    cannot be forgotten: add a file to the archive without the banner and CI fails.
+    """
+    archived = sorted(p for root in ARCHIVE_ROOTS for p in root.glob("**/*.md"))
+    assert archived, "archive roots are empty -- did the archive move?"
+
+    unfenced = [
+        str(path.relative_to(ROOT))
+        for path in archived
+        # The banner must be at the TOP, where it is actually seen.
+        if ARCHIVE_BANNER not in "\n".join(path.read_text(encoding="utf-8").splitlines()[:10])
+    ]
+    assert not unfenced, (
+        f"archived design records missing the {ARCHIVE_BANNER!r} banner in their first "
+        f"10 lines (they are excluded from the prose lint, so they MUST announce that "
+        f"they are historical): {unfenced}"
+    )
 
 
 def test_no_prose_names_only_some_of_the_meta_less_tools() -> None:

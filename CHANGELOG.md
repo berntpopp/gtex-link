@@ -68,12 +68,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     and that "every tool call" proxies the live API (`get_server_capabilities` is a
     static document and makes no upstream call).
 
-  All are corrected, and the claims are now **machine-owned**: `docs/data.md`'s per-tool
-  `_meta` table is parsed and checked against live tool behaviour, and a prose lint over
-  the whole README, the hand-written docs, and the server's own client-facing strings
-  fails CI if any of them claims `_meta` universality or names only *some* of the tools
-  that lack it. (The previous guard scanned a single README section, which is how the
-  wrong wording survived a review round specifically about `_meta` claims.)
+  All are corrected, and the claims are now **machine-owned** by
+  `tests/test_mcp/test_provenance_meta.py`, which classifies every registered tool by
+  calling it through the real MCP facade and uses that as the oracle. It:
+  - parses `docs/data.md`'s per-tool `_meta` table and checks each row against live tool
+    behaviour; and
+  - lints prose for `_meta` claims — failing CI if any claims `_meta` universality
+    without scoping it, or names only *some* of the tools that lack `_meta`.
+
+  The lint corpus is **globbed, not hand-listed** (a hand-listed corpus is what let these
+  claims survive: the first version opened 5 of the repo's 61 markdown files). It covers
+  `README.md`, every `docs/**/*.md`, and the client-facing strings the server ships
+  (`gtex_link/mcp/resources.py`, `gtex_link/mcp/metadata.py`). It deliberately excludes,
+  and a test enforces that nothing else is skipped:
+  - `docs/superpowers/**` — dated design records. They state intent as of their date and
+    rewriting them to match today's code would falsify the record, so they are *fenced*
+    instead: each must carry a "Historical design record" banner, and CI fails if one
+    does not. The archive cannot quietly become a source of false current claims.
+  - `CHANGELOG.md` — this file narrates past behaviour by design.
+  - Python `#` comments (internal notes, not claims shipped to a client) and the per-tool
+    table rows (owned by the table check above).
 
 ### Added
 

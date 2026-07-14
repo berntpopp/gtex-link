@@ -1,5 +1,10 @@
 # Phase 3 — MCP Facade & Transport Unification Implementation Plan
 
+> **Historical design record — not a live contract.** This dated document is kept as
+> written: it records the intent at the time and may not describe current behaviour.
+> The live contract is `docs/data.md`, `README.md`, and the code. Excluded from the
+> docs prose lint in `tests/test_mcp/test_provenance_meta.py` for exactly that reason.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace `FastMCP.from_fastapi` with an explicit facade-based MCP layer. Unify the three server entry scripts into a single `server.py --transport {unified,http,stdio}` flow. Collapse the Docker compose split (api + mcp) into a single service. Preserve all MCP tool names 1:1.

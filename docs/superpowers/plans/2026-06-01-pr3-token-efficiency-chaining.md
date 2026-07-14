@@ -1,5 +1,10 @@
 # PR3 — Token Efficiency & Chaining Implementation Plan
 
+> **Historical design record — not a live contract.** This dated document is kept as
+> written: it records the intent at the time and may not describe current behaviour.
+> The live contract is `docs/data.md`, `README.md`, and the code. Excluded from the
+> docs prose lint in `tests/test_mcp/test_provenance_meta.py` for exactly that reason.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Cut median-expression payload tokens ~50-60%, remove the pagination-splits-a-gene footgun, answer "where is this expressed most?" in one small call, and emit chaining hints + a one-line headline — all under a typed `output_schema`.
