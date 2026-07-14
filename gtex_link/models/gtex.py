@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from gtex_link.exceptions import ValidationError
+
 
 class Chromosome(StrEnum):
     """Chromosome enumeration."""
@@ -69,8 +71,24 @@ DATASET_GENCODE_VERSION: dict[str, str] = {
 
 
 def gencode_version_for_dataset(dataset_id: str) -> str:
-    """GENCODE release backing *dataset_id* (default v26 for unknown datasets)."""
-    return DATASET_GENCODE_VERSION.get(dataset_id, DEFAULT_GENCODE_VERSION)
+    """GENCODE release backing *dataset_id*; raises for an unknown dataset.
+
+    This deliberately does NOT fall back to `DEFAULT_GENCODE_VERSION`. It used to,
+    and that silent default is what let an unknown `dataset_id` be resolved against
+    v26 upstream (a real request, against the wrong annotation) before request
+    validation ever rejected it -- the same defect class as stamping a false
+    `gtex_release`. Callers validate up front (`ensure_known_dataset`); this raise
+    is the backstop, and `ValidationError` maps to a clean `invalid_input` envelope
+    rather than a silently wrong release.
+    """
+    try:
+        return DATASET_GENCODE_VERSION[dataset_id]
+    except KeyError:
+        # No caller text in the message: valid values only (see ensure_known_dataset).
+        raise ValidationError(
+            f"Unknown dataset_id. Valid values: {', '.join(DATASET_GENCODE_VERSION)}.",
+            field="dataset_id",
+        ) from None
 
 
 class GenomeBuild(StrEnum):

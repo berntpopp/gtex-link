@@ -9,6 +9,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [3.0.6] - 2026-07-14
 ### Fixed
 
+- **`_meta.gtex_release` lied about which GTEx release the data came from.** It was
+  a hardcoded constant (`gtex_v8`) stamped on every envelope, so a
+  `dataset_id="gtex_v10"` call returned v10 rows while reporting
+  `gtex_release: "gtex_v8"`. Because each dataset is annotated against a different
+  GENCODE release (`gtex_v8`/`gtex_snrnaseq_pilot` -> `v26`, `gtex_v10` -> `v39`),
+  that stamp re-introduced the release/GENCODE-mismatch hazard this server exists to
+  remove. `gtex_release` now **follows `dataset_id`** on the three expression tools;
+  tools that take no `dataset_id` still report the server default. `dataset_id` is
+  caller-supplied, so the release fields are **never caller-controlled**: they are
+  derived only from a known dataset (a key of `DATASET_GENCODE_VERSION`) and only
+  ever take values from that map. (`_meta.dataset_id` continues to echo the
+  *sanitized* caller value, as before.) An unknown dataset's error envelope keeps
+  the server default release.
+- **An unknown `dataset_id` did upstream work before it was rejected.** The
+  expression tools resolved gene IDs *before* validating the request, and
+  `gencode_version_for_dataset` silently defaulted an unknown dataset to `v26` — so
+  `dataset_id="not_a_dataset"` resolved genes against the wrong GENCODE annotation
+  upstream and only then failed validation. Unknown datasets are now rejected with
+  `invalid_input` at the top of each dataset-scoped tool, before any upstream call,
+  and `gencode_version_for_dataset` raises instead of guessing. The valid-value list
+  is single-sourced from `DATASET_GENCODE_VERSION`; the caller's `dataset_id` is not
+  echoed into the error message.
+
 - **Nested settings never bound from the environment.** `ServerSettings` set no
   `env_nested_delimiter`, so every per-field name in the `api` and `cache` groups
   — `GTEX_LINK_CACHE_TTL`, `GTEX_LINK_CACHE_SIZE`,
@@ -29,15 +52,60 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   never produced by the error envelope. The advertised set now equals the
   emittable set, pinned by a test.
 
+- **Prose across the repo overclaimed the `_meta` provenance frame.** Two tools carry
+  no `_meta` at all — `fetch` (the flat Apps-SDK document: `id`/`title`/`text`/`url`/
+  `metadata`) and `get_server_capabilities` (its own document) — but the README, the
+  `docs/`, and the strings the server itself ships said or implied otherwise:
+  - `GTEX_SERVER_INSTRUCTIONS`, the first thing every connecting client reads, said
+    GTEx-Link "exposes GTEx Portal **v8** expression data" (it serves three datasets)
+    and promised every tool result carries a `success` flag and `_meta`.
+  - The README claimed "every response" carries provenance, the citation, and
+    `_meta.next_commands` (only `search_genes`, `get_median_expression_levels` and
+    `get_top_expressed_genes_by_tissue` emit `next_commands`), then — on the first
+    attempt to fix it — that `_meta` was on "all but `fetch`", still dropping
+    `get_server_capabilities`. `get_server_capabilities.response_fields` had the same
+    off-by-one omission.
+  - `docs/data.md` said "every successful response" carries `_meta.recommended_citation`
+    and that "every tool call" proxies the live API (`get_server_capabilities` is a
+    static document and makes no upstream call).
+
+  All are corrected, and the claims are now **machine-owned** by
+  `tests/test_mcp/test_provenance_meta.py`, which classifies every registered tool by
+  calling it through the real MCP facade and uses that as the oracle. It:
+  - parses `docs/data.md`'s per-tool `_meta` table and checks each row against live tool
+    behaviour; and
+  - lints prose for `_meta` claims — failing CI if any claims `_meta` universality
+    without scoping it, or names only *some* of the tools that lack `_meta`.
+
+  The lint corpus is **globbed, not hand-listed** (a hand-listed corpus is what let these
+  claims survive: the first version opened 5 of the repo's 61 markdown files). It covers
+  `README.md`, every `docs/**/*.md`, and the client-facing strings the server ships
+  (`gtex_link/mcp/resources.py`, `gtex_link/mcp/metadata.py`). It deliberately excludes,
+  and a test enforces that nothing else is skipped:
+  - `docs/superpowers/**` — dated design records. They state intent as of their date and
+    rewriting them to match today's code would falsify the record, so they are *fenced*
+    instead: each must carry a "Historical design record" banner, and CI fails if one
+    does not. The archive cannot quietly become a source of false current claims.
+  - `CHANGELOG.md` — this file narrates past behaviour by design.
+  - Python `#` comments (internal notes, not claims shipped to a client) and the per-tool
+    table rows (owned by the table check above).
+
+### Added
+
+- **`_meta.gencode_version`** on dataset-scoped calls: the GENCODE release the gene
+  IDs were resolved against (additive, non-breaking).
+- **`get_server_capabilities.default_dataset_id`** disambiguates the top-level
+  `gtex_release` (the server default) from the new per-call provenance semantics,
+  which `response_fields` now describes.
+
 ### Documentation
 
 - README and `docs/data.md` said the server served a single dataset (`gtex_v8`)
   and stamped it into every response. Both halves were wrong: the expression
   tools take a `dataset_id` over three datasets (`gtex_v8`, `gtex_v10`,
   `gtex_snrnaseq_pilot`), each annotated against a different GENCODE release
-  (`v26`, `v39`, `v26`), and `_meta.gtex_release` is a fixed constant that does
-  **not** follow `dataset_id`. All three datasets, the GENCODE mapping, and the
-  real provenance semantics are now documented and machine-checked.
+  (`v26`, `v39`, `v26`). All three datasets, the GENCODE mapping, and the real
+  provenance semantics (see Fixed, above) are now documented and machine-checked.
 - `docs/configuration.md` is now exhaustive over `gtex_link/config.py`, with the
   flat-vs-nested env naming rule stated explicitly.
 

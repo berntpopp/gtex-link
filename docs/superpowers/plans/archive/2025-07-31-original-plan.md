@@ -1,5 +1,10 @@
 # GTEx-Link Test Suite Refactoring Plan - FINAL PHASE
 
+> **Historical design record — not a live contract.** This dated document is kept as
+> written: it records the intent at the time and may not describe current behaviour.
+> The live contract is `docs/data.md`, `README.md`, and the code. Excluded from the
+> docs prose lint in `tests/test_mcp/test_provenance_meta.py` for exactly that reason.
+
 ## Executive Summary
 
 ✅ **MAJOR SUCCESS**: Test suite transformation completed with **100% test pass rate achieved**!

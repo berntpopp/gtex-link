@@ -121,3 +121,39 @@ async def test_success_meta_includes_recommended_citation() -> None:
 
     result = await run_mcp_tool("demo", call)
     assert "GTEx Consortium" in result["_meta"]["recommended_citation"]
+
+
+@pytest.mark.asyncio
+async def test_success_meta_release_follows_a_dataset_scoped_call() -> None:
+    """A gtex_v10 call returns v10 data, so provenance must say v10 (not the default)."""
+
+    async def call() -> dict[str, object]:
+        return {"data": []}
+
+    result = await run_mcp_tool(
+        "get_median_expression_levels",
+        call,
+        context=McpErrorContext(tool_name="get_median_expression_levels", dataset_id="gtex_v10"),
+    )
+
+    assert result["_meta"]["dataset_id"] == "gtex_v10"
+    assert result["_meta"]["gtex_release"] == "gtex_v10"
+    assert result["_meta"]["gencode_version"] == "v39"
+
+
+@pytest.mark.asyncio
+async def test_error_meta_release_follows_a_dataset_scoped_call() -> None:
+    """Error envelopes carry provenance too; it must not lie about the release."""
+
+    async def call() -> dict[str, object]:
+        raise RateLimitError("slow down")
+
+    result = await run_mcp_tool(
+        "get_median_expression_levels",
+        call,
+        context=McpErrorContext(tool_name="get_median_expression_levels", dataset_id="gtex_v10"),
+    )
+
+    assert result["success"] is False
+    assert result["_meta"]["gtex_release"] == "gtex_v10"
+    assert result["_meta"]["gencode_version"] == "v39"

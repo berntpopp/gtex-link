@@ -27,28 +27,58 @@ requested dataset's release for you (`DATASET_GENCODE_VERSION` in
 
 ### What the provenance `_meta` actually says
 
-Read the two provenance keys carefully — they are not the same thing:
+Provenance names the release the data in front of you **actually came from**:
 
-- **`_meta.gtex_release`** is a **server constant** (`GTEX_DATA_RELEASE` in
-  `gtex_link/mcp/resources.py`, currently `gtex_v8`). It reports the server's
-  default release and is stamped on **every** response unconditionally. It does
-  **not** follow the `dataset_id` you passed.
-- **`_meta.dataset_id`** is echoed back **only** by the expression tools, and it
-  *is* the dataset that was actually queried.
+- **`_meta.gtex_release`** is the release that was queried — it **follows the
+  `dataset_id` you passed**.
+- **`_meta.gencode_version`** is the GENCODE release the gene IDs were resolved
+  against. It is the load-bearing fact: `PKD1` is `ENSG00000008710.19` under `v26`
+  but `.20` under `v39`.
+- **`_meta.dataset_id`** echoes the dataset argument back.
 
-So a call with `dataset_id="gtex_v10"` returns
-`_meta = {..., "gtex_release": "gtex_v8", "dataset_id": "gtex_v10"}`. When the
-two disagree, **`dataset_id` is the one that describes the data in front of
-you**. (The unconditional `gtex_release` stamp is a known wart; see
-`gtex_link/mcp/envelope.py`.)
+So a call with `dataset_id="gtex_v10"` returns `_meta = {..., "gtex_release":
+"gtex_v10", "gencode_version": "v39", "dataset_id": "gtex_v10"}`.
+
+#### Which tools carry `_meta`
+
+Not every tool has a `_meta` frame. This table is **machine-owned**:
+`tests/test_mcp/test_provenance_meta.py` parses it and calls every tool through
+the real MCP facade, so a wrong `yes`/`no` here fails CI.
+
+| Tool | `_meta` | `gtex_release` reports |
+|---|---|---|
+| `get_median_expression_levels` | yes | the `dataset_id` you passed (+ `gencode_version`, `dataset_id`) |
+| `get_individual_expression_data` | yes | the `dataset_id` you passed (+ `gencode_version`, `dataset_id`) |
+| `get_top_expressed_genes_by_tissue` | yes | the `dataset_id` you passed (+ `gencode_version`, `dataset_id`) |
+| `search` | yes | the server default (takes no `dataset_id`; no `gencode_version`) |
+| `search_genes` | yes | the server default (takes no `dataset_id`; no `gencode_version`) |
+| `get_gene_information` | yes | the server default (takes no `dataset_id`; no `gencode_version`) |
+| `get_transcript_information` | yes | the server default (takes no `dataset_id`; no `gencode_version`) |
+| `fetch` | no | nothing — it returns the flat OpenAI Apps-SDK / deep-research document (`id`, `title`, `text`, `url`, `metadata`), a contractual shape with no `_meta` slot. Its `metadata.source` is a static label, **not** provenance |
+| `get_server_capabilities` | no | nothing — it *is* the provenance document: `gtex_release` and `default_dataset_id` there are the server **default**, and `dataset_gencode_versions` is the full map |
+
+The server default is `GTEX_DATA_RELEASE` in `gtex_link/mcp/resources.py`
+(currently `gtex_v8`), served as `default_dataset_id` by `get_server_capabilities`.
+
+**Security note.** `dataset_id` is caller-supplied. The sanitized value is echoed
+back in `_meta.dataset_id`, but `gtex_release` and `gencode_version` are **never**
+caller-controlled: they are derived **only** from a dataset that is a known key of
+`DATASET_GENCODE_VERSION`, and only ever take values from that map. An unknown
+`dataset_id` is rejected with `invalid_input` before any upstream call, and its
+error envelope keeps the server default release — so on an *error* envelope
+`_meta.dataset_id` and `_meta.gtex_release` can legitimately disagree (the release
+is matched on the raw argument, never on a sanitized one the validator rejected).
+An error envelope carries no rows, so nothing is mislabelled. See
+`_provenance_meta` in `gtex_link/mcp/envelope.py`.
 
 ## Refresh model: none needed
 
 GTEx-Link ships **no data bundle, no SQLite mirror, and no ingest step**. There
 is no `make data`, nothing to build before first run, and no volume to persist.
-Every tool call proxies the live GTEx Portal API, fronted by an in-process
-TTL + LRU cache (`GTEX_LINK_CACHE__TTL`, default 3600s;
-`GTEX_LINK_CACHE__SIZE`, default 1000 items).
+Every tool call that returns GTEx data proxies the live GTEx Portal API, fronted
+by an in-process TTL + LRU cache (`GTEX_LINK_CACHE__TTL`, default 3600s;
+`GTEX_LINK_CACHE__SIZE`, default 1000 items). (`get_server_capabilities` is the
+exception: it is a static document and makes no upstream call.)
 
 Freshness therefore tracks the GTEx Portal directly: when GTEx publishes, the
 server serves it as soon as cached entries expire.
@@ -74,9 +104,11 @@ a `retry_backoff` recovery action.
 
 ## Required citation
 
-Every successful response carries this string verbatim in
-`_meta.recommended_citation`, and it is also served at the `gtex://citations`
-MCP resource. Paste it verbatim; do not paraphrase it.
+Every response that carries a `_meta` frame (see the table above — every tool
+except `fetch` and `get_server_capabilities`) stamps this string verbatim in
+`_meta.recommended_citation`. It is also served at the `gtex://citations` MCP
+resource and as `citation` in `get_server_capabilities`. Paste it verbatim; do
+not paraphrase it.
 
 > GTEx Consortium. The GTEx Consortium atlas of genetic regulatory effects
 > across human tissues. Science. 2020;369(6509):1318-1330.
@@ -95,7 +127,9 @@ MCP resource. Paste it verbatim; do not paraphrase it.
 - **`numSamples`** is the per-tissue RNA-seq sample denominator, and is
   **gene-independent** — it does not vary with the gene you queried.
 - **`_meta.next_commands`** carries ready-to-run follow-up calls so a client can
-  chain without guessing the next tool.
+  chain without guessing the next tool. It is emitted by `search_genes`,
+  `get_median_expression_levels`, and `get_top_expressed_genes_by_tissue` (the
+  tools that have an obvious next step), not by every tool.
 - **Error codes**: `not_found`, `invalid_input`, `rate_limited`,
   `upstream_unavailable`, `output_limit_exceeded`, `internal_error` — the same
   six that `get_server_capabilities` advertises, pinned to the set the error

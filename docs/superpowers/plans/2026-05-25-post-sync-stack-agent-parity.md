@@ -1,5 +1,10 @@
 # Post-Sync Stack and Agent Parity Implementation Plan
 
+> **Historical design record — not a live contract.** This dated document is kept as
+> written: it records the intent at the time and may not describe current behaviour.
+> The live contract is `docs/data.md`, `README.md`, and the code. Excluded from the
+> docs prose lint in `tests/test_mcp/test_provenance_meta.py` for exactly that reason.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Finish the residual stack, agent, README, and local workflow parity work after syncing `gtex-link` with the updated `origin/main`.

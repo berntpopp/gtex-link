@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, McpToolError, run_mcp_tool
-from gtex_link.mcp.metadata import ensure_valid_tissue
+from gtex_link.mcp.metadata import ensure_known_dataset, ensure_valid_tissue
 from gtex_link.mcp.next_commands import after_median, after_top
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.schema_relax import relax_output_schema
@@ -87,6 +87,9 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             limit: int = 50,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
+                # Reject an unknown dataset BEFORE resolving gene ids: resolution is
+                # itself an upstream call against the dataset's GENCODE release.
+                ensure_known_dataset(dataset_id)
                 service = get_gtex_service()
                 resolved = await resolve_gene_ids(
                     service, gencode_id, gencode_version=gencode_version_for_dataset(dataset_id)
@@ -205,6 +208,7 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             limit: int = 100,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
+                ensure_known_dataset(dataset_id)  # before any upstream gene resolution
                 service = get_gtex_service()
                 ensure_valid_tissue(tissue_site_detail_id)
                 resolved = await resolve_gene_ids(
@@ -270,6 +274,7 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             limit: int = 100,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
+                ensure_known_dataset(dataset_id)
                 ensure_valid_tissue(tissue_site_detail_id)
                 service = get_gtex_service()
                 request = TopExpressedGenesRequest.model_validate(
