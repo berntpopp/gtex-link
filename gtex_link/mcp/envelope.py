@@ -26,13 +26,24 @@ from gtex_link.exceptions import (
 )
 from gtex_link.mcp.resources import GTEX_DATA_RELEASE, RECOMMENDED_CITATION
 from gtex_link.mcp.untrusted_content import UntrustedTextLimitError, sanitize_message
+from gtex_link.models.gtex import DATASET_GENCODE_VERSION
 
 logger = logging.getLogger(__name__)
 
 _BASE_META: dict[str, Any] = {
     "unsafe_for_clinical_use": True,
+    # The server DEFAULT release; a dataset-scoped call overrides it below with the
+    # release actually queried.
     "gtex_release": GTEX_DATA_RELEASE,
     "recommended_citation": RECOMMENDED_CITATION,
+}
+
+# Allowlist: only a dataset_id that IS a known dataset may drive provenance, and the
+# values emitted are THIS MODULE's literals (re-materialized from the mapping), never
+# the caller's string. `gtex_release` therefore can never become an echo of arbitrary
+# caller text -- see `_provenance_meta`.
+_DATASET_PROVENANCE: dict[str, tuple[str, str]] = {
+    dataset: (dataset, gencode) for dataset, gencode in DATASET_GENCODE_VERSION.items()
 }
 
 
@@ -54,12 +65,34 @@ class McpToolError(Exception):
 
 
 def _provenance_meta(context: McpErrorContext | None = None) -> dict[str, Any]:
+    """Provenance `_meta`: name the release the returned data ACTUALLY came from.
+
+    The expression tools span three datasets annotated against different GENCODE
+    releases (gtex_v8/gtex_snrnaseq_pilot -> v26, gtex_v10 -> v39), so a fixed
+    `gtex_release` stamp would lie about a `dataset_id="gtex_v10"` call and
+    re-introduce the very release/GENCODE-mismatch hazard this server removes.
+    A dataset-scoped call therefore reports its own release plus the GENCODE
+    version its gene IDs were resolved against; tools that take no `dataset_id`
+    keep reporting the server default.
+
+    SECURITY: `dataset_id` is caller-supplied and this runs on the ERROR path too
+    (an invalid dataset_id fails request validation and its error envelope also
+    carries `_meta`). Only a KNOWN dataset -- a key of `DATASET_GENCODE_VERSION`
+    -- may derive a release, and the emitted strings come from the mapping, not
+    from the caller. An unknown/invalid dataset_id keeps the server default: no
+    unvalidated input is ever echoed into a provenance field.
+    """
     meta = dict(_BASE_META)
     if context is not None and context.dataset_id:
         # dataset_id is a caller-supplied argument copied verbatim into the
         # caller-visible _meta; strip forbidden control/zero-width/bidi/NUL code
         # points so it cannot smuggle them through the provenance frame.
         meta["dataset_id"] = sanitize_message(context.dataset_id)
+        # Match on the RAW value: a string that only becomes a known dataset after
+        # sanitation is one the request layer rejects, so it must not drive provenance.
+        known = _DATASET_PROVENANCE.get(context.dataset_id)
+        if known is not None:
+            meta["gtex_release"], meta["gencode_version"] = known
     return meta
 
 

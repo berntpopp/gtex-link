@@ -68,7 +68,12 @@ def _surface() -> dict[str, Any]:
         "server": "gtex-link",
         "server_version": _server_version(),
         "mcp_protocol_version": "2025-11-25",
+        # The server DEFAULT release (the `dataset_id` default), NOT a claim that this
+        # is the only release served -- see `datasets`. Per-call provenance
+        # (`_meta.gtex_release`) follows the `dataset_id` actually requested; see
+        # `response_fields` below.
         "gtex_release": GTEX_DATA_RELEASE,
+        "default_dataset_id": GTEX_DATA_RELEASE,
         "research_use_only": True,
         "datasets": ["gtex_v8", "gtex_v10", "gtex_snrnaseq_pilot"],
         "dataset_gencode_versions": dict(DATASET_GENCODE_VERSION),
@@ -139,6 +144,15 @@ def _surface() -> dict[str, Any]:
             "headline": "one-line plain-English answer at the top of median results",
             "next_commands": "_meta.next_commands: ready-to-call {tool, arguments} next steps",
             "recommended_citation": "_meta.recommended_citation: paste verbatim",
+            "gtex_release": (
+                "_meta.gtex_release: the release the response's data came from -- it "
+                "FOLLOWS the requested dataset_id; tools that take no dataset_id "
+                "report default_dataset_id"
+            ),
+            "gencode_version": (
+                "_meta.gencode_version: the GENCODE release the gene IDs were resolved "
+                "against (dataset-scoped calls only; see dataset_gencode_versions)"
+            ),
         },
         "resources": {
             "gtex://capabilities": "this document",

@@ -86,7 +86,7 @@ would double-prefix to `gtex_gtex_…`, so do not add one.
 |---|---|
 | **Source** | [GTEx Portal](https://gtexportal.org/) v2 API — `https://gtexportal.org/api/v2/`, public, **no authentication** |
 | **Datasets** | `gtex_v8` (GENCODE `v26`, the default), `gtex_v10` (`v39`), `gtex_snrnaseq_pilot` (`v26`) — pick one with the `dataset_id` argument on the expression tools |
-| **Provenance** | `_meta.dataset_id` names the dataset actually queried. `_meta.gtex_release` is a fixed server constant (`gtex_v8`) and does **not** follow `dataset_id` — when they disagree, `dataset_id` is the truthful one ([data.md](docs/data.md)) |
+| **Provenance** | `_meta.gtex_release` names the release the data **actually came from**: it follows `dataset_id`, and a dataset-scoped call also reports the `_meta.gencode_version` its gene IDs were resolved against. Tools that take no `dataset_id` report the server default (`gtex_v8`) ([data.md](docs/data.md)) |
 | **Refresh** | None to run: no bundle, no mirror, no ingest. Calls proxy the live API behind a TTL cache, so freshness tracks the Portal |
 | **Rate limit** | Token bucket, 5 req/s with burst 10 — upstream courtesy, not a local throttle. Do not raise it casually |
 | **Data licence** | GTEx Portal [terms](https://gtexportal.org/home/license). Only open-access GTEx data are reachable here; protected individual-level genotype data are dbGaP-controlled and are not exposed |

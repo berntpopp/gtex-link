@@ -8,6 +8,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`_meta.gtex_release` lied about which GTEx release the data came from.** It was
+  a hardcoded constant (`gtex_v8`) stamped on every envelope, so a
+  `dataset_id="gtex_v10"` call returned v10 rows while reporting
+  `gtex_release: "gtex_v8"`. Because each dataset is annotated against a different
+  GENCODE release (`gtex_v8`/`gtex_snrnaseq_pilot` -> `v26`, `gtex_v10` -> `v39`),
+  that stamp re-introduced the release/GENCODE-mismatch hazard this server exists to
+  remove. `gtex_release` now **follows `dataset_id`** on the three expression tools;
+  tools that take no `dataset_id` still report the server default. The release is
+  derived **only** from a known dataset (a key of `DATASET_GENCODE_VERSION`) — a
+  caller-supplied `dataset_id` is never echoed into a provenance field — so an
+  invalid dataset's error envelope keeps the default.
+
 - **Nested settings never bound from the environment.** `ServerSettings` set no
   `env_nested_delimiter`, so every per-field name in the `api` and `cache` groups
   — `GTEX_LINK_CACHE_TTL`, `GTEX_LINK_CACHE_SIZE`,
@@ -28,15 +40,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   never produced by the error envelope. The advertised set now equals the
   emittable set, pinned by a test.
 
+### Added
+
+- **`_meta.gencode_version`** on dataset-scoped calls: the GENCODE release the gene
+  IDs were resolved against (additive, non-breaking).
+- **`get_server_capabilities.default_dataset_id`** disambiguates the top-level
+  `gtex_release` (the server default) from the new per-call provenance semantics,
+  which `response_fields` now describes.
+
 ### Documentation
 
 - README and `docs/data.md` said the server served a single dataset (`gtex_v8`)
   and stamped it into every response. Both halves were wrong: the expression
   tools take a `dataset_id` over three datasets (`gtex_v8`, `gtex_v10`,
   `gtex_snrnaseq_pilot`), each annotated against a different GENCODE release
-  (`v26`, `v39`, `v26`), and `_meta.gtex_release` is a fixed constant that does
-  **not** follow `dataset_id`. All three datasets, the GENCODE mapping, and the
-  real provenance semantics are now documented and machine-checked.
+  (`v26`, `v39`, `v26`). All three datasets, the GENCODE mapping, and the real
+  provenance semantics (see Fixed, above) are now documented and machine-checked.
 - `docs/configuration.md` is now exhaustive over `gtex_link/config.py`, with the
   flat-vs-nested env naming rule stated explicitly.
 

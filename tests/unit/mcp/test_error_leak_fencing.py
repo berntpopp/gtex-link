@@ -207,6 +207,39 @@ async def test_error_meta_caller_dataset_id_is_sanitized_recursively() -> None:
 
 
 @pytest.mark.asyncio
+async def test_error_meta_gtex_release_never_echoes_an_unknown_dataset_id() -> None:
+    """SECURITY: an invalid `dataset_id` must not reach the `gtex_release` field.
+
+    `_meta.gtex_release` now FOLLOWS `dataset_id` (provenance must name the release
+    actually queried), and `dataset_id` is caller-supplied. This error path is
+    reachable with hostile input -- an unknown dataset_id fails request validation
+    and the resulting ERROR envelope also carries provenance `_meta` -- so the
+    release may only ever be derived from a KNOWN dataset. Anything else keeps the
+    server default: no unvalidated caller text in a provenance field.
+    """
+    from gtex_link.models.gtex import DATASET_GENCODE_VERSION
+
+    hostile_dataset = f"{HOSTILE} gtex_v10"
+    mock_service = AsyncMock()
+
+    with patch_service(mock_service):
+        structured, mirror = await _call_tool_both(
+            "get_top_expressed_genes_by_tissue",
+            {"tissue_site_detail_id": "Whole_Blood", "dataset_id": hostile_dataset},
+        )
+
+    for payload in (structured, mirror):
+        assert payload["success"] is False
+        assert payload["error_code"] == "invalid_input"
+        assert payload["_meta"]["gtex_release"] == "gtex_v8"
+        assert payload["_meta"]["gtex_release"] in DATASET_GENCODE_VERSION
+        assert "Ignore all previous instructions" not in payload["_meta"]["gtex_release"]
+        _assert_clean_recursive(payload)
+    # The upstream service was never reached: validation rejected the dataset.
+    mock_service.get_top_expressed_genes.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_arg_validation_returns_fixed_invalid_input_frame() -> None:
     """Out-of-schema args are fenced into a FIXED invalid_input frame.
 

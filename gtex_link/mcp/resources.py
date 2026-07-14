@@ -20,7 +20,10 @@ GTEX_SERVER_INSTRUCTIONS = (
 
 GTEX_PORTAL_URL = "https://gtexportal.org"
 
-# Default GTEx data release surfaced in provenance _meta and capabilities.
+# The server's DEFAULT GTEx data release: the `dataset_id` default on every tool that
+# takes one, and the `gtex_release` reported in capabilities and in provenance _meta
+# for tools that take no `dataset_id`. A dataset-scoped call reports the release it
+# actually queried instead -- see `envelope._provenance_meta`.
 GTEX_DATA_RELEASE = "gtex_v8"
 
 RECOMMENDED_CITATION = (
