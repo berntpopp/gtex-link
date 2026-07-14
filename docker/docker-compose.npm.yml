@@ -21,9 +21,11 @@ services:
       - GTEX_LINK_LOG_LEVEL=${LOG_LEVEL_API:-INFO}
       - GTEX_LINK_LOG_FORMAT=json
       - GTEX_LINK_RELOAD=false
-      - GTEX_LINK_API_RATE_LIMIT_PER_SECOND=${GTEX_API_RATE_LIMIT:-5.0}
-      - GTEX_LINK_CACHE_SIZE=${GTEX_CACHE_SIZE:-1000}
-      - GTEX_LINK_CACHE_TTL=${GTEX_CACHE_TTL:-3600}
+      # Nested settings groups take the `__` delimiter; the single-underscore
+      # spelling used here previously was silently ignored.
+      - GTEX_LINK_API__RATE_LIMIT_PER_SECOND=${GTEX_API_RATE_LIMIT:-5.0}
+      - GTEX_LINK_CACHE__SIZE=${GTEX_CACHE_SIZE:-1000}
+      - GTEX_LINK_CACHE__TTL=${GTEX_CACHE_TTL:-3600}
       # CORS configuration for production
       - GTEX_LINK_CORS_ORIGINS=["https://gtex-link.genefoundry.org"]
       - GTEX_LINK_CORS_ALLOW_CREDENTIALS=false
