@@ -6,17 +6,49 @@ All data are served live from the **GTEx Portal v2 API**,
 `https://gtexportal.org/api/v2/` — a public endpoint that requires **no
 authentication, no API key, and no registration**.
 
-The default dataset is **`gtex_v8`** (`GTEX_DATA_RELEASE` in
-`gtex_link/mcp/resources.py`), and it is stamped into the provenance `_meta` of
-every response and into `get_server_capabilities`.
+## Datasets
+
+The upstream API exposes three datasets, and the expression tools
+(`get_median_expression_levels`, `get_individual_expression_data`,
+`get_top_expressed_genes_by_tissue`) take a **`dataset_id` argument** to choose
+between them. Each is annotated against a different **GENCODE release**, so the
+gene identifiers differ per dataset — GTEx-Link resolves symbols to the
+requested dataset's release for you (`DATASET_GENCODE_VERSION` in
+`gtex_link/models/gtex.py`).
+
+| `dataset_id` | GENCODE | Notes |
+|---|---|---|
+| `gtex_v8` | `v26` | **Default** for every tool that takes `dataset_id`. |
+| `gtex_v10` | `v39` | Newer release; a gene absent from v39 simply returns no rows. |
+| `gtex_snrnaseq_pilot` | `v26` | Single-nucleus RNA-seq pilot. |
+
+`get_server_capabilities` serves this same table live (`datasets`,
+`dataset_gencode_versions`), which is the authoritative copy.
+
+### What the provenance `_meta` actually says
+
+Read the two provenance keys carefully — they are not the same thing:
+
+- **`_meta.gtex_release`** is a **server constant** (`GTEX_DATA_RELEASE` in
+  `gtex_link/mcp/resources.py`, currently `gtex_v8`). It reports the server's
+  default release and is stamped on **every** response unconditionally. It does
+  **not** follow the `dataset_id` you passed.
+- **`_meta.dataset_id`** is echoed back **only** by the expression tools, and it
+  *is* the dataset that was actually queried.
+
+So a call with `dataset_id="gtex_v10"` returns
+`_meta = {..., "gtex_release": "gtex_v8", "dataset_id": "gtex_v10"}`. When the
+two disagree, **`dataset_id` is the one that describes the data in front of
+you**. (The unconditional `gtex_release` stamp is a known wart; see
+`gtex_link/mcp/envelope.py`.)
 
 ## Refresh model: none needed
 
 GTEx-Link ships **no data bundle, no SQLite mirror, and no ingest step**. There
 is no `make data`, nothing to build before first run, and no volume to persist.
 Every tool call proxies the live GTEx Portal API, fronted by an in-process
-TTL + LRU cache (`GTEX_LINK_CACHE_TTL`, default 3600s;
-`GTEX_LINK_CACHE_SIZE`, default 1000 items).
+TTL + LRU cache (`GTEX_LINK_CACHE__TTL`, default 3600s;
+`GTEX_LINK_CACHE__SIZE`, default 1000 items).
 
 Freshness therefore tracks the GTEx Portal directly: when GTEx publishes, the
 server serves it as soon as cached entries expire.
@@ -24,8 +56,8 @@ server serves it as soon as cached entries expire.
 ## Upstream rate limit
 
 The client applies a **token-bucket limiter defaulting to 5 requests/second**
-with a burst of 10 (`GTEX_LINK_API_RATE_LIMIT_PER_SECOND`,
-`GTEX_LINK_API_BURST_SIZE`), plus up to 3 retries with exponential backoff.
+with a burst of 10 (`GTEX_LINK_API__RATE_LIMIT_PER_SECOND`,
+`GTEX_LINK_API__BURST_SIZE`), plus up to 3 retries with exponential backoff.
 
 This is **courtesy to a free public service, not a local throttle**. Do not
 raise it casually. Upstream 429s surface as the `rate_limited` error code with
@@ -64,10 +96,12 @@ MCP resource. Paste it verbatim; do not paraphrase it.
   **gene-independent** — it does not vary with the gene you queried.
 - **`_meta.next_commands`** carries ready-to-run follow-up calls so a client can
   chain without guessing the next tool.
-- **Error codes**: `not_found`, `invalid_input`, `validation_failed`,
-  `rate_limited`, `upstream_unavailable`, `internal_error`. Errors carry
-  `retryable` and a `recovery_action` (`retry_backoff` | `reformulate_input` |
-  `switch_tool`), and validation failures add `field_errors`.
+- **Error codes**: `not_found`, `invalid_input`, `rate_limited`,
+  `upstream_unavailable`, `output_limit_exceeded`, `internal_error` — the same
+  six that `get_server_capabilities` advertises, pinned to the set the error
+  envelope can actually emit. Errors carry `retryable` and a `recovery_action`
+  (`retry_backoff` | `reformulate_input` | `switch_tool`), and validation
+  failures add `field_errors`.
 
 ## MCP resources
 

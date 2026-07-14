@@ -122,6 +122,16 @@ class ServerSettings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
         env_prefix="GTEX_LINK_",
+        # `api` and `cache` are nested models. Without a nested delimiter,
+        # pydantic-settings binds them ONLY from a whole-object JSON blob
+        # (GTEX_LINK_CACHE='{"ttl": 7200}'), and every per-field name -- the
+        # GTEX_LINK_CACHE_TTL / GTEX_LINK_API_RATE_LIMIT_PER_SECOND that the docs
+        # and the Compose overlays have always passed -- is silently dropped by
+        # extra="ignore". The delimiter makes those knobs real under the
+        # fleet-canonical PREFIX_GROUP__FIELD spelling (GTEX_LINK_CACHE__TTL).
+        # tests/unit/test_config_env_contract.py pins the binding and keeps
+        # docs/configuration.md exhaustive so this cannot silently regress.
+        env_nested_delimiter="__",
     )
 
     # Server settings

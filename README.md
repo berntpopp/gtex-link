@@ -5,7 +5,7 @@
 [![Conformance](https://github.com/berntpopp/gtex-link/actions/workflows/conformance.yml/badge.svg)](https://github.com/berntpopp/gtex-link/actions/workflows/conformance.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-An MCP server over the [GTEx Portal](https://gtexportal.org/) v2 API, serving GTEx v8
+An MCP server over the [GTEx Portal](https://gtexportal.org/) v2 API, serving GTEx
 tissue expression — median and individual-sample TPM, top genes per tissue, gene and
 transcript annotation — to AI assistants over Streamable HTTP. It also serves a REST API
 from the same process.
@@ -24,10 +24,15 @@ must line up with the expression call that follows. Tissues are addressed by int
 `tissueSiteDetailId` codes, and "where is this gene expressed?" spans several paginated
 endpoints that return wide, untyped JSON.
 
-gtex-link answers that question in one call. Symbols are auto-resolved to GENCODE IDs;
-tissue expression comes back ranked and compact by default; every response carries
-provenance, the required citation, and `_meta.next_commands` so a model chains without
-guessing; and a token-bucket limiter keeps the whole fleet inside GTEx's request budget.
+Worse, the release you query decides the annotation: `gtex_v8` is GENCODE v26 and
+`gtex_v10` is GENCODE v39, so an ID resolved against the wrong one silently returns
+nothing.
+
+gtex-link answers that question in one call. Symbols are auto-resolved to GENCODE IDs
+**in the release backing the dataset you asked for**; tissue expression comes back ranked
+and compact by default; every response carries provenance, the required citation, and
+`_meta.next_commands` so a model chains without guessing; and a token-bucket limiter keeps
+the whole fleet inside GTEx's request budget.
 
 ## Quick start
 
@@ -80,7 +85,8 @@ would double-prefix to `gtex_gtex_…`, so do not add one.
 | | |
 |---|---|
 | **Source** | [GTEx Portal](https://gtexportal.org/) v2 API — `https://gtexportal.org/api/v2/`, public, **no authentication** |
-| **Dataset** | `gtex_v8`, stamped into every response's provenance `_meta` |
+| **Datasets** | `gtex_v8` (GENCODE `v26`, the default), `gtex_v10` (`v39`), `gtex_snrnaseq_pilot` (`v26`) — pick one with the `dataset_id` argument on the expression tools |
+| **Provenance** | `_meta.dataset_id` names the dataset actually queried. `_meta.gtex_release` is a fixed server constant (`gtex_v8`) and does **not** follow `dataset_id` — when they disagree, `dataset_id` is the truthful one ([data.md](docs/data.md)) |
 | **Refresh** | None to run: no bundle, no mirror, no ingest. Calls proxy the live API behind a TTL cache, so freshness tracks the Portal |
 | **Rate limit** | Token bucket, 5 req/s with burst 10 — upstream courtesy, not a local throttle. Do not raise it casually |
 | **Data licence** | GTEx Portal [terms](https://gtexportal.org/home/license). Only open-access GTEx data are reachable here; protected individual-level genotype data are dbGaP-controlled and are not exposed |

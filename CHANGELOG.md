@@ -6,6 +6,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Nested settings never bound from the environment.** `ServerSettings` set no
+  `env_nested_delimiter`, so every per-field name in the `api` and `cache` groups
+  — `GTEX_LINK_CACHE_TTL`, `GTEX_LINK_CACHE_SIZE`,
+  `GTEX_LINK_API_RATE_LIMIT_PER_SECOND`, `GTEX_LINK_API_TIMEOUT` and the rest —
+  was silently discarded by `extra="ignore"`, despite being documented and passed
+  by both Compose overlays. They now bind under the fleet-canonical
+  `GTEX_LINK_<GROUP>__<FIELD>` spelling (**double underscore**), e.g.
+  `GTEX_LINK_CACHE__TTL`. `.env.example`, `docker-compose.prod.yml` and
+  `docker-compose.npm.yml` are updated.
+  **Operator action**: rename any `GTEX_LINK_API_*` / `GTEX_LINK_CACHE_*`
+  overrides to the `__` form. On the next redeploy the prod overlay's cache
+  tuning (size `2000`, TTL `7200`) takes effect for the first time; it was inert
+  before.
+- **The advertised error taxonomy did not match the one the server emits.**
+  `output_limit_exceeded` is reachable (a fenced over-cap response) but was
+  absent from `get_server_capabilities` and `gtex://reference`, so clients wrote
+  no branch for a recoverable failure; `validation_failed` was advertised but is
+  never produced by the error envelope. The advertised set now equals the
+  emittable set, pinned by a test.
+
+### Documentation
+
+- README and `docs/data.md` said the server served a single dataset (`gtex_v8`)
+  and stamped it into every response. Both halves were wrong: the expression
+  tools take a `dataset_id` over three datasets (`gtex_v8`, `gtex_v10`,
+  `gtex_snrnaseq_pilot`), each annotated against a different GENCODE release
+  (`v26`, `v39`, `v26`), and `_meta.gtex_release` is a fixed constant that does
+  **not** follow `dataset_id`. All three datasets, the GENCODE mapping, and the
+  real provenance semantics are now documented and machine-checked.
+- `docs/configuration.md` is now exhaustive over `gtex_link/config.py`, with the
+  flat-vs-nested env naming rule stated explicitly.
+
 ## [3.0.5] - 2026-07-13
 
 ### Fixed

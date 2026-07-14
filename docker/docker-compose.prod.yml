@@ -17,9 +17,12 @@ services:
       GTEX_LINK_ALLOWED_HOSTS: '["localhost","127.0.0.1","::1","gtex-link.genefoundry.org"]'
       GTEX_LINK_ALLOWED_ORIGINS: '["https://gtex-link.genefoundry.org"]'
       GTEX_LINK_CORS_ORIGINS: '["https://gtex-link.genefoundry.org"]'
-      GTEX_LINK_CACHE_SIZE: 2000
-      GTEX_LINK_CACHE_TTL: 7200
-      GTEX_LINK_API_RATE_LIMIT_PER_SECOND: 5.0
+      # Nested settings groups take the `__` delimiter. The single-underscore
+      # spelling used here previously (GTEX_LINK_CACHE_SIZE) was silently
+      # ignored, so this overlay's cache tuning never actually applied.
+      GTEX_LINK_CACHE__SIZE: 2000
+      GTEX_LINK_CACHE__TTL: 7200
+      GTEX_LINK_API__RATE_LIMIT_PER_SECOND: 5.0
       GF_HEALTHCHECK_HOST: localhost
 
     # Remove development volume mounts

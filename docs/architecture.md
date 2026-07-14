@@ -128,7 +128,8 @@ Multi-level:
 - Service-level async LRU cache for processed results
 - Client-level HTTP response caching with TTL
 
-Tunable via `GTEX_LINK_CACHE_SIZE` and `GTEX_LINK_CACHE_TTL`.
+Tunable via `GTEX_LINK_CACHE__SIZE` and `GTEX_LINK_CACHE__TTL` (nested settings
+group — double underscore; see [configuration.md](configuration.md)).
 
 ## Rate limiting
 

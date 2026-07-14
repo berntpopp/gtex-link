@@ -84,12 +84,17 @@ def _surface() -> dict[str, Any]:
             "full": "adds ontologyId per tissue",
             "include_spread": "opt-in min/max/quartiles/IQR (one extra upstream call)",
         },
+        # The advertised taxonomy must equal what the envelope can actually emit:
+        # `output_limit_exceeded` is reachable (envelope.py, UntrustedTextLimitError)
+        # and was missing, so a client wrote no branch for it; `validation_failed`
+        # was advertised but is never produced by `_classify`. Pinned both ways by
+        # tests/unit/mcp/test_error_code_contract.py.
         "error_codes": [
             "not_found",
             "invalid_input",
-            "validation_failed",
             "rate_limited",
             "upstream_unavailable",
+            "output_limit_exceeded",
             "internal_error",
         ],
         "parameter_conventions": {
