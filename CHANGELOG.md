@@ -6,6 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.6] - 2026-07-14
 ### Fixed
 
 - **Nested settings never bound from the environment.** `ServerSettings` set no
@@ -39,6 +40,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   real provenance semantics are now documented and machine-checked.
 - `docs/configuration.md` is now exhaustive over `gtex_link/config.py`, with the
   flat-vs-nested env naming rule stated explicitly.
+
+### Changed
+
+- **The NPM deployment pulls the released image instead of building from source.**
+  `docker/docker-compose.npm.yml` carried `build:`, so a deploy rebuilt the image on the
+  server even though CI had already published an attested, digest-addressable image to
+  GHCR. It now requires `GTEX_LINK_IMAGE` pinned to a digest and fails closed when it is
+  unset. Nothing else in the overlay changed: `container_name`, the Compose project name,
+  the healthcheck, networks and `command` are all preserved, so the deployed topology and
+  its named volumes are untouched.
 
 ## [3.0.5] - 2026-07-13
 
