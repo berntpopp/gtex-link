@@ -13,9 +13,16 @@ Primary areas:
 - `gtex_link/` - Python package, FastAPI routes, services, client, MCP code
 - `tests/` - unit and integration tests
 - `docker/` - Dockerfile and Compose deployment files
-- `docs/` - GTEx Portal endpoint documentation (`docs/README.md`,
-  `docs/api_v2_*.md`) and design specs/plans (`docs/superpowers/`)
+- `docs/` - `configuration.md`, `deployment.md`, `architecture.md`, `data.md`,
+  `conventions.md`; GTEx Portal endpoint documentation (`docs/README.md`,
+  `docs/api_v2_*.md`); design specs/plans (`docs/superpowers/`)
 - `.claude/skills/` - repo-local Claude Code workflows for recurring tasks
+
+The README follows the GeneFoundry README Standard v1 (canonical text lives in
+`genefoundry-router/docs/README-STANDARD-v1.md`). It is a front door, not a
+manual: keep runbooks, env tables, and architecture deep-dives in `docs/`.
+`make lint-readme` and `tests/unit/test_readme_tools.py` enforce this — the
+latter fails if a tool is added without updating the README's `## Tools` table.
 
 ## Source Of Truth
 
@@ -50,6 +57,7 @@ Useful focused commands:
 - `make lint`
 - `make lint-fix`
 - `make lint-loc`
+- `make lint-readme`
 - `make typecheck`
 - `make typecheck-fast`
 - `make test`
@@ -63,6 +71,13 @@ Useful focused commands:
 - `make docker-build`
 - `make docker-up`
 - `make docker-down`
+
+First-time setup installs the git hooks once:
+
+```bash
+make install
+uv run pre-commit install
+```
 
 ## Coding Standards
 
