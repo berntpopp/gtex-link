@@ -30,10 +30,10 @@ nothing.
 
 gtex-link answers that question in one call. Symbols are auto-resolved to GENCODE IDs
 **in the release backing the dataset you asked for**; tissue expression comes back ranked
-and compact by default; every result with a `_meta` frame (all but `fetch`, whose document
-shape is fixed by the Apps SDK) stamps provenance naming the release actually queried plus
-the required citation, and the tools with an obvious next step add `_meta.next_commands` so
-a model chains without guessing; and a token-bucket limiter keeps the whole fleet inside
+and compact by default; every result with a `_meta` frame (all but `fetch` and
+`get_server_capabilities`) stamps provenance naming the release actually queried plus the
+required citation, and the tools with an obvious next step add `_meta.next_commands` so a
+model chains without guessing; and a token-bucket limiter keeps the whole fleet inside
 GTEx's request budget.
 
 ## Quick start
@@ -93,8 +93,8 @@ would double-prefix to `gtex_gtex_…`, so do not add one.
 | **Rate limit** | Token bucket, 5 req/s with burst 10 — upstream courtesy, not a local throttle. Do not raise it casually |
 | **Data licence** | GTEx Portal [terms](https://gtexportal.org/home/license). Only open-access GTEx data are reachable here; protected individual-level genotype data are dbGaP-controlled and are not exposed |
 
-Required citation — returned verbatim in `_meta.recommended_citation` and at the
-`gtex://citations` resource:
+Required citation — returned verbatim in `_meta.recommended_citation` (on every tool that
+carries a `_meta` frame) and at the `gtex://citations` resource:
 
 > GTEx Consortium. The GTEx Consortium atlas of genetic regulatory effects across human
 > tissues. Science. 2020;369(6509):1318-1330. doi:10.1126/science.aaz1776

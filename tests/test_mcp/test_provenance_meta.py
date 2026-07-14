@@ -277,8 +277,106 @@ def test_the_meta_partition_covers_every_registered_tool() -> None:
 
 
 # docs/data.md's "Which tools carry `_meta`" table: | `tool` | yes/no | ... |
-DATA_DOC = Path(__file__).resolve().parents[2] / "docs" / "data.md"
+ROOT = Path(__file__).resolve().parents[2]
+DATA_DOC = ROOT / "docs" / "data.md"
 _META_ROW_RE = re.compile(r"^\|\s*`(\w+)`\s*\|\s*(yes|no)\s*\|", re.MULTILINE)
+
+# Every prose surface that can make a claim about `_meta` to a human or a model:
+# the whole README (not one section -- a false claim in `## Why` is just as false as
+# one in `## Data & provenance`), the hand-written docs, and the client-facing strings
+# the server itself ships (MCP instructions, usage notes, capabilities descriptions).
+PROSE_SURFACES = [
+    ROOT / "README.md",
+    ROOT / "docs" / "data.md",
+    ROOT / "docs" / "architecture.md",
+    ROOT / "docs" / "configuration.md",
+    ROOT / "docs" / "conventions.md",
+    ROOT / "gtex_link" / "mcp" / "resources.py",
+    ROOT / "gtex_link" / "mcp" / "metadata.py",
+]
+
+# `_meta` as a token: matches "`_meta`" and "_meta.next_commands", but NOT the
+# unrelated `api_v2_metadata_dataset_get` endpoint docs, nor this file's own name
+# (`test_provenance_meta.py`) where `_meta` is preceded by a word character.
+_META_TOKEN = re.compile(r"(?<!\w)_meta\b")
+_UNIVERSAL = re.compile(r"\b(every|all|each)\b", re.IGNORECASE)
+# Wording that signals "…except these tools": the exact shape that has now been
+# wrong twice ("all but `fetch`" — silently dropping `get_server_capabilities`).
+_EXCLUSION = re.compile(r"\b(but|except|without)\b|carries no|carry no|no `?_meta", re.IGNORECASE)
+# A universal that is explicitly scoped, and therefore true.
+_SCOPED = re.compile(
+    r"not every|with a `_meta` frame|that carries a `_meta` frame|"
+    r"that has a `_meta` frame|see the table",
+    re.IGNORECASE,
+)
+# Rows of the per-tool table above are owned by the table tests, not the prose lint.
+_TABLE_ROW = re.compile(r"^\|\s*`\w+`\s*\|\s*(yes|no)\s*\|")
+
+
+def _prose_claims() -> list[tuple[str, str]]:
+    """Every sentence, across all prose surfaces, that mentions `_meta`.
+
+    Sentences are reassembled from wrapped lines first (a claim split across two
+    lines is still one claim -- and the README's `## Why` claim is wrapped, which
+    is exactly where the last false one hid).
+    """
+    claims: list[tuple[str, str]] = []
+    for path in PROSE_SURFACES:
+        for block in path.read_text(encoding="utf-8").split("\n\n"):
+            lines = [
+                ln
+                for ln in block.splitlines()
+                # Per-tool table rows are owned by the table tests above; Python
+                # comments are internal notes, not claims shipped to a client.
+                if not _TABLE_ROW.match(ln.strip()) and not ln.strip().startswith("#")
+            ]
+            paragraph = " ".join(lines)
+            for sentence in re.split(r"(?<=[.!?])\s+", paragraph):
+                if _META_TOKEN.search(sentence):
+                    claims.append((path.name, " ".join(sentence.split())))
+    return claims
+
+
+def test_no_prose_names_only_some_of_the_meta_less_tools() -> None:
+    """An "all but X" claim must name EVERY tool that has no `_meta`.
+
+    This is the bug that shipped twice: README said "all but `fetch`" and the
+    capabilities doc said "`fetch` ... carries no _meta at all", both silently
+    dropping `get_server_capabilities`. The old guard only scanned ONE README
+    section, so it could not see either. The oracle is the live classification.
+    """
+    offenders = [
+        (where, sentence)
+        for where, sentence in _prose_claims()
+        if _EXCLUSION.search(sentence)
+        and (named := {t for t in NO_PROVENANCE_META_TOOLS if t in sentence})
+        and named != NO_PROVENANCE_META_TOOLS
+    ]
+    assert not offenders, (
+        "prose names only SOME of the tools that carry no `_meta` "
+        f"(all of them: {sorted(NO_PROVENANCE_META_TOOLS)}):\n"
+        + "\n".join(f"  {where}: {sentence}" for where, sentence in offenders)
+    )
+
+
+def test_no_prose_claims_meta_is_universal() -> None:
+    """No prose may claim `_meta` is on every/all/each response without scoping it.
+
+    A universal claim is allowed only if it is explicitly scoped (e.g. "every tool
+    that has a `_meta` frame") or names the exceptions outright.
+    """
+    offenders = [
+        (where, sentence)
+        for where, sentence in _prose_claims()
+        if _UNIVERSAL.search(sentence)
+        and not _SCOPED.search(sentence)
+        and not {t for t in NO_PROVENANCE_META_TOOLS if t in sentence}
+    ]
+    assert not offenders, (
+        "prose claims `_meta` universality without scoping it or naming the "
+        f"exceptions ({sorted(NO_PROVENANCE_META_TOOLS)}):\n"
+        + "\n".join(f"  {where}: {sentence}" for where, sentence in offenders)
+    )
 
 
 def _documented_meta_table() -> dict[str, bool]:

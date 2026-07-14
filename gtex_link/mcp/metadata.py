@@ -164,13 +164,18 @@ def _surface() -> dict[str, Any]:
         "concurrency": {"rate_limit_per_second": 5},
         "response_fields": {
             "headline": "one-line plain-English answer at the top of median results",
-            "next_commands": "_meta.next_commands: ready-to-call {tool, arguments} next steps",
+            "next_commands": (
+                "_meta.next_commands: ready-to-call {tool, arguments} next steps, on the "
+                "tools with an obvious next step (search_genes, "
+                "get_median_expression_levels, get_top_expressed_genes_by_tissue)"
+            ),
             "recommended_citation": "_meta.recommended_citation: paste verbatim",
             "gtex_release": (
                 "_meta.gtex_release: the release the response's data came from -- it "
                 "FOLLOWS the requested dataset_id; tools that take no dataset_id "
-                "report default_dataset_id. NOTE: `fetch` returns the flat Apps-SDK "
-                "document (id/title/text/url/metadata) and carries no _meta at all"
+                "report default_dataset_id. NOTE: `fetch` (flat Apps-SDK document: "
+                "id/title/text/url/metadata) and `get_server_capabilities` (this "
+                "document) carry no _meta at all"
             ),
             "gencode_version": (
                 "_meta.gencode_version: the GENCODE release the gene IDs were resolved "

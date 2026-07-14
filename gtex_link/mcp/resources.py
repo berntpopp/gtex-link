@@ -46,7 +46,8 @@ GTEX_USAGE_NOTES = (
     "then `get_median_expression_levels` (use sort+top_n for the peak tissue) "
     "or `get_top_expressed_genes_by_tissue`. response_mode=compact is the "
     "default; pass response_mode=full or include_spread=true to widen. Follow "
-    "`_meta.next_commands` to advance without guessing the next tool."
+    "`_meta.next_commands` (emitted by search_genes, get_median_expression_levels "
+    "and get_top_expressed_genes_by_tissue) to advance without guessing the next tool."
 )
 
 GTEX_REFERENCE_NOTES = (

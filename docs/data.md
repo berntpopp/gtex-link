@@ -75,9 +75,10 @@ An error envelope carries no rows, so nothing is mislabelled. See
 
 GTEx-Link ships **no data bundle, no SQLite mirror, and no ingest step**. There
 is no `make data`, nothing to build before first run, and no volume to persist.
-Every tool call proxies the live GTEx Portal API, fronted by an in-process
-TTL + LRU cache (`GTEX_LINK_CACHE__TTL`, default 3600s;
-`GTEX_LINK_CACHE__SIZE`, default 1000 items).
+Every tool call that returns GTEx data proxies the live GTEx Portal API, fronted
+by an in-process TTL + LRU cache (`GTEX_LINK_CACHE__TTL`, default 3600s;
+`GTEX_LINK_CACHE__SIZE`, default 1000 items). (`get_server_capabilities` is the
+exception: it is a static document and makes no upstream call.)
 
 Freshness therefore tracks the GTEx Portal directly: when GTEx publishes, the
 server serves it as soon as cached entries expire.

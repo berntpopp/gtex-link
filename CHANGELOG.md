@@ -51,14 +51,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   never produced by the error envelope. The advertised set now equals the
   emittable set, pinned by a test.
 
-- **The server's own MCP instructions were wrong.** `GTEX_SERVER_INSTRUCTIONS` — the
-  first thing every connecting client reads — said GTEx-Link "exposes GTEx Portal v8
-  expression data" (it serves three datasets) and promised that tool results carry a
-  `success` flag and `_meta` (`fetch` returns the flat Apps-SDK document and
-  `get_server_capabilities` its own document; neither has `_meta`). It now describes
-  the real dataset surface and names the two exceptions. The same false universal is
-  corrected in the README and `docs/data.md`, whose `_meta` table is now parsed by a
-  test and compared against live tool behaviour, so it cannot rot.
+- **Prose across the repo overclaimed the `_meta` provenance frame.** Two tools carry
+  no `_meta` at all — `fetch` (the flat Apps-SDK document: `id`/`title`/`text`/`url`/
+  `metadata`) and `get_server_capabilities` (its own document) — but the README, the
+  `docs/`, and the strings the server itself ships said or implied otherwise:
+  - `GTEX_SERVER_INSTRUCTIONS`, the first thing every connecting client reads, said
+    GTEx-Link "exposes GTEx Portal **v8** expression data" (it serves three datasets)
+    and promised every tool result carries a `success` flag and `_meta`.
+  - The README claimed "every response" carries provenance, the citation, and
+    `_meta.next_commands` (only `search_genes`, `get_median_expression_levels` and
+    `get_top_expressed_genes_by_tissue` emit `next_commands`), then — on the first
+    attempt to fix it — that `_meta` was on "all but `fetch`", still dropping
+    `get_server_capabilities`. `get_server_capabilities.response_fields` had the same
+    off-by-one omission.
+  - `docs/data.md` said "every successful response" carries `_meta.recommended_citation`
+    and that "every tool call" proxies the live API (`get_server_capabilities` is a
+    static document and makes no upstream call).
+
+  All are corrected, and the claims are now **machine-owned**: `docs/data.md`'s per-tool
+  `_meta` table is parsed and checked against live tool behaviour, and a prose lint over
+  the whole README, the hand-written docs, and the server's own client-facing strings
+  fails CI if any of them claims `_meta` universality or names only *some* of the tools
+  that lack it. (The previous guard scanned a single README section, which is how the
+  wrong wording survived a review round specifically about `_meta` claims.)
 
 ### Added
 
