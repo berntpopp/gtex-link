@@ -234,6 +234,84 @@ async def test_get_median_expression_levels_passes_tissue_when_given() -> None:
 
 
 @pytest.mark.asyncio
+async def test_median_rejects_nonpositive_top_n() -> None:
+    """Regression (issue #76 D3): top_n < 1 must ERROR, never negative-slice rows away.
+
+    A negative top_n silently negative-sliced the tissue list -- with sort=asc it
+    deleted the HIGHEST-expressed tissues (both kidney rows for UMOD) and returned
+    success:true. top_n must carry minimum:1 and be rejected as invalid_input.
+    """
+    umod_rows = [
+        MedianGeneExpression.model_validate(
+            {
+                "datasetId": "gtex_v8",
+                "ontologyId": "UBERON:1",
+                "gencodeId": "ENSG00000169344.15",
+                "geneSymbol": "UMOD",
+                "median": value,
+                "numSamples": None,
+                "tissueSiteDetailId": tissue,
+                "unit": "TPM",
+            }
+        )
+        for tissue, value in (
+            ("Adipose_Subcutaneous", 0.0),
+            ("Kidney_Cortex", 190.1),
+            ("Kidney_Medulla", 2116.02),
+        )
+    ]
+    mock_service = AsyncMock()
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(data=umod_rows, pagingInfo=_paging(3))
+    )
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
+    with patch_service(mock_service):
+        for bad in (-3, 0):
+            result = await mcp.call_tool(
+                "get_median_expression_levels",
+                {"gencode_id": ["ENSG00000169344.15"], "sort": "asc", "top_n": bad},
+            )
+            assert result.is_error is True, f"top_n={bad} was accepted"
+            payload = json.loads(result.content[0].text)
+            assert payload["success"] is False
+            assert payload["error_code"] == "invalid_input"
+            # The error must NAME the failing parameter, not list every param (issue #76 #2).
+            assert "top_n" in payload["message"]
+            assert any(fe["field"] == "top_n" for fe in payload.get("field_errors") or [])
+    # An invalid top_n must be rejected before any upstream expression call.
+    mock_service.get_median_gene_expression.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_top_expressed_rejects_valid_tissue_absent_from_dataset() -> None:
+    """Regression (issue #76 #1): a valid tissue with no genes in the dataset must ERROR.
+
+    A schema-valid tissue paired with a dataset that does not measure it returns an
+    empty upstream result; that must surface as a loud invalid_input naming the field,
+    never success:true + data:[] (a silent-empty).
+    """
+    mock_service = AsyncMock()
+    mock_service.get_top_expressed_genes = AsyncMock(
+        return_value=PaginatedTopExpressedGenesResponse(data=[], pagingInfo=_paging(0))
+    )
+    mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
+    with patch_service(mock_service):
+        result = await mcp.call_tool(
+            "get_top_expressed_genes_by_tissue",
+            {"tissue_site_detail_id": "Kidney_Cortex", "dataset_id": "gtex_snrnaseq_pilot"},
+        )
+    assert result.is_error is True
+    payload = json.loads(result.content[0].text)
+    assert payload["success"] is False
+    assert payload["error_code"] == "invalid_input"
+    assert "tissue_site_detail_id" in payload["message"]
+
+
+@pytest.mark.asyncio
 async def test_median_resolves_symbol_to_gencode() -> None:
     row = MedianGeneExpression.model_validate(
         {
@@ -358,17 +436,30 @@ async def test_get_individual_expression_data_happy_path() -> None:
 
 
 @pytest.mark.asyncio
-async def test_top_expressed_rejects_empty_tissue_with_valid_values() -> None:
-    mock_service = AsyncMock()
+async def test_top_expressed_rejects_unknown_tissue_via_schema_enum() -> None:
+    """An unknown tissue is rejected as invalid_input; valid values live in the enum.
 
+    tissue_site_detail_id is a closed vocabulary declared as an enum (S4), so a
+    value outside it (the "" all-tissues sentinel included) fails validation before
+    any upstream call, and the model can read the 54 valid tissues from the schema.
+    """
+    mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
+    tools = {t.name: t for t in await mcp.list_tools()}
+    tissue_enum = tools["get_top_expressed_genes_by_tissue"].parameters["properties"][
+        "tissue_site_detail_id"
+    ]["enum"]
+    assert "Whole_Blood" in tissue_enum
+    assert "" not in tissue_enum  # the all-tissues sentinel is never advertised
+
+    mock_service = AsyncMock()
     with patch_service(mock_service):
-        payload = await _call_tool(
+        result = await mcp.call_tool(
             "get_top_expressed_genes_by_tissue", {"tissue_site_detail_id": ""}
         )
-
+    assert result.is_error is True
+    payload = json.loads(result.content[0].text)
     assert payload["success"] is False
     assert payload["error_code"] == "invalid_input"
-    assert "Whole_Blood" in payload["message"]
     mock_service.get_top_expressed_genes.assert_not_awaited()
 
 
@@ -403,6 +494,44 @@ async def test_get_top_expressed_genes_by_tissue_happy_path() -> None:
 
 
 @pytest.mark.asyncio
+async def test_paginated_tool_emits_meta_pagination_frame() -> None:
+    """Response-Envelope v1: a paginated result carries _meta.pagination.
+
+    total_count is the whole-result size (invariant under limit); has_more is true
+    when the page is not the last -- so the fleet behaviour gate (and any client) can
+    read gtex's collections without knowing GTEx's own `pagingInfo` shape (issue #76 #1).
+    """
+    row = TopExpressedGenes.model_validate(
+        {
+            "datasetId": "gtex_v8",
+            "tissueSiteDetailId": "Whole_Blood",
+            "ontologyId": "UBERON:0000178",
+            "gencodeId": "ENSG00000012048.22",
+            "geneSymbol": "BRCA1",
+            "median": 12.5,
+            "unit": "TPM",
+        }
+    )
+    mock_service = AsyncMock()
+    mock_service.get_top_expressed_genes = AsyncMock(
+        return_value=PaginatedTopExpressedGenesResponse(
+            data=[row],
+            pagingInfo=PaginationInfo(
+                numberOfPages=5, page=0, maxItemsPerPage=1, totalNumberOfItems=5
+            ),
+        )
+    )
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_top_expressed_genes_by_tissue",
+            {"tissue_site_detail_id": "Whole_Blood", "limit": 1},
+        )
+    pagination = payload["_meta"]["pagination"]
+    assert pagination["total_count"] == 5
+    assert pagination["has_more"] is True  # page 0 of 5
+
+
+@pytest.mark.asyncio
 async def test_search_tool_returns_chatgpt_shape() -> None:
     mock_service = AsyncMock()
     mock_service.search_genes = AsyncMock(
@@ -430,7 +559,7 @@ async def test_search_tool_returns_structured_error_on_upstream_failure() -> Non
         payload = await _call_tool("search", {"query": "BRCA1"})
 
     assert payload["success"] is False
-    assert payload["error_code"] == "internal_error"
+    assert payload["error_code"] == "internal"
 
 
 @pytest.mark.asyncio
@@ -1051,17 +1180,19 @@ async def test_median_compact_omits_null_keys_and_rounds() -> None:
 @pytest.mark.asyncio
 async def test_median_invalid_tissue_returns_short_error() -> None:
     mock_service = AsyncMock()
+    mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
 
     with patch_service(mock_service):
-        payload = await _call_tool(
+        result = await mcp.call_tool(
             "get_median_expression_levels",
             {"gencode_id": ["ENSG00000169344.15"], "tissue_site_detail_id": "Kidney"},
         )
 
+    assert result.is_error is True
+    payload = json.loads(result.content[0].text)
     assert payload["success"] is False
     assert payload["error_code"] == "invalid_input"
-    # Short message, not the full 54-tissue enum dumped twice.
-    assert "see get_server_capabilities.tissues" in payload["message"]
+    # Short message, not the full 54-tissue enum dumped into the prose.
     assert len(payload["message"]) < 300
     mock_service.get_median_gene_expression.assert_not_awaited()
 

@@ -10,17 +10,15 @@ from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, McpToolError, run_mcp_tool
 from gtex_link.mcp.next_commands import after_gene_search
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
-from gtex_link.mcp.schema_relax import relax_output_schema
 from gtex_link.mcp.service_adapters import get_gtex_service
 from gtex_link.mcp.shaping import (
     SEARCH_GENES_LIMIT_MAX,
     SEARCH_GENES_MAX_OBJECTS,
-    MCPGene,
     fence_gene_response,
 )
 from gtex_link.mcp.untrusted_content import DEFAULT_MAX_OBJECTS
 from gtex_link.models import GeneRequest, TranscriptRequest
-from gtex_link.models.responses import PaginatedResponse
+from gtex_link.models.gtex import GencodeVersionLiteral, GenomeBuildLiteral
 from gtex_link.observability.metrics import record_mcp_tool_call
 
 if TYPE_CHECKING:
@@ -30,10 +28,6 @@ if TYPE_CHECKING:
 # (models/requests.py) -- comfortably inside the module default; named here
 # only so the ceiling used by each tool is explicit at the call site.
 _GET_GENE_INFORMATION_MAX_OBJECTS = DEFAULT_MAX_OBJECTS
-
-_MCP_PAGINATED_GENE_SCHEMA = relax_output_schema(
-    PaginatedResponse[MCPGene].model_json_schema(by_alias=True)
-)
 
 
 def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
@@ -45,7 +39,7 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             title="Search GTEx Genes",
             annotations=READ_ONLY_OPEN_WORLD,
             tags={"reference", "search"},
-            output_schema=_MCP_PAGINATED_GENE_SCHEMA,
+            output_schema=None,
             description=(
                 "Search the GTEx Portal gene catalog by gene symbol or partial "
                 "match. Returns a paginated list of genes with GENCODE IDs, "
@@ -55,9 +49,27 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             ),
         )
         async def search_genes(
-            query: str,
-            offset: Annotated[int, Field(ge=0)] = 0,
-            limit: Annotated[int, Field(ge=1, le=SEARCH_GENES_LIMIT_MAX)] = 20,
+            query: Annotated[
+                str,
+                Field(
+                    description=(
+                        "Gene symbol or partial symbol to match against the GTEx "
+                        "catalog (e.g. 'BRCA' matches BRCA1, BRCA2)."
+                    ),
+                    examples=["BRCA1", "TP53"],
+                ),
+            ],
+            offset: Annotated[
+                int, Field(ge=0, description="Zero-based row offset for pagination (fleet canon).")
+            ] = 0,
+            limit: Annotated[
+                int,
+                Field(
+                    ge=1,
+                    le=SEARCH_GENES_LIMIT_MAX,
+                    description="Maximum genes to return per page (1-1000).",
+                ),
+            ] = 20,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
@@ -91,7 +103,7 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             title="Get Gene Information",
             annotations=READ_ONLY_OPEN_WORLD,
             tags={"reference"},
-            output_schema=_MCP_PAGINATED_GENE_SCHEMA,
+            output_schema=None,
             description=(
                 "Retrieve detailed gene information from GTEx Portal for one "
                 "or more GENCODE IDs or gene symbols. Returns chromosome, "
@@ -100,9 +112,29 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             ),
         )
         async def get_gene_information(
-            gene_id: list[str],
-            gencode_version: str | None = None,
-            genome_build: str | None = None,
+            gene_id: Annotated[
+                list[str],
+                Field(
+                    description=(
+                        "One or more gene symbols or GENCODE IDs; symbols are "
+                        "auto-resolved (e.g. UMOD or ENSG00000169344.15)."
+                    ),
+                    examples=[["BRCA1", "TP53"]],
+                ),
+            ],
+            gencode_version: Annotated[
+                GencodeVersionLiteral | None,
+                Field(
+                    description=(
+                        "GENCODE annotation release to resolve against; omit for "
+                        "the server default (v26)."
+                    )
+                ),
+            ] = None,
+            genome_build: Annotated[
+                GenomeBuildLiteral | None,
+                Field(description="Genome assembly build; omit for the server default."),
+            ] = None,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
@@ -145,6 +177,7 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             title="Get Transcript Information",
             annotations=READ_ONLY_OPEN_WORLD,
             tags={"reference"},
+            output_schema=None,
             description=(
                 "Retrieve transcript annotations for a single GENCODE ID from "
                 "GTEx Portal. Returns transcript identifiers, coordinates, "
@@ -153,11 +186,31 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             ),
         )
         async def get_transcript_information(
-            gencode_id: str,
-            gencode_version: str | None = None,
-            genome_build: str | None = None,
-            offset: int = 0,
-            limit: int = 250,
+            gencode_id: Annotated[
+                str,
+                Field(
+                    description=(
+                        "A single VERSIONED GENCODE ID (e.g. ENSG00000169344.15). "
+                        "This tool does NOT auto-resolve gene symbols -- resolve a "
+                        "symbol via get_gene_information or search_genes first."
+                    ),
+                    examples=["ENSG00000169344.15"],
+                ),
+            ],
+            gencode_version: Annotated[
+                GencodeVersionLiteral | None,
+                Field(description="GENCODE annotation release; omit for the server default."),
+            ] = None,
+            genome_build: Annotated[
+                GenomeBuildLiteral | None,
+                Field(description="Genome assembly build; omit for the server default."),
+            ] = None,
+            offset: Annotated[
+                int, Field(ge=0, description="Zero-based row offset for pagination.")
+            ] = 0,
+            limit: Annotated[
+                int, Field(ge=1, le=1000, description="Maximum transcript rows per page.")
+            ] = 250,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()

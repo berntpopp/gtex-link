@@ -6,10 +6,16 @@ from gtex_link.mcp.metadata import build_capabilities, capabilities_version, val
 
 
 def test_valid_tissues_excludes_empty_sentinel() -> None:
+    from gtex_link.models.gtex import TissueSiteDetailId
+
     tissues = valid_tissues()
     assert "" not in tissues
     assert "Kidney_Medulla" in tissues
-    assert len(tissues) == 54
+    assert "Cells_Cultured_fibroblasts" in tissues  # the current v8/v10 fibroblast name
+    # A deprecated pre-v8 name the live API no longer serves must NOT be advertised.
+    assert "Cells_Transformed_fibroblasts" not in tissues
+    # Every real tissue in the vocabulary, minus only the "" all-tissues sentinel.
+    assert len(tissues) == len([t for t in TissueSiteDetailId if t.value])
 
 
 def test_capabilities_has_expected_top_level_keys() -> None:

@@ -64,6 +64,7 @@ from fastmcp.exceptions import ResourceError
 from fastmcp.exceptions import ValidationError as FastMCPValidationError
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools.tool import ToolResult
+from pydantic import ValidationError as PydanticValidationError
 
 from gtex_link.mcp.envelope import build_arg_error_envelope, build_unknown_tool_envelope
 from gtex_link.mcp.untrusted_content import sanitize_message
@@ -156,6 +157,69 @@ def install_validation_log_filter() -> None:
                 handler.addFilter(_ValidationLogScrubFilter())
 
 
+def _short_field_reason(err: Any) -> str:
+    """A short, input-free reason for a pydantic field error.
+
+    NEVER uses the offending input value (pydantic carries it separately in
+    ``input``); the reason is derived from the schema side only. An enum
+    (``literal_error``) message dumps the whole vocabulary -- kept out of the
+    error because the enum is already in the tool's input schema.
+    """
+    etype = err.get("type")
+    if etype == "literal_error":
+        return "not one of the allowed values (see this parameter's enum in the schema)"
+    if etype == "missing_argument":
+        return "required argument is missing"
+    return sanitize_message(str(err.get("msg") or "invalid value"))[:120]
+
+
+def _classify_validation_error(
+    exc: Exception, caller_args: Any, valid_params: list[str] | None
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Split a FastMCP arg-validation failure into (unknown_args, invalid_fields).
+
+    Reads the underlying pydantic error (``__cause__``) for precise, per-field
+    detail: ``unexpected_keyword_argument`` -> an unknown KEY; anything else on a
+    field -> ``(field, reason)`` naming the specific parameter that failed (issue
+    #76 #2). Falls back to a set-difference for unknown keys if no pydantic cause
+    is available. Field names and the reason are input-free (schema-derived).
+    """
+    unknown: list[str] = []
+    invalid: list[tuple[str, str]] = []
+    cause = getattr(exc, "__cause__", None)
+    if isinstance(cause, PydanticValidationError):
+        for err in cause.errors():
+            loc = ".".join(str(p) for p in err.get("loc") or ()) or "input"
+            field = sanitize_message(loc)
+            if err.get("type") == "unexpected_keyword_argument":
+                unknown.append(field)
+            else:
+                invalid.append((field, _short_field_reason(err)))
+        return unknown, invalid
+    # No structured cause: name unknown keys by set-difference (keys are sanitized).
+    if isinstance(caller_args, dict) and valid_params is not None:
+        allowed = set(valid_params)
+        unknown = [sanitize_message(str(k)) for k in caller_args if k not in allowed]
+    return unknown, invalid
+
+
+def _promote_error_result(result: Any) -> Any:
+    """Set isError:true on a ToolResult whose envelope is a domain error.
+
+    run_mcp_tool returns error envelopes as a plain dict (success:false /
+    error_code), which FastMCP serializes into a ToolResult with isError:false.
+    A client branching on isError would read that as success; promote it.
+    """
+    if not isinstance(result, ToolResult) or result.is_error:
+        return result
+    structured = result.structured_content
+    if isinstance(structured, dict) and (
+        structured.get("success") is False or structured.get("error_code")
+    ):
+        result.is_error = True
+    return result
+
+
 class _OutputValidationMiddleware(Middleware):
     """Fence the arg/output error paths AND the FastMCP-core not-found reflection.
 
@@ -169,8 +233,10 @@ class _OutputValidationMiddleware(Middleware):
         context: MiddlewareContext[Any],
         call_next: CallNext[Any, Any],
     ) -> Any:
-        tool_name = getattr(getattr(context, "message", None), "name", None)
+        message = getattr(context, "message", None)
+        tool_name = getattr(message, "name", None)
         fctx = getattr(context, "fastmcp_context", None)
+        valid_params: list[str] | None = None
         # Layer 1 -- registry preflight. get_tool returns None for an unknown or
         # disabled tool; core would then raise/echo "Unknown tool: '<name>'"
         # (with the caller-supplied name + any code points/prose) BEFORE our
@@ -183,11 +249,24 @@ class _OutputValidationMiddleware(Middleware):
             if tool_obj is None:
                 _logger.warning("mcp_unknown_tool")
                 return self._unknown_tool_result()
+            # The tool's declared parameter names -- server-defined, so always safe
+            # to name back to the model in an arg-validation error (issue #76 D4/#4).
+            params = getattr(tool_obj, "parameters", None)
+            if isinstance(params, dict):
+                valid_params = list((params.get("properties") or {}).keys())
         try:
-            return await call_next(context)
-        except FastMCPValidationError:
+            result = await call_next(context)
+        except FastMCPValidationError as exc:
             _logger.warning("MCP argument validation failed for tool=%s", tool_name)
-            envelope = build_arg_error_envelope(tool_name)
+            unknown, invalid = _classify_validation_error(
+                exc, getattr(message, "arguments", None), valid_params
+            )
+            envelope = build_arg_error_envelope(
+                tool_name,
+                valid_params=valid_params,
+                unknown_args=unknown,
+                invalid_fields=invalid,
+            )
             return ToolResult(
                 content=[mcp.types.TextContent(type="text", text=json.dumps(envelope))],
                 structured_content=envelope,
@@ -206,6 +285,11 @@ class _OutputValidationMiddleware(Middleware):
                 },
             )
             raise
+        # A domain error is returned by run_mcp_tool as a plain dict envelope
+        # (success:false / error_code), which FastMCP wraps with isError:false --
+        # so a client that branches on isError sees a SUCCESSFUL call. Promote it
+        # to isError:true (Response-Envelope v1; issue #76 D5/#9).
+        return _promote_error_result(result)
 
     async def on_read_resource(
         self,

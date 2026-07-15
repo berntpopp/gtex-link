@@ -95,3 +95,41 @@ def test_median_values_are_rounded() -> None:
         rows, counts={}, sort="desc", top_n=None, response_mode="compact", spread_by_key={}
     )
     assert result.genes[0].tissues[0].median == 484.383
+
+
+def _umod_rows() -> list[MedianGeneExpression]:
+    return [
+        _row("Adipose_Subcutaneous", 0.0),
+        _row("Kidney_Cortex", 190.1),
+        _row("Kidney_Medulla", 2116.02),
+    ]
+
+
+def test_headline_asc_reports_lowest_never_highest() -> None:
+    """Regression (issue #76 D1): sort=asc must not label the LEAST-expressed tissue 'highest'."""
+    result = group_median(
+        _umod_rows(), counts={}, sort="asc", top_n=3, response_mode="compact", spread_by_key={}
+    )
+    # sort=asc puts the least-expressed tissue first; the headline must say so.
+    assert "highest" not in result.headline.lower()
+    assert "lowest" in result.headline.lower()
+    assert "Adipose_Subcutaneous" in result.headline
+    assert "0.00" in result.headline
+
+
+def test_headline_none_uses_no_superlative() -> None:
+    """Regression (issue #76 D1): sort=none must not claim 'highest' (or 'lowest')."""
+    result = group_median(
+        _umod_rows(), counts={}, sort="none", top_n=None, response_mode="compact", spread_by_key={}
+    )
+    assert "highest" not in result.headline.lower()
+    assert "lowest" not in result.headline.lower()
+
+
+def test_headline_desc_still_reports_highest() -> None:
+    result = group_median(
+        _umod_rows(), counts={}, sort="desc", top_n=3, response_mode="compact", spread_by_key={}
+    )
+    assert "highest" in result.headline.lower()
+    assert "Kidney_Medulla" in result.headline
+    assert "2116.02" in result.headline

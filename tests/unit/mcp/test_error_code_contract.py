@@ -62,7 +62,7 @@ def _classified_codes() -> set[str]:
         ValidationError("bad", field="gene_id"),
         UntrustedTextLimitError("too big"),
         _pydantic_error(),
-        RuntimeError("unclassified"),  # the internal_error fallback
+        RuntimeError("unclassified"),  # the internal fallback
     ]
     return {_classify(exc)[0] for exc in exceptions}
 
@@ -100,10 +100,21 @@ def test_capabilities_advertises_exactly_the_emittable_error_codes() -> None:
     )
 
 
-def test_output_limit_exceeded_is_advertised() -> None:
-    """Regression pin: the reachable code that the taxonomy used to omit."""
-    assert "output_limit_exceeded" in emittable_codes()
-    assert "output_limit_exceeded" in build_capabilities()["error_codes"]
+def test_every_advertised_code_is_in_the_fleet_closed_enum() -> None:
+    """Response-Envelope Standard v1: error_code is a closed enum, harmonized fleet-wide."""
+    closed_enum = {
+        "invalid_input",
+        "not_found",
+        "ambiguous_query",
+        "upstream_unavailable",
+        "rate_limited",
+        "internal",
+    }
+    advertised = set(build_capabilities()["error_codes"])
+    outside = advertised - closed_enum
+    assert not outside, f"codes outside the fleet closed enum: {sorted(outside)}"
+    # And the emittable set must also stay inside the closed enum.
+    assert not (emittable_codes() - closed_enum)
 
 
 def test_reference_resource_lists_the_same_codes() -> None:

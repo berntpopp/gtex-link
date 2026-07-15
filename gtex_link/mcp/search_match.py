@@ -80,17 +80,40 @@ _STOP_WORDS: frozenset[str] = frozenset(
 MAX_QUERY_TOKENS = 5
 
 
+def _is_gene_shaped(raw: str) -> bool:
+    """True if *raw* (original case) looks like a gene identifier, not an English word.
+
+    A gene symbol carries a digit (SCN1A, TP53, HNF1B) or is written in canonical
+    all-caps (UMOD, BRCA). English prose words are lowercase and digit-free. This
+    lets a real symbol appearing late in a clinical sentence out-rank the stop-word-
+    like tokens ('met', 'six') that would otherwise fill the query-token budget and
+    evict it (issue #76 D2/D6).
+    """
+    has_alpha = any(c.isalpha() for c in raw)
+    return has_alpha and (any(c.isdigit() for c in raw) or (raw.isupper() and len(raw) >= 2))
+
+
 def recall_terms(query: str) -> list[str]:
-    """Distinct 3+-char lowercased tokens from *query*, excluding stop words."""
-    out: list[str] = []
+    """Distinct 3+-char lowercased tokens from *query*, excluding stop words.
+
+    Gene-shaped tokens (see :func:`_is_gene_shaped`) are ordered FIRST, otherwise
+    the original position is preserved (a stable sort). Callers cap the list at
+    ``MAX_QUERY_TOKENS``; ordering gene-shaped tokens first ensures the gene the
+    user actually named is never dropped by that cap.
+    """
+    ordered: list[tuple[int, int, str]] = []
     seen: set[str] = set()
+    position = 0
     for match in _TOKEN_RE.finditer(query):
-        tok = match.group(0).lower()
+        raw = match.group(0)
+        tok = raw.lower()
         if len(tok) < 3 or tok in _STOP_WORDS or tok in seen:
             continue
         seen.add(tok)
-        out.append(tok)
-    return out
+        ordered.append((0 if _is_gene_shaped(raw) else 1, position, tok))
+        position += 1
+    ordered.sort(key=lambda item: (item[0], item[1]))
+    return [tok for _priority, _pos, tok in ordered]
 
 
 def classify_match(token: str, *, symbol: str, gencode_id: str) -> str:

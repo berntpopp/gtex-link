@@ -6,6 +6,84 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-15
+### Fixed
+
+- **The median headline stated the opposite of the data for `sort=asc`/`sort=none`.**
+  `median_headline` hardcoded "highest median in …" regardless of sort order, so
+  `get_median_expression_levels {"gencode_id":["UMOD"],"sort":"asc","top_n":3}`
+  reported *"UMOD: highest median in Adipose_Subcutaneous (0.00 TPM)"* — the
+  least-expressed tissue, for a kidney gene whose true peak is Kidney_Medulla at
+  2116 TPM. The headline now follows the sort: "highest" for `desc`, "lowest" for
+  `asc`, and an unsorted phrasing (no superlative) for `none`. (issue #76 D1)
+- **`search` dropped the gene the query actually named.** Recall tokenised the query
+  positionally and capped at `MAX_QUERY_TOKENS`, so a gene named late in a clinical
+  sentence was evicted by earlier English words that prefix-match gene symbols
+  (`met` → METTL\*, `six` → SIX\*): *"…is SCN1A expressed in brain cortex?"* returned
+  20 methyltransferases and no SCN1A, with `success:true`. Recall now orders
+  gene-shaped tokens (digit-bearing or all-caps) first, so the queried gene survives
+  the cap and its exact-symbol match ranks first. An empty result now carries a
+  `note` explaining no gene-like term matched, and the result set is bounded.
+  (issue #76 D2/D6)
+- **A negative `top_n` silently deleted real tissues.** `top_n` had no lower bound,
+  so a negative value negative-sliced the tissue list and returned `success:true`
+  with rows removed — with `sort=asc` it deleted the *highest*-expressed tissues
+  (both kidney rows for a UMOD query). `top_n` now carries a minimum of 1 and is
+  rejected as `invalid_input`; `group_median` also guards `top_n > 0`. (issue #76 D3)
+- **Tool-execution error envelopes were returned with MCP `isError:false`.** Domain
+  errors (`not_found`, `invalid_input`, …) came back as `success:false` in the body
+  but `isError:false` at the protocol level, so a client branching on `isError` saw
+  a successful call. The dispatch middleware now promotes every error envelope to
+  `isError:true`. (issue #76 D9; Response-Envelope Standard v1)
+- **Argument-validation errors named no parameter.** A bad or unknown argument
+  produced a generic *"Invalid arguments for this tool…"* the model could not act
+  on. The error now names the SPECIFIC failing parameter and reason (e.g.
+  `` `top_n`: Input should be greater than or equal to 1``) in `field_errors`,
+  plus the tool's own parameters (`allowed_values`) and any unexpected argument
+  key(s); no caller *value* is ever echoed. (issue #76 D4/#4/#2)
+- **`get_top_expressed_genes_by_tissue` silently returned `data:[]` for a valid
+  tissue in a dataset that does not measure it** (e.g. any tissue against the
+  snRNA-seq pilot, whose served tissue set is empty). That silent-empty is now a
+  loud `invalid_input` naming `tissue_site_detail_id`, instead of a confident empty
+  answer. (issue #76 #1)
+
+### Changed
+
+- **Every tool input parameter is now documented (0% → 100%).** Each property
+  carries a `description`; every required/array parameter carries `examples`; and
+  the four closed vocabularies — `tissue_site_detail_id`, `dataset_id`,
+  `gencode_version`, `genome_build` — are declared as schema enums, so a model reads
+  valid values from the schema instead of learning them from a failed call. The
+  advertised tissue enum excludes the internal `""` all-tissues sentinel AND the
+  spec's one legacy name `Cells_Transformed_fibroblasts` (renamed to
+  `Cells_Cultured_fibroblasts` in v8; the live API serves 54 tissues and no data
+  under the old name), so the schema is never wider than the runtime. (issue #76
+  D4/#5/#3; Tool-Schema Documentation v1)
+- **`_meta.pagination.{total_count, has_more}`** is now emitted on every paginated
+  result, derived from GTEx's `pagingInfo`. `total_count` is the whole-result size
+  (invariant under `limit`), so a client — and the fleet behaviour gate — can read
+  gtex's collections without knowing GTEx's own camelCase shape. (Response-Envelope v1)
+- **`error_code` is now the fleet's closed enum.** `internal_error` → `internal`
+  and `output_limit_exceeded` → `invalid_input`, so every emitted and advertised
+  code is one of `invalid_input · not_found · ambiguous_query · upstream_unavailable
+  · rate_limited · internal`. (Response-Envelope Standard v1)
+- **Tool surface trimmed.** `outputSchema` (52% of the advertised surface, unread by
+  models and optional in MCP) is suppressed on every tool via `output_schema=None`
+  (`structuredContent` is still emitted for the dict envelopes), and
+  `dereference_schemas=False` keeps input schemas inline. Surface ~4,072t → ~3.7k;
+  no tool over 1,200t (the median tool's scalar-or-list tissue parameter uses a
+  `$ref`-shared enum so the 54-value vocabulary is not inlined twice).
+  (Tool-Surface Budget Standard v1)
+
+### Added
+
+- Vendored the **Behaviour Conformance v1** gate (`tests/conformance/behaviour.py`
+  + `test_behaviour_v1.py`) and wired its probe into the `mcp-conformance` workflow.
+- A real per-tool **tool-surface budget** test asserting the live `tools/list`
+  schema stays within B1 (≤1,200t/tool) and B2 (<10,000t total).
+- Drift guards pinning the schema enums to their source of truth — the tissue
+  vocabulary against the vendored OpenAPI spec (minus documented deprecations).
+
 ## [3.0.6] - 2026-07-14
 ### Fixed
 

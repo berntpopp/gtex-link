@@ -43,7 +43,7 @@ def valid_tissues() -> list[str]:
 def ensure_valid_tissue(tissue: str | None) -> None:
     """Raise a short `invalid_input` McpToolError if *tissue* is unknown.
 
-    Pre-validating here keeps the enormous pydantic enum dump (the full 54-tissue
+    Pre-validating here keeps the enormous pydantic enum dump (the full tissue
     list, twice) out of the client-facing error. `None` means "all tissues" and
     passes. Shared by every tool that accepts a tissue filter.
     """
@@ -111,18 +111,18 @@ def _surface() -> dict[str, Any]:
             "full": "adds ontologyId per tissue",
             "include_spread": "opt-in min/max/quartiles/IQR (one extra upstream call)",
         },
-        # The advertised taxonomy must equal what the envelope can actually emit:
-        # `output_limit_exceeded` is reachable (envelope.py, UntrustedTextLimitError)
-        # and was missing, so a client wrote no branch for it; `validation_failed`
-        # was advertised but is never produced by `_classify`. Pinned both ways by
+        # The advertised taxonomy must equal what the envelope can actually emit,
+        # and every code is a member of the Response-Envelope Standard v1 closed
+        # enum (invalid_input, not_found, ambiguous_query, upstream_unavailable,
+        # rate_limited, internal). ambiguous_query is in the standard but this
+        # server never emits it, so it is not advertised. Pinned both ways by
         # tests/unit/mcp/test_error_code_contract.py.
         "error_codes": [
             "not_found",
             "invalid_input",
             "rate_limited",
             "upstream_unavailable",
-            "output_limit_exceeded",
-            "internal_error",
+            "internal",
         ],
         "parameter_conventions": {
             "gene_id": "symbols or GENCODE IDs; symbols auto-resolved",
@@ -217,6 +217,7 @@ def register_metadata_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
         name="get_server_capabilities",
         title="Get Server Capabilities",
         tags={"meta", "discovery"},
+        output_schema=None,
         description=(
             "Return supported tools, datasets, the tissue vocabulary, recommended "
             "workflows, response modes, error codes, and limits. Compare "
