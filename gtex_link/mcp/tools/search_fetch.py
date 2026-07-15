@@ -10,7 +10,9 @@ resolved against the catalog, then unioned and ranked by match quality.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
+
+from pydantic import Field
 
 from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, run_mcp_tool
@@ -44,6 +46,7 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
             title="Search",
             annotations=READ_ONLY_OPEN_WORLD,
             tags={"search"},
+            output_schema=None,
             description=(
                 "Search the GTEx Portal genetic expression database for genes. "
                 "Accepts a natural-language query (e.g. 'UMOD kidney "
@@ -51,7 +54,19 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
                 "Returns result documents with id, title, and URL."
             ),
         )
-        async def search(query: str) -> dict[str, Any]:
+        async def search(
+            query: Annotated[
+                str,
+                Field(
+                    description=(
+                        "A natural-language query or gene symbol; gene-like terms "
+                        "are matched against the GTEx catalog (e.g. 'UMOD kidney "
+                        "expression')."
+                    ),
+                    examples=["UMOD"],
+                ),
+            ],
+        ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 service = get_gtex_service()
                 tokens = recall_terms(query)[:MAX_QUERY_TOKENS] or [query.strip()]
@@ -118,6 +133,7 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
             # contract and is not a canonical verb); `search` keeps it grouped
             # with its deep-research partner. Mirrors router check_leaf_name.
             tags={"meta", "search"},
+            output_schema=None,
             description=(
                 "Retrieve full details for a gene from the GTEx Portal database. "
                 "Use the `id` returned by `search` (`gene:<GENCODE_ID>`); a bare "
@@ -125,7 +141,18 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
                 "tissue first."
             ),
         )
-        async def fetch(id: str) -> dict[str, Any]:
+        async def fetch(
+            id: Annotated[
+                str,
+                Field(
+                    description=(
+                        "A gene document id from `search` ('gene:<GENCODE_ID>'); a "
+                        "bare GENCODE ID or gene symbol is also accepted (e.g. UMOD)."
+                    ),
+                    examples=["UMOD"],
+                ),
+            ],
+        ) -> dict[str, Any]:
             success = False
             try:
                 service = get_gtex_service()

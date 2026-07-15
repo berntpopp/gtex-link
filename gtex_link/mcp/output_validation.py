@@ -156,6 +156,36 @@ def install_validation_log_filter() -> None:
                 handler.addFilter(_ValidationLogScrubFilter())
 
 
+def _unknown_arg_names(caller_args: Any, valid_params: list[str] | None) -> list[str]:
+    """Sanitized caller argument KEYS the tool does not declare.
+
+    Argument keys are caller-supplied, so each is sanitized (control/zero-width/
+    bidi/NUL code points stripped) before it is named back. Values are never
+    touched here -- only the keys. Empty when the tool/params are unknown.
+    """
+    if not isinstance(caller_args, dict) or valid_params is None:
+        return []
+    allowed = set(valid_params)
+    return [sanitize_message(str(key)) for key in caller_args if key not in allowed]
+
+
+def _promote_error_result(result: Any) -> Any:
+    """Set isError:true on a ToolResult whose envelope is a domain error.
+
+    run_mcp_tool returns error envelopes as a plain dict (success:false /
+    error_code), which FastMCP serializes into a ToolResult with isError:false.
+    A client branching on isError would read that as success; promote it.
+    """
+    if not isinstance(result, ToolResult) or result.is_error:
+        return result
+    structured = result.structured_content
+    if isinstance(structured, dict) and (
+        structured.get("success") is False or structured.get("error_code")
+    ):
+        result.is_error = True
+    return result
+
+
 class _OutputValidationMiddleware(Middleware):
     """Fence the arg/output error paths AND the FastMCP-core not-found reflection.
 
@@ -169,8 +199,10 @@ class _OutputValidationMiddleware(Middleware):
         context: MiddlewareContext[Any],
         call_next: CallNext[Any, Any],
     ) -> Any:
-        tool_name = getattr(getattr(context, "message", None), "name", None)
+        message = getattr(context, "message", None)
+        tool_name = getattr(message, "name", None)
         fctx = getattr(context, "fastmcp_context", None)
+        valid_params: list[str] | None = None
         # Layer 1 -- registry preflight. get_tool returns None for an unknown or
         # disabled tool; core would then raise/echo "Unknown tool: '<name>'"
         # (with the caller-supplied name + any code points/prose) BEFORE our
@@ -183,11 +215,19 @@ class _OutputValidationMiddleware(Middleware):
             if tool_obj is None:
                 _logger.warning("mcp_unknown_tool")
                 return self._unknown_tool_result()
+            # The tool's declared parameter names -- server-defined, so always safe
+            # to name back to the model in an arg-validation error (issue #76 D4/#4).
+            params = getattr(tool_obj, "parameters", None)
+            if isinstance(params, dict):
+                valid_params = list((params.get("properties") or {}).keys())
         try:
-            return await call_next(context)
+            result = await call_next(context)
         except FastMCPValidationError:
             _logger.warning("MCP argument validation failed for tool=%s", tool_name)
-            envelope = build_arg_error_envelope(tool_name)
+            unknown = _unknown_arg_names(getattr(message, "arguments", None), valid_params)
+            envelope = build_arg_error_envelope(
+                tool_name, valid_params=valid_params, unknown_args=unknown
+            )
             return ToolResult(
                 content=[mcp.types.TextContent(type="text", text=json.dumps(envelope))],
                 structured_content=envelope,
@@ -206,6 +246,11 @@ class _OutputValidationMiddleware(Middleware):
                 },
             )
             raise
+        # A domain error is returned by run_mcp_tool as a plain dict envelope
+        # (success:false / error_code), which FastMCP wraps with isError:false --
+        # so a client that branches on isError sees a SUCCESSFUL call. Promote it
+        # to isError:true (Response-Envelope v1; issue #76 D5/#9).
+        return _promote_error_result(result)
 
     async def on_read_resource(
         self,

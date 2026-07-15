@@ -408,17 +408,30 @@ async def test_get_individual_expression_data_happy_path() -> None:
 
 
 @pytest.mark.asyncio
-async def test_top_expressed_rejects_empty_tissue_with_valid_values() -> None:
-    mock_service = AsyncMock()
+async def test_top_expressed_rejects_unknown_tissue_via_schema_enum() -> None:
+    """An unknown tissue is rejected as invalid_input; valid values live in the enum.
 
+    tissue_site_detail_id is a closed vocabulary declared as an enum (S4), so a
+    value outside it (the "" all-tissues sentinel included) fails validation before
+    any upstream call, and the model can read the 54 valid tissues from the schema.
+    """
+    mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
+    tools = {t.name: t for t in await mcp.list_tools()}
+    tissue_enum = tools["get_top_expressed_genes_by_tissue"].parameters["properties"][
+        "tissue_site_detail_id"
+    ]["enum"]
+    assert "Whole_Blood" in tissue_enum
+    assert "" not in tissue_enum  # the all-tissues sentinel is never advertised
+
+    mock_service = AsyncMock()
     with patch_service(mock_service):
-        payload = await _call_tool(
+        result = await mcp.call_tool(
             "get_top_expressed_genes_by_tissue", {"tissue_site_detail_id": ""}
         )
-
+    assert result.is_error is True
+    payload = json.loads(result.content[0].text)
     assert payload["success"] is False
     assert payload["error_code"] == "invalid_input"
-    assert "Whole_Blood" in payload["message"]
     mock_service.get_top_expressed_genes.assert_not_awaited()
 
 
@@ -480,7 +493,7 @@ async def test_search_tool_returns_structured_error_on_upstream_failure() -> Non
         payload = await _call_tool("search", {"query": "BRCA1"})
 
     assert payload["success"] is False
-    assert payload["error_code"] == "internal_error"
+    assert payload["error_code"] == "internal"
 
 
 @pytest.mark.asyncio
@@ -1101,17 +1114,19 @@ async def test_median_compact_omits_null_keys_and_rounds() -> None:
 @pytest.mark.asyncio
 async def test_median_invalid_tissue_returns_short_error() -> None:
     mock_service = AsyncMock()
+    mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
 
     with patch_service(mock_service):
-        payload = await _call_tool(
+        result = await mcp.call_tool(
             "get_median_expression_levels",
             {"gencode_id": ["ENSG00000169344.15"], "tissue_site_detail_id": "Kidney"},
         )
 
+    assert result.is_error is True
+    payload = json.loads(result.content[0].text)
     assert payload["success"] is False
     assert payload["error_code"] == "invalid_input"
-    # Short message, not the full 54-tissue enum dumped twice.
-    assert "see get_server_capabilities.tissues" in payload["message"]
+    # Short message, not the full 54-tissue enum dumped into the prose.
     assert len(payload["message"]) < 300
     mock_service.get_median_gene_expression.assert_not_awaited()
 

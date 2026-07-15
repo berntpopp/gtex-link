@@ -213,13 +213,15 @@ async def test_search_genes_input_schema_declares_limit_maximum() -> None:
 
 
 @pytest.mark.asyncio
-async def test_untrusted_limit_exceeded_maps_to_typed_error_not_internal() -> None:
-    """An upstream over-cap result surfaces output_limit_exceeded, not internal_error.
+async def test_untrusted_limit_exceeded_maps_to_actionable_invalid_input() -> None:
+    """An upstream over-cap result surfaces an actionable, closed-enum error.
 
     The mocked upstream returns more genes than the object ceiling (1000),
     simulating a backend that ignores the requested page size; the fence's
     `enforce_untrusted_text_limits` raises `UntrustedTextLimitError`, which the
-    envelope must classify explicitly (finding #3).
+    envelope classifies as `invalid_input` -- a member of the Response-Envelope
+    Standard v1 closed enum whose recovery (reformulate_input) tells the model to
+    narrow the request (finding #3; issue #76 D5).
     """
     genes = [_hostile_gene(gencode_id=f"ENSG{i:011d}.1") for i in range(1001)]
     mock_service = AsyncMock()
@@ -231,7 +233,7 @@ async def test_untrusted_limit_exceeded_maps_to_typed_error_not_internal() -> No
         payload = await _call_tool("search_genes", {"query": "BRCA1", "limit": 1000})
 
     assert payload["success"] is False
-    assert payload["error_code"] == "output_limit_exceeded"
+    assert payload["error_code"] == "invalid_input"
     assert payload["recovery_action"] == "reformulate_input"
 
 

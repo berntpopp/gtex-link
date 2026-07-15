@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Literal
 
 from gtex_link.exceptions import ValidationError
 
@@ -239,3 +240,19 @@ class DataType(StrEnum):
     GENOTYPE = "Genotype"
     WGS = "WGS"
     WES = "WES"
+
+
+# Closed-vocabulary schema aliases for MCP tool inputs (TOOL-SCHEMA-DOCUMENTATION
+# Standard S4). Annotating a parameter with one of these renders a JSON-Schema
+# `enum`, so a model picks a valid value from the schema instead of burning a
+# failed call to learn the vocabulary (issue #76 D4/#5). Each mirrors the real
+# values of the corresponding StrEnum; `TissueLiteral` is derived from
+# `TissueSiteDetailId` but excludes the "" (all-tissues) sentinel, which the
+# runtime rejects -- keeping the advertised enum a faithful subset of what the
+# server actually accepts (never wider).
+DatasetLiteral = Literal["gtex_v8", "gtex_snrnaseq_pilot", "gtex_v10"]
+GencodeVersionLiteral = Literal["v19", "v26", "v39"]
+GenomeBuildLiteral = Literal["GRCh37", "GRCh38", "GRCh38/hg38"]
+
+_TISSUE_VALUES: tuple[str, ...] = tuple(t.value for t in TissueSiteDetailId if t.value)
+TissueLiteral = Literal[_TISSUE_VALUES]  # type: ignore[valid-type]

@@ -41,6 +41,10 @@ def create_gtex_mcp(profile: MCPToolProfile | str | None = None) -> FastMCP:
         version=__version__,
         instructions=GTEX_SERVER_INSTRUCTIONS,
         mask_error_details=True,
+        # Keep input schemas inline ($ref-free): none of our input schemas contain a
+        # $ref, so this is free and trims ~a quarter off the advertised tool surface
+        # (TOOL-SURFACE-BUDGET-STANDARD v1).
+        dereference_schemas=False,
     )
 
     register_search_fetch_tools(mcp, profile=selected)

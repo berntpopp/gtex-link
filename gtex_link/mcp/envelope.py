@@ -117,13 +117,13 @@ def _classify(exc: BaseException) -> tuple[str, str, bool]:
             exc.error_code in {"rate_limited", "upstream_unavailable"},
         )
     # Response-Envelope v1.1: a fenced untrusted-text response exceeded a size
-    # ceiling. Surface an explicit typed limit error, not a generic
-    # internal_error, so the host can narrow the request. Checked before the
-    # generic `ValidationError` branch (UntrustedTextLimitError subclasses
-    # ValueError, not gtex_link's ValidationError, but keep it explicit + first).
+    # ceiling. The caller must narrow the request, so this maps onto the closed
+    # enum's `invalid_input` (recovery = reformulate_input), not a transient code.
+    # Checked before the generic `ValidationError` branch (UntrustedTextLimitError
+    # subclasses ValueError, not gtex_link's ValidationError, but keep it first).
     if isinstance(exc, UntrustedTextLimitError):
         return (
-            "output_limit_exceeded",
+            "invalid_input",
             "The response exceeded the untrusted-content size limit. Narrow the "
             "request (fewer genes or a more specific query) and retry.",
             False,
@@ -149,7 +149,7 @@ def _classify(exc: BaseException) -> tuple[str, str, bool]:
     # never falls through to the retryable `upstream_unavailable` mapping.
     if isinstance(exc, UpstreamPolicyError):
         return (
-            "internal_error",
+            "internal",
             "The request was blocked by an outbound URL/size policy and was not completed.",
             False,
         )
@@ -159,13 +159,13 @@ def _classify(exc: BaseException) -> tuple[str, str, bool]:
             "GTEx Portal returned an error. Verify the request inputs.",
             True,
         )
-    return "internal_error", "An internal error occurred. The request was not completed.", False
+    return "internal", "An internal error occurred. The request was not completed.", False
 
 
 def _recovery_action(error_code: str, retryable: bool) -> str:
     if retryable:
         return "retry_backoff"
-    if error_code in {"invalid_input", "validation_failed", "not_found", "output_limit_exceeded"}:
+    if error_code in {"invalid_input", "not_found", "ambiguous_query"}:
         return "reformulate_input"
     return "switch_tool"
 
@@ -228,27 +228,53 @@ def build_unknown_tool_envelope() -> dict[str, Any]:
     }
 
 
-def build_arg_error_envelope(tool_name: str | None) -> dict[str, Any]:
-    """Fixed, body-free error frame for an argument-validation failure.
+def build_arg_error_envelope(
+    tool_name: str | None,
+    *,
+    valid_params: list[str] | None = None,
+    unknown_args: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fixed, actionable error frame for an argument-validation failure.
 
     FastMCP validates tool arguments during dispatch, BEFORE ``run_mcp_tool``
     runs, and would otherwise surface the raw pydantic message (which echoes the
-    caller's input value) to the model. Return the same envelope shape with a
-    FIXED ``invalid_input`` message and no echoed argument value, so the
-    arg-validation path is fenced identically to the classified error path.
+    caller's input VALUE) to the model. This returns the standard envelope with a
+    FIXED ``invalid_input`` message that NEVER echoes an argument value, but --
+    unlike the old body-free frame -- it DOES name the tool's own parameters so
+    the model can self-correct (MCP 2025-11-25 SEP-1303; issue #76 D4/#4):
+
+    * ``valid_params`` are the tool's declared parameter names (server-defined,
+      always safe) -- surfaced in the prose and in an ``allowed_values`` field.
+    * ``unknown_args`` are the caller-supplied argument KEYS the tool does not
+      accept, already sanitized by the caller (control/zero-width/bidi/NUL code
+      points stripped); named so a no-parameter tool's error is still actionable.
     """
     ctx = McpErrorContext(tool_name=tool_name or "unknown")
-    return {
+    unknown_args = unknown_args or []
+    parts = ["Invalid arguments for this tool."]
+    if unknown_args:
+        parts.append(f"Unexpected argument(s): {', '.join(unknown_args)}.")
+    if valid_params is not None:
+        if valid_params:
+            parts.append(f"This tool's parameters are: {', '.join(valid_params)}.")
+        elif not unknown_args:
+            parts.append("This tool accepts no arguments.")
+    parts.append("Check the parameter types and any documented limits, then retry.")
+    envelope: dict[str, Any] = {
         "success": False,
         "error_code": "invalid_input",
-        "message": (
-            "Invalid arguments for this tool. Check the required parameters, "
-            "their types, and any documented limits, then retry."
-        ),
+        "message": sanitize_message(" ".join(parts)),
         "retryable": False,
         "recovery_action": _recovery_action("invalid_input", retryable=False),
         "_meta": {"tool": ctx.tool_name, **_provenance_meta(ctx)},
     }
+    if valid_params:
+        envelope["allowed_values"] = list(valid_params)
+    if unknown_args:
+        envelope["field_errors"] = [
+            {"field": name, "reason": "unexpected argument"} for name in unknown_args
+        ]
+    return envelope
 
 
 async def run_mcp_tool(

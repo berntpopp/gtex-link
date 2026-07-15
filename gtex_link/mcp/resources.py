@@ -52,7 +52,7 @@ GTEX_USAGE_NOTES = (
 
 GTEX_REFERENCE_NOTES = (
     "Error codes: not_found, invalid_input, rate_limited, upstream_unavailable, "
-    "output_limit_exceeded, internal_error. Errors carry retryable + "
+    "internal. Errors carry retryable + "
     "recovery_action (retry_backoff | reformulate_input | switch_tool) and, for "
     "validation failures, field_errors. numSamples is the per-tissue RNA-seq "
     "sample denominator (gene-independent). Spread (min/max/quartiles/IQR) is "

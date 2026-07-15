@@ -11,7 +11,6 @@ from gtex_link.mcp.envelope import McpErrorContext, McpToolError, run_mcp_tool
 from gtex_link.mcp.metadata import ensure_known_dataset, ensure_valid_tissue
 from gtex_link.mcp.next_commands import after_median, after_top
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
-from gtex_link.mcp.schema_relax import relax_output_schema
 from gtex_link.mcp.search_match import gencode_version_for_dataset, resolve_gene_ids
 from gtex_link.mcp.service_adapters import get_gtex_service
 from gtex_link.mcp.shaping import group_median
@@ -21,7 +20,7 @@ from gtex_link.models import (
     MedianGeneExpressionRequest,
     TopExpressedGenesRequest,
 )
-from gtex_link.models.mcp_results import MedianExpressionResult
+from gtex_link.models.gtex import DatasetLiteral, TissueLiteral
 from gtex_link.observability.metrics import record_mcp_tool_call
 
 if TYPE_CHECKING:
@@ -62,31 +61,80 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             title="Get Median Expression Levels",
             annotations=READ_ONLY_OPEN_WORLD,
             tags={"expression"},
-            output_schema=relax_output_schema(
-                MedianExpressionResult.model_json_schema(by_alias=True)
-            ),
+            output_schema=None,
             description=(
                 "Get median GTEx Portal expression (TPM) per tissue for one or "
                 "more genes (GENCODE IDs or symbols; symbols are auto-resolved). "
-                "Results are grouped per gene with invariant fields hoisted. "
-                "`tissue_site_detail_id` accepts a single tissue OR a list of "
-                "tissues to compare a few tissues in one compact call; omit for "
-                "all tissues. Use `sort` + `top_n` to answer 'where is this "
-                "expressed most?' in one call; `response_mode='full'` adds "
-                "ontologyId; `include_spread=true` adds per-tissue "
-                "min/max/quartiles/IQR (one extra upstream call)."
+                "Results are grouped per gene with invariant fields hoisted. Use "
+                "`sort` + `top_n` to answer 'where is this expressed most?' in one "
+                "call; `response_mode='full'` adds ontologyId; "
+                "`include_spread=true` adds per-tissue min/max/quartiles/IQR (one "
+                "extra upstream call)."
             ),
         )
         async def get_median_expression_levels(
-            gencode_id: list[str],
-            tissue_site_detail_id: str | list[str] | None = None,
-            dataset_id: str = "gtex_v8",
-            sort: Literal["desc", "asc", "none"] = "desc",
-            top_n: Annotated[int | None, Field(ge=1)] = None,
-            response_mode: Literal["compact", "full"] = "compact",
-            include_spread: bool = False,
-            offset: int = 0,
-            limit: int = 50,
+            gencode_id: Annotated[
+                list[str],
+                Field(
+                    description=(
+                        "One or more gene symbols or GENCODE IDs; symbols are "
+                        "auto-resolved to the dataset's GENCODE release (e.g. UMOD "
+                        "or ENSG00000169344.15). At most 18 genes per call."
+                    ),
+                    examples=[["UMOD"]],
+                ),
+            ],
+            tissue_site_detail_id: Annotated[
+                TissueLiteral | list[TissueLiteral] | None,
+                Field(
+                    description=(
+                        "A single GTEx tissue, or a list of tissues to compare in "
+                        "one call; omit for all 54 tissues."
+                    )
+                ),
+            ] = None,
+            dataset_id: Annotated[
+                DatasetLiteral, Field(description="GTEx dataset release to query.")
+            ] = "gtex_v8",
+            sort: Annotated[
+                Literal["desc", "asc", "none"],
+                Field(
+                    description=(
+                        "Order tissues by median expression: desc (highest first, "
+                        "default), asc (lowest first), or none (upstream order)."
+                    )
+                ),
+            ] = "desc",
+            top_n: Annotated[
+                int | None,
+                Field(
+                    ge=1,
+                    description=(
+                        "Keep only the top N tissues after sorting (>=1); omit for "
+                        "all. Pair with sort to answer 'where is this expressed "
+                        "most/least?'."
+                    ),
+                ),
+            ] = None,
+            response_mode: Annotated[
+                Literal["compact", "full"],
+                Field(
+                    description=(
+                        "compact (default; tissue/median/n only) or full (adds "
+                        "ontologyId per tissue)."
+                    )
+                ),
+            ] = "compact",
+            include_spread: Annotated[
+                bool,
+                Field(
+                    description=("Add per-tissue min/max/quartiles/IQR (one extra upstream call).")
+                ),
+            ] = False,
+            offset: Annotated[
+                int, Field(ge=0, description="Zero-based gene offset for pagination.")
+            ] = 0,
+            limit: Annotated[int, Field(ge=1, description="Genes per page for pagination.")] = 50,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 # Reject an unknown dataset BEFORE resolving gene ids: resolution is
@@ -191,6 +239,7 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             title="Get Individual Expression Data",
             annotations=READ_ONLY_OPEN_WORLD,
             tags={"expression"},
+            output_schema=None,
             description=(
                 "Get individual-sample GTEx Portal expression data (TPM) for one "
                 "or more genes (GENCODE IDs or symbols; symbols are auto-resolved), "
@@ -203,11 +252,42 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             ),
         )
         async def get_individual_expression_data(
-            gencode_id: list[str],
-            tissue_site_detail_id: str | None = None,
-            dataset_id: str = "gtex_v8",
-            offset: int = 0,
-            limit: int = 100,
+            gencode_id: Annotated[
+                list[str],
+                Field(
+                    description=(
+                        "One or more gene symbols or GENCODE IDs; symbols are "
+                        "auto-resolved (e.g. UMOD or ENSG00000169344.15)."
+                    ),
+                    examples=[["UMOD"]],
+                ),
+            ],
+            tissue_site_detail_id: Annotated[
+                TissueLiteral | None,
+                Field(
+                    description=(
+                        "Restrict to a single GTEx tissue; omit for all tissues (high volume)."
+                    )
+                ),
+            ] = None,
+            dataset_id: Annotated[
+                DatasetLiteral, Field(description="GTEx dataset release to query.")
+            ] = "gtex_v8",
+            offset: Annotated[
+                int,
+                Field(
+                    ge=0,
+                    description="Zero-based row offset (rows are gene-tissue pairs, not samples).",
+                ),
+            ] = 0,
+            limit: Annotated[
+                int,
+                Field(
+                    ge=1,
+                    le=1000,
+                    description="Maximum gene-tissue rows per page; filter by tissue to bound size.",
+                ),
+            ] = 100,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 ensure_known_dataset(dataset_id)  # before any upstream gene resolution
@@ -261,6 +341,7 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             title="Get Top Expressed Genes By Tissue",
             annotations=READ_ONLY_OPEN_WORLD,
             tags={"expression"},
+            output_schema=None,
             description=(
                 "Get the top expressed genes for a given tissue from GTEx "
                 "Portal. Use when answering 'what's expressed in this "
@@ -269,11 +350,25 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             ),
         )
         async def get_top_expressed_genes_by_tissue(
-            tissue_site_detail_id: str,
-            dataset_id: str = "gtex_v8",
-            filter_mt_gene: bool = True,
-            offset: int = 0,
-            limit: int = 100,
+            tissue_site_detail_id: Annotated[
+                TissueLiteral,
+                Field(
+                    description="The GTEx tissue to rank genes within (e.g. Whole_Blood).",
+                    examples=["Whole_Blood"],
+                ),
+            ],
+            dataset_id: Annotated[
+                DatasetLiteral, Field(description="GTEx dataset release to query.")
+            ] = "gtex_v8",
+            filter_mt_gene: Annotated[
+                bool, Field(description="Exclude mitochondrial genes (default true).")
+            ] = True,
+            offset: Annotated[
+                int, Field(ge=0, description="Zero-based row offset for pagination.")
+            ] = 0,
+            limit: Annotated[
+                int, Field(ge=1, le=1000, description="Maximum genes to return per page.")
+            ] = 100,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
                 ensure_known_dataset(dataset_id)

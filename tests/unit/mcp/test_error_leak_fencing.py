@@ -184,11 +184,13 @@ async def test_transport_error_yields_clean_fixed_message() -> None:
 
 
 @pytest.mark.asyncio
-async def test_error_meta_caller_dataset_id_is_sanitized_recursively() -> None:
-    """A caller-supplied hostile dataset_id copied into error _meta is stripped.
+async def test_hostile_dataset_id_is_rejected_by_schema_without_echo() -> None:
+    """A hostile dataset_id is rejected by the closed enum and never echoed.
 
-    The full error payload (walked recursively, both mirrors) must carry no
-    forbidden code points -- including the provenance `_meta.dataset_id`.
+    dataset_id is a Literal (closed vocabulary, S4); a value carrying forbidden
+    code points is not a member, so it fails argument validation and the resulting
+    invalid_input envelope never copies the hostile value anywhere. The full
+    payload (both mirrors) carries no forbidden code points.
     """
     hostile_dataset = f"gtex_v8{_CTRL}"
     mock_service = AsyncMock()
@@ -202,8 +204,11 @@ async def test_error_meta_caller_dataset_id_is_sanitized_recursively() -> None:
 
     for payload in (structured, mirror):
         assert payload["success"] is False
-        assert payload["_meta"]["dataset_id"] == "gtex_v8"
+        assert payload["error_code"] == "invalid_input"
+        assert payload["_meta"].get("dataset_id") != hostile_dataset
         _assert_clean_recursive(payload)
+    # Rejected before dispatch: the upstream service was never reached.
+    mock_service.get_top_expressed_genes.assert_not_awaited()
 
 
 @pytest.mark.asyncio
