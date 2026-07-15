@@ -147,7 +147,7 @@ def group_median(
 
     When *tissues_filter* is given, each gene's tissues are restricted to that
     set after sorting (client-side multi-tissue selection); `tissuesTotal` then
-    reflects the filtered universe, not all 54 tissues.
+    reflects the filtered universe, not all tissues.
     """
     # Preserve first-seen gene order.
     order: list[str] = []

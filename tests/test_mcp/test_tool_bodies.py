@@ -279,8 +279,36 @@ async def test_median_rejects_nonpositive_top_n() -> None:
             payload = json.loads(result.content[0].text)
             assert payload["success"] is False
             assert payload["error_code"] == "invalid_input"
+            # The error must NAME the failing parameter, not list every param (issue #76 #2).
+            assert "top_n" in payload["message"]
+            assert any(fe["field"] == "top_n" for fe in payload.get("field_errors") or [])
     # An invalid top_n must be rejected before any upstream expression call.
     mock_service.get_median_gene_expression.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_top_expressed_rejects_valid_tissue_absent_from_dataset() -> None:
+    """Regression (issue #76 #1): a valid tissue with no genes in the dataset must ERROR.
+
+    A schema-valid tissue paired with a dataset that does not measure it returns an
+    empty upstream result; that must surface as a loud invalid_input naming the field,
+    never success:true + data:[] (a silent-empty).
+    """
+    mock_service = AsyncMock()
+    mock_service.get_top_expressed_genes = AsyncMock(
+        return_value=PaginatedTopExpressedGenesResponse(data=[], pagingInfo=_paging(0))
+    )
+    mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
+    with patch_service(mock_service):
+        result = await mcp.call_tool(
+            "get_top_expressed_genes_by_tissue",
+            {"tissue_site_detail_id": "Kidney_Cortex", "dataset_id": "gtex_snrnaseq_pilot"},
+        )
+    assert result.is_error is True
+    payload = json.loads(result.content[0].text)
+    assert payload["success"] is False
+    assert payload["error_code"] == "invalid_input"
+    assert "tissue_site_detail_id" in payload["message"]
 
 
 @pytest.mark.asyncio
@@ -463,6 +491,44 @@ async def test_get_top_expressed_genes_by_tissue_happy_path() -> None:
     request = mock_service.get_top_expressed_genes.call_args.args[0]
     assert request.tissue_site_detail_id == "Whole_Blood"
     assert request.filter_mt_gene is True
+
+
+@pytest.mark.asyncio
+async def test_paginated_tool_emits_meta_pagination_frame() -> None:
+    """Response-Envelope v1: a paginated result carries _meta.pagination.
+
+    total_count is the whole-result size (invariant under limit); has_more is true
+    when the page is not the last -- so the fleet behaviour gate (and any client) can
+    read gtex's collections without knowing GTEx's own `pagingInfo` shape (issue #76 #1).
+    """
+    row = TopExpressedGenes.model_validate(
+        {
+            "datasetId": "gtex_v8",
+            "tissueSiteDetailId": "Whole_Blood",
+            "ontologyId": "UBERON:0000178",
+            "gencodeId": "ENSG00000012048.22",
+            "geneSymbol": "BRCA1",
+            "median": 12.5,
+            "unit": "TPM",
+        }
+    )
+    mock_service = AsyncMock()
+    mock_service.get_top_expressed_genes = AsyncMock(
+        return_value=PaginatedTopExpressedGenesResponse(
+            data=[row],
+            pagingInfo=PaginationInfo(
+                numberOfPages=5, page=0, maxItemsPerPage=1, totalNumberOfItems=5
+            ),
+        )
+    )
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_top_expressed_genes_by_tissue",
+            {"tissue_site_detail_id": "Whole_Blood", "limit": 1},
+        )
+    pagination = payload["_meta"]["pagination"]
+    assert pagination["total_count"] == 5
+    assert pagination["has_more"] is True  # page 0 of 5
 
 
 @pytest.mark.asyncio

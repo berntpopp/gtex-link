@@ -233,6 +233,7 @@ def build_arg_error_envelope(
     *,
     valid_params: list[str] | None = None,
     unknown_args: list[str] | None = None,
+    invalid_fields: list[tuple[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Fixed, actionable error frame for an argument-validation failure.
 
@@ -240,26 +241,33 @@ def build_arg_error_envelope(
     runs, and would otherwise surface the raw pydantic message (which echoes the
     caller's input VALUE) to the model. This returns the standard envelope with a
     FIXED ``invalid_input`` message that NEVER echoes an argument value, but --
-    unlike the old body-free frame -- it DOES name the tool's own parameters so
-    the model can self-correct (MCP 2025-11-25 SEP-1303; issue #76 D4/#4):
+    unlike the old body-free frame -- it names the SPECIFIC offending parameter so
+    the model can self-correct (MCP 2025-11-25 SEP-1303; issue #76 D4/#4/#2):
 
-    * ``valid_params`` are the tool's declared parameter names (server-defined,
-      always safe) -- surfaced in the prose and in an ``allowed_values`` field.
+    * ``invalid_fields`` are ``(field, reason)`` for KNOWN parameters that failed
+      validation (wrong type, out of bound, out of enum). The reason is derived
+      from pydantic's schema-side message (bound/type/enum), never the input value.
     * ``unknown_args`` are the caller-supplied argument KEYS the tool does not
-      accept, already sanitized by the caller (control/zero-width/bidi/NUL code
-      points stripped); named so a no-parameter tool's error is still actionable.
+      accept, already sanitized; named so a no-parameter tool's error is actionable.
+    * ``valid_params`` are the tool's declared parameter names (server-defined,
+      always safe) -- surfaced in ``allowed_values`` and as a fallback.
     """
     ctx = McpErrorContext(tool_name=tool_name or "unknown")
     unknown_args = unknown_args or []
+    invalid_fields = invalid_fields or []
     parts = ["Invalid arguments for this tool."]
+    for field, reason in invalid_fields:
+        parts.append(f"`{field}`: {reason}.")
     if unknown_args:
         parts.append(f"Unexpected argument(s): {', '.join(unknown_args)}.")
-    if valid_params is not None:
+    if not invalid_fields and not unknown_args and valid_params is not None:
         if valid_params:
             parts.append(f"This tool's parameters are: {', '.join(valid_params)}.")
-        elif not unknown_args:
+        else:
             parts.append("This tool accepts no arguments.")
     parts.append("Check the parameter types and any documented limits, then retry.")
+    field_errors = [{"field": f, "reason": r} for f, r in invalid_fields]
+    field_errors += [{"field": name, "reason": "unexpected argument"} for name in unknown_args]
     envelope: dict[str, Any] = {
         "success": False,
         "error_code": "invalid_input",
@@ -270,11 +278,27 @@ def build_arg_error_envelope(
     }
     if valid_params:
         envelope["allowed_values"] = list(valid_params)
-    if unknown_args:
-        envelope["field_errors"] = [
-            {"field": name, "reason": "unexpected argument"} for name in unknown_args
-        ]
+    if field_errors:
+        envelope["field_errors"] = field_errors
     return envelope
+
+
+def _pagination_meta(paging: Any) -> dict[str, Any] | None:
+    """Fleet `_meta.pagination` derived from a GTEx `pagingInfo` block, or None.
+
+    `total_count` is `totalNumberOfItems` (the size of the whole result set,
+    invariant under `limit`); `has_more` is true when the current page is not the
+    last. Absent for tools that return no `pagingInfo` (fetch, capabilities, search).
+    """
+    if not isinstance(paging, dict):
+        return None
+    total = paging.get("totalNumberOfItems")
+    if not isinstance(total, int):
+        return None
+    page = paging.get("page")
+    n_pages = paging.get("numberOfPages")
+    has_more = isinstance(page, int) and isinstance(n_pages, int) and (page + 1) < n_pages
+    return {"total_count": total, "has_more": has_more}
 
 
 async def run_mcp_tool(
@@ -290,7 +314,15 @@ async def run_mcp_tool(
         if isinstance(result, dict):
             result.setdefault("success", True)
             existing_meta: dict[str, Any] = result.get("_meta") or {}
-            result["_meta"] = {**existing_meta, **_provenance_meta(ctx)}
+            merged_meta = {**existing_meta, **_provenance_meta(ctx)}
+            # Response-Envelope v1 pagination frame, derived from the upstream GTEx
+            # `pagingInfo` block so the fleet gate (and any client) can read
+            # total_count/has_more without knowing GTEx's own camelCase shape. The
+            # count is a property of the result set, invariant under `limit`.
+            pagination = _pagination_meta(result.get("pagingInfo"))
+            if pagination is not None:
+                merged_meta["pagination"] = pagination
+            result["_meta"] = merged_meta
         return result
     except Exception as exc:  # broad catch is the error-boundary contract
         envelope = _error_envelope(exc, ctx)

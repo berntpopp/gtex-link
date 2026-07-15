@@ -154,3 +154,41 @@ async def test_eval_symbol_input_never_silent_empty() -> None:
         payload = await _call("get_median_expression_levels", {"gencode_id": ["NOTAGENE"]})
     assert payload["success"] is False
     assert payload["error_code"] == "invalid_input"
+
+
+# --- TOOL-SURFACE-BUDGET v1: a REAL tools/list surface guard (not a response body) ---
+
+_PER_TOOL_TOKEN_CEILING = 1_200  # B1
+_TOTAL_TOKEN_CEILING = 10_000  # B2
+
+
+def _tool_tokens(tool: object) -> int:
+    """chars/4 over the ACTUAL tools/list wire definition -- the fleet survey's metric."""
+    wire = tool.model_dump(mode="json", exclude_none=True)  # type: ignore[attr-defined]
+    return len(json.dumps(wire)) // 4
+
+
+@pytest.mark.asyncio
+async def test_tool_surface_stays_within_budget() -> None:
+    """Every advertised tool definition must fit the surface budget.
+
+    Measures the real tools/list wire schema (what a host actually pays to load),
+    not a response payload. Guards B1 (no tool over 1,200t) and B2 (surface under
+    10,000t) so a future schema addition cannot silently blow the budget.
+    """
+    from fastmcp import Client
+
+    mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
+    async with Client(mcp) as client:
+        tools = await client.list_tools()
+
+    per_tool = {tool.name: _tool_tokens(tool) for tool in tools}
+    over = {name: cost for name, cost in per_tool.items() if cost > _PER_TOOL_TOKEN_CEILING}
+    assert not over, f"tool(s) over the {_PER_TOOL_TOKEN_CEILING}t B1 budget: {over}"
+    total = sum(per_tool.values())
+    assert total < _TOTAL_TOKEN_CEILING, (
+        f"surface {total}t exceeds the {_TOTAL_TOKEN_CEILING}t B2 ceiling"
+    )
+    # outputSchema is suppressed fleet-wide (0% of surface); assert it stays gone.
+    for tool in tools:
+        assert tool.outputSchema is None, f"{tool.name} re-introduced an outputSchema"

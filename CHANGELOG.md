@@ -37,8 +37,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `isError:true`. (issue #76 D9; Response-Envelope Standard v1)
 - **Argument-validation errors named no parameter.** A bad or unknown argument
   produced a generic *"Invalid arguments for this tool…"* the model could not act
-  on. The error now names the tool's own parameters (`allowed_values`) and the
-  offending argument key(s); no caller *value* is ever echoed. (issue #76 D4/#4)
+  on. The error now names the SPECIFIC failing parameter and reason (e.g.
+  `` `top_n`: Input should be greater than or equal to 1``) in `field_errors`,
+  plus the tool's own parameters (`allowed_values`) and any unexpected argument
+  key(s); no caller *value* is ever echoed. (issue #76 D4/#4/#2)
+- **`get_top_expressed_genes_by_tissue` silently returned `data:[]` for a valid
+  tissue in a dataset that does not measure it** (e.g. any tissue against the
+  snRNA-seq pilot, whose served tissue set is empty). That silent-empty is now a
+  loud `invalid_input` naming `tissue_site_detail_id`, instead of a confident empty
+  answer. (issue #76 #1)
 
 ### Changed
 
@@ -47,8 +54,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the four closed vocabularies — `tissue_site_detail_id`, `dataset_id`,
   `gencode_version`, `genome_build` — are declared as schema enums, so a model reads
   valid values from the schema instead of learning them from a failed call. The
-  advertised tissue enum excludes the internal `""` all-tissues sentinel (schema is
-  never wider than the runtime). (issue #76 D4/#5; Tool-Schema Documentation v1)
+  advertised tissue enum excludes the internal `""` all-tissues sentinel AND the
+  spec's one legacy name `Cells_Transformed_fibroblasts` (renamed to
+  `Cells_Cultured_fibroblasts` in v8; the live API serves 54 tissues and no data
+  under the old name), so the schema is never wider than the runtime. (issue #76
+  D4/#5/#3; Tool-Schema Documentation v1)
+- **`_meta.pagination.{total_count, has_more}`** is now emitted on every paginated
+  result, derived from GTEx's `pagingInfo`. `total_count` is the whole-result size
+  (invariant under `limit`), so a client — and the fleet behaviour gate — can read
+  gtex's collections without knowing GTEx's own camelCase shape. (Response-Envelope v1)
 - **`error_code` is now the fleet's closed enum.** `internal_error` → `internal`
   and `output_limit_exceeded` → `invalid_input`, so every emitted and advertised
   code is one of `invalid_input · not_found · ambiguous_query · upstream_unavailable
@@ -56,14 +70,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Tool surface trimmed.** `outputSchema` (52% of the advertised surface, unread by
   models and optional in MCP) is suppressed on every tool via `output_schema=None`
   (`structuredContent` is still emitted for the dict envelopes), and
-  `dereference_schemas=False` keeps input schemas inline. Surface ~4,072t → ~3,9k;
-  no tool over 1,200t. (Tool-Surface Budget Standard v1)
+  `dereference_schemas=False` keeps input schemas inline. Surface ~4,072t → ~3.7k;
+  no tool over 1,200t (the median tool's scalar-or-list tissue parameter uses a
+  `$ref`-shared enum so the 54-value vocabulary is not inlined twice).
+  (Tool-Surface Budget Standard v1)
 
 ### Added
 
 - Vendored the **Behaviour Conformance v1** gate (`tests/conformance/behaviour.py`
   + `test_behaviour_v1.py`) and wired its probe into the `mcp-conformance` workflow.
-- Drift guards pinning each schema `Literal` alias to its source `StrEnum`.
+- A real per-tool **tool-surface budget** test asserting the live `tools/list`
+  schema stays within B1 (≤1,200t/tool) and B2 (<10,000t total).
+- Drift guards pinning the schema enums to their source of truth — the tissue
+  vocabulary against the vendored OpenAPI spec (minus documented deprecations).
 
 ## [3.0.6] - 2026-07-14
 ### Fixed

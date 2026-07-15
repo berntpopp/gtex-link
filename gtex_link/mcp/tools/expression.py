@@ -20,7 +20,7 @@ from gtex_link.models import (
     MedianGeneExpressionRequest,
     TopExpressedGenesRequest,
 )
-from gtex_link.models.gtex import DatasetLiteral, TissueLiteral
+from gtex_link.models.gtex import DatasetLiteral, TissueChoice, TissueLiteral
 from gtex_link.observability.metrics import record_mcp_tool_call
 
 if TYPE_CHECKING:
@@ -66,8 +66,8 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 "Get median GTEx Portal expression (TPM) per tissue for one or "
                 "more genes (GENCODE IDs or symbols; symbols are auto-resolved). "
                 "Results are grouped per gene with invariant fields hoisted. Use "
-                "`sort` + `top_n` to answer 'where is this expressed most?' in one "
-                "call; `response_mode='full'` adds ontologyId; "
+                "`sort` + `top_n` to answer 'where is this gene expressed most?' in "
+                "one call; `response_mode='full'` adds ontologyId; "
                 "`include_spread=true` adds per-tissue min/max/quartiles/IQR (one "
                 "extra upstream call)."
             ),
@@ -85,12 +85,13 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 ),
             ],
             tissue_site_detail_id: Annotated[
-                TissueLiteral | list[TissueLiteral] | None,
+                TissueChoice | list[TissueChoice] | None,
                 Field(
                     description=(
                         "A single GTEx tissue, or a list of tissues to compare in "
-                        "one call; omit for all 54 tissues."
-                    )
+                        "one call; omit for all tissues."
+                    ),
+                    examples=[["Whole_Blood", "Kidney_Cortex"]],
                 ),
             ] = None,
             dataset_id: Annotated[
@@ -386,6 +387,25 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 result = await service.get_top_expressed_genes(request)
                 dumped = result.model_dump(by_alias=True)
                 rows = dumped.get("data", [])
+                # A VALID tissue paired with a dataset that does not measure it returns
+                # zero rows upstream. Returning that as success:true is a silent-empty
+                # (issue #76 #1): the tissue is schema-valid but absent from THIS
+                # dataset's vocabulary. Reject the first empty page with invalid_input
+                # naming the field, instead of a confident empty answer. (A later empty
+                # page is an ordinary paged-past-the-end result, not a wrong answer.)
+                page = offset // limit if limit else 0
+                if not rows and page == 0:
+                    raise McpToolError(
+                        error_code="invalid_input",
+                        message=(
+                            f"`tissue_site_detail_id`: {tissue_site_detail_id!r} has no "
+                            f"expressed genes in dataset {dataset_id!r}. Tissue sets "
+                            "differ by dataset (the snRNA-seq pilot and gtex_v10 cover "
+                            "different tissues than gtex_v8); confirm this tissue is "
+                            "measured in this dataset (see get_server_capabilities) or "
+                            "use dataset 'gtex_v8'."
+                        ),
+                    )
                 for row in rows:
                     if row.get("median") is not None:
                         row["median"] = round(row["median"], 4)

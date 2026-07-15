@@ -64,6 +64,7 @@ from fastmcp.exceptions import ResourceError
 from fastmcp.exceptions import ValidationError as FastMCPValidationError
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools.tool import ToolResult
+from pydantic import ValidationError as PydanticValidationError
 
 from gtex_link.mcp.envelope import build_arg_error_envelope, build_unknown_tool_envelope
 from gtex_link.mcp.untrusted_content import sanitize_message
@@ -156,17 +157,50 @@ def install_validation_log_filter() -> None:
                 handler.addFilter(_ValidationLogScrubFilter())
 
 
-def _unknown_arg_names(caller_args: Any, valid_params: list[str] | None) -> list[str]:
-    """Sanitized caller argument KEYS the tool does not declare.
+def _short_field_reason(err: Any) -> str:
+    """A short, input-free reason for a pydantic field error.
 
-    Argument keys are caller-supplied, so each is sanitized (control/zero-width/
-    bidi/NUL code points stripped) before it is named back. Values are never
-    touched here -- only the keys. Empty when the tool/params are unknown.
+    NEVER uses the offending input value (pydantic carries it separately in
+    ``input``); the reason is derived from the schema side only. An enum
+    (``literal_error``) message dumps the whole vocabulary -- kept out of the
+    error because the enum is already in the tool's input schema.
     """
-    if not isinstance(caller_args, dict) or valid_params is None:
-        return []
-    allowed = set(valid_params)
-    return [sanitize_message(str(key)) for key in caller_args if key not in allowed]
+    etype = err.get("type")
+    if etype == "literal_error":
+        return "not one of the allowed values (see this parameter's enum in the schema)"
+    if etype == "missing_argument":
+        return "required argument is missing"
+    return sanitize_message(str(err.get("msg") or "invalid value"))[:120]
+
+
+def _classify_validation_error(
+    exc: Exception, caller_args: Any, valid_params: list[str] | None
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Split a FastMCP arg-validation failure into (unknown_args, invalid_fields).
+
+    Reads the underlying pydantic error (``__cause__``) for precise, per-field
+    detail: ``unexpected_keyword_argument`` -> an unknown KEY; anything else on a
+    field -> ``(field, reason)`` naming the specific parameter that failed (issue
+    #76 #2). Falls back to a set-difference for unknown keys if no pydantic cause
+    is available. Field names and the reason are input-free (schema-derived).
+    """
+    unknown: list[str] = []
+    invalid: list[tuple[str, str]] = []
+    cause = getattr(exc, "__cause__", None)
+    if isinstance(cause, PydanticValidationError):
+        for err in cause.errors():
+            loc = ".".join(str(p) for p in err.get("loc") or ()) or "input"
+            field = sanitize_message(loc)
+            if err.get("type") == "unexpected_keyword_argument":
+                unknown.append(field)
+            else:
+                invalid.append((field, _short_field_reason(err)))
+        return unknown, invalid
+    # No structured cause: name unknown keys by set-difference (keys are sanitized).
+    if isinstance(caller_args, dict) and valid_params is not None:
+        allowed = set(valid_params)
+        unknown = [sanitize_message(str(k)) for k in caller_args if k not in allowed]
+    return unknown, invalid
 
 
 def _promote_error_result(result: Any) -> Any:
@@ -222,11 +256,16 @@ class _OutputValidationMiddleware(Middleware):
                 valid_params = list((params.get("properties") or {}).keys())
         try:
             result = await call_next(context)
-        except FastMCPValidationError:
+        except FastMCPValidationError as exc:
             _logger.warning("MCP argument validation failed for tool=%s", tool_name)
-            unknown = _unknown_arg_names(getattr(message, "arguments", None), valid_params)
+            unknown, invalid = _classify_validation_error(
+                exc, getattr(message, "arguments", None), valid_params
+            )
             envelope = build_arg_error_envelope(
-                tool_name, valid_params=valid_params, unknown_args=unknown
+                tool_name,
+                valid_params=valid_params,
+                unknown_args=unknown,
+                invalid_fields=invalid,
             )
             return ToolResult(
                 content=[mcp.types.TextContent(type="text", text=json.dumps(envelope))],

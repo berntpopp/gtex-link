@@ -43,7 +43,7 @@ def valid_tissues() -> list[str]:
 def ensure_valid_tissue(tissue: str | None) -> None:
     """Raise a short `invalid_input` McpToolError if *tissue* is unknown.
 
-    Pre-validating here keeps the enormous pydantic enum dump (the full 54-tissue
+    Pre-validating here keeps the enormous pydantic enum dump (the full tissue
     list, twice) out of the client-facing error. `None` means "all tissues" and
     passes. Shared by every tool that accepts a tissue filter.
     """

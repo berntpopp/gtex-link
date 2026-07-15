@@ -163,6 +163,12 @@ class TissueSiteDetailId(StrEnum):
     BRAIN_SUBSTANTIA_NIGRA = "Brain_Substantia_nigra"
     CELLS_CULTURED_FIBROBLASTS = "Cells_Cultured_fibroblasts"
     CELLS_EBV_LYMPHOCYTES = "Cells_EBV-transformed_lymphocytes"
+    # NB: the OpenAPI spec also lists the pre-v8 name `Cells_Transformed_fibroblasts`,
+    # but the live v8/v10 API renamed it to `Cells_Cultured_fibroblasts` (above) and
+    # serves NO data under the old name -- `GET /dataset/tissueSiteDetail` returns 54
+    # tissues without it, and every expression query for it is empty. It is deliberately
+    # excluded so the advertised enum is never wider than the runtime (see the drift
+    # guard in tests/test_models/test_schema_literals.py).
     CERVIX_ECTOCERVIX = "Cervix_Ectocervix"
     CERVIX_ENDOCERVIX = "Cervix_Endocervix"
     COLON_SIGMOID = "Colon_Sigmoid"
@@ -256,3 +262,15 @@ GenomeBuildLiteral = Literal["GRCh37", "GRCh38", "GRCh38/hg38"]
 
 _TISSUE_VALUES: tuple[str, ...] = tuple(t.value for t in TissueSiteDetailId if t.value)
 TissueLiteral = Literal[_TISSUE_VALUES]  # type: ignore[valid-type]
+
+# A StrEnum view of the same tissue vocabulary, used ONLY where a parameter accepts
+# BOTH a single tissue and a list of them (`get_median_expression_levels`). Pydantic
+# emits a StrEnum once into `$defs` and `$ref`s it from every branch, whereas an
+# inline `Literal` is duplicated in full in each branch -- inlining the 55-value
+# vocabulary twice (scalar + list items) blows the per-tool token budget
+# (TOOL-SURFACE-BUDGET v1). Single-tissue parameters keep the inline `TissueLiteral`
+# so the behaviour gate can still read their enum. Kept in lock-step with
+# `TissueSiteDetailId` (and therefore the OpenAPI spec) by the drift guard.
+TissueChoice = StrEnum(  # type: ignore[misc]
+    "TissueChoice", {t.name: t.value for t in TissueSiteDetailId if t.value}
+)
