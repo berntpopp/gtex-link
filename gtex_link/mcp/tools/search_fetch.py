@@ -30,6 +30,9 @@ if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 _FETCH_TISSUE_LIMIT = 10
+# Cap the unioned result set. Items are ranked before slicing (exact_symbol first),
+# so an exact gene-symbol match in the query is never evicted by prefix matches.
+_SEARCH_RESULT_LIMIT = 20
 
 
 def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
@@ -82,8 +85,18 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
                         "title": f"{gene.gene_symbol} ({gene.gencode_id})",
                         "url": f"{GTEX_PORTAL_URL}/home/gene/{gene.gene_symbol}",
                     }
-                    for _rank, gene in ordered
+                    for _rank, gene in ordered[:_SEARCH_RESULT_LIMIT]
                 ]
+                if not items:
+                    # An empty list must not read as 'GTEx has no data for this gene'
+                    # (issue #76 D6). Say WHY: no gene-like term matched the catalog.
+                    return {
+                        "results": [],
+                        "note": (
+                            "No gene-like term in the query matched the GTEx catalog. "
+                            "Provide a gene symbol (e.g. UMOD) or a GENCODE ID."
+                        ),
+                    }
                 return {"results": items}
 
             success = False

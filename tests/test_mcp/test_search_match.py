@@ -20,6 +20,28 @@ def test_recall_terms_dedupes_preserving_order() -> None:
     assert recall_terms("BRCA1 brca1 TP53") == ["brca1", "tp53"]
 
 
+def test_recall_terms_prioritizes_gene_shaped_tokens_within_cap() -> None:
+    """Regression (issue #76 D2/D6): a gene symbol anywhere in the query must survive the cap.
+
+    The old order was positional, so a long clinical sentence pushed the gene the
+    user actually named past MAX_QUERY_TOKENS -- 'met'/'six' (English words that
+    prefix-match METTL*/SIX* genes) filled the cap and evicted SCN1A / UMOD.
+    """
+    from gtex_link.mcp.search_match import MAX_QUERY_TOKENS
+
+    dravet = "The proband met criteria for Dravet syndrome; is SCN1A expressed in brain cortex?"
+    assert "scn1a" in recall_terms(dravet)[:MAX_QUERY_TOKENS]
+
+    adtkd = (
+        "In a patient with autosomal dominant tubulointerstitial kidney disease, "
+        "is UMOD expressed in the kidney?"
+    )
+    assert "umod" in recall_terms(adtkd)[:MAX_QUERY_TOKENS]
+
+    padded = "one two three four five six seven eight UMOD"
+    assert "umod" in recall_terms(padded)[:MAX_QUERY_TOKENS]
+
+
 def test_classify_match_ranks_exact_symbol_first() -> None:
     assert classify_match("umod", symbol="UMOD", gencode_id="ENSG00000169344.15") == "exact_symbol"
     assert (
