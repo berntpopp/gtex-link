@@ -101,8 +101,16 @@ def fence_gene_response(result: PaginatedGeneResponse, *, max_objects: int) -> d
     )
 
 
-def median_headline(genes: list[GeneMedianGroup]) -> str:
-    """One-line plain-English answer placed first; null-safe, never raises."""
+def median_headline(genes: list[GeneMedianGroup], sort: SortMode = "desc") -> str:
+    """One-line plain-English answer placed first; null-safe, never raises.
+
+    The wording FOLLOWS the sort order, because ``tissues[0]`` is whichever end
+    of the distribution the sort put first: ``desc`` leads with the highest
+    median, ``asc`` with the lowest, and ``none`` leaves the rows in upstream
+    order (no superlative is truthful then). Hardcoding "highest" for every sort
+    is issue #76 D1 -- for a kidney gene with ``sort=asc`` it reported the LEAST
+    expressed tissue and called it the highest, the exact opposite of the data.
+    """
     if not genes:
         return "No median expression found for the requested gene(s)."
     first = genes[0]
@@ -111,10 +119,13 @@ def median_headline(genes: list[GeneMedianGroup]) -> str:
     else:
         top = first.tissues[0]
         n_txt = f", n={top.n}" if top.n is not None else ""
-        head = (
-            f"{first.gene_symbol}: highest median in {top.tissue} "
-            f"({top.median:.2f} {first.unit}{n_txt})."
-        )
+        value = f"{top.median:.2f} {first.unit}{n_txt}"
+        if sort == "asc":
+            head = f"{first.gene_symbol}: lowest median in {top.tissue} ({value})."
+        elif sort == "none":
+            head = f"{first.gene_symbol}: {top.tissue} median {value} (unsorted)."
+        else:
+            head = f"{first.gene_symbol}: highest median in {top.tissue} ({value})."
     if len(genes) > 1:
         head += f" (+{len(genes) - 1} more gene(s))"
     return head
@@ -187,7 +198,7 @@ def group_median(
     page_groups = groups[start : start + page_size]
     number_of_pages = (total_genes + page_size - 1) // page_size if page_size else 1
     return MedianExpressionResult(
-        headline=median_headline(page_groups),
+        headline=median_headline(page_groups, sort),
         genes=page_groups,
         pagingInfo=PaginationInfo(
             numberOfPages=number_of_pages,
