@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
+
+from pydantic import Field
 
 from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, McpToolError, run_mcp_tool
@@ -80,7 +82,7 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             tissue_site_detail_id: str | list[str] | None = None,
             dataset_id: str = "gtex_v8",
             sort: Literal["desc", "asc", "none"] = "desc",
-            top_n: int | None = None,
+            top_n: Annotated[int | None, Field(ge=1)] = None,
             response_mode: Literal["compact", "full"] = "compact",
             include_spread: bool = False,
             offset: int = 0,

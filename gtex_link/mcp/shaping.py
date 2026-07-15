@@ -169,7 +169,10 @@ def group_median(
         if tissues_filter is not None:
             gene_rows = [r for r in gene_rows if r.tissue_site_detail_id in tissues_filter]
         total = len(gene_rows)
-        selected = gene_rows[:top_n] if top_n else gene_rows
+        # `top_n > 0` guards against a negative value negative-slicing the list
+        # (silently deleting the highest/lowest rows); the tool schema also pins
+        # top_n>=1, this is the defense-in-depth backstop (issue #76 D3).
+        selected = gene_rows[:top_n] if top_n and top_n > 0 else gene_rows
         tissues = [
             TissueMedian(
                 tissue=r.tissue_site_detail_id,

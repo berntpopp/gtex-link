@@ -234,6 +234,56 @@ async def test_get_median_expression_levels_passes_tissue_when_given() -> None:
 
 
 @pytest.mark.asyncio
+async def test_median_rejects_nonpositive_top_n() -> None:
+    """Regression (issue #76 D3): top_n < 1 must ERROR, never negative-slice rows away.
+
+    A negative top_n silently negative-sliced the tissue list -- with sort=asc it
+    deleted the HIGHEST-expressed tissues (both kidney rows for UMOD) and returned
+    success:true. top_n must carry minimum:1 and be rejected as invalid_input.
+    """
+    umod_rows = [
+        MedianGeneExpression.model_validate(
+            {
+                "datasetId": "gtex_v8",
+                "ontologyId": "UBERON:1",
+                "gencodeId": "ENSG00000169344.15",
+                "geneSymbol": "UMOD",
+                "median": value,
+                "numSamples": None,
+                "tissueSiteDetailId": tissue,
+                "unit": "TPM",
+            }
+        )
+        for tissue, value in (
+            ("Adipose_Subcutaneous", 0.0),
+            ("Kidney_Cortex", 190.1),
+            ("Kidney_Medulla", 2116.02),
+        )
+    ]
+    mock_service = AsyncMock()
+    mock_service.get_median_gene_expression = AsyncMock(
+        return_value=PaginatedMedianGeneExpressionResponse(data=umod_rows, pagingInfo=_paging(3))
+    )
+    mock_service.get_tissue_site_details = AsyncMock(
+        return_value=PaginatedTissueSiteDetailResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
+    with patch_service(mock_service):
+        for bad in (-3, 0):
+            result = await mcp.call_tool(
+                "get_median_expression_levels",
+                {"gencode_id": ["ENSG00000169344.15"], "sort": "asc", "top_n": bad},
+            )
+            assert result.is_error is True, f"top_n={bad} was accepted"
+            payload = json.loads(result.content[0].text)
+            assert payload["success"] is False
+            assert payload["error_code"] == "invalid_input"
+    # An invalid top_n must be rejected before any upstream expression call.
+    mock_service.get_median_gene_expression.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_median_resolves_symbol_to_gencode() -> None:
     row = MedianGeneExpression.model_validate(
         {
