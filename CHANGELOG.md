@@ -6,13 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-15
+
 ### Changed
 
 - Re-vendored the behaviour conformance gate from genefoundry-router `56db958`
   (`docs/conformance/behaviour.py` blob `c69801687`) so live MCP contract checks
   treat not-found example probes as inconclusive and keep empty auxiliary objects from hiding counted rows.
 
-## [3.1.0] - 2026-07-15
 ### Fixed
 
 - **The median headline stated the opposite of the data for `sort=asc`/`sort=none`.**
