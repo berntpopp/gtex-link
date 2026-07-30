@@ -6,6 +6,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-07-30
+
+### Changed
+
+- **Consolidated Dependabot sweep.** Runtime dependencies `fastapi`
+  0.139.0 -> 0.141.1, `typer` 0.26.8 -> 0.27.0, `prometheus-client`
+  0.25.0 -> 0.26.0; dev dependencies `ruff` 0.15.21 -> 0.16.0,
+  `pre-commit` 4.6.0 -> 4.6.1. GitHub Actions `actions/checkout`
+  7.0.0 -> 7.0.1, `astral-sh/setup-uv` 8.3.2 -> 9.0.0,
+  `actions/setup-python` v6 (6.3.0) -> 7.0.0. Both action majors are
+  no-ops here: setup-uv v9 only flips the `prune-cache` default (this
+  repo sets `enable-cache: true` and pins `version: "0.8.7"`), and
+  setup-python v7 only drops the `pip-install` input, which no workflow
+  uses.
+- **The lint policy is now pinned by `select`, not `extend-select`.**
+  ruff 0.16 grew its implicit default rule set from 59 to 413 rules, so
+  `[tool.ruff.lint] extend-select` would have silently inherited ~350
+  rules this repo never opted into (37 new findings, all pre-existing
+  code). The declared rule list already supersets ruff's pre-0.16
+  default (E4/E7/E9 plus F), so switching the key to `select` with the
+  identical list keeps the enforced policy byte-identical while making
+  it independent of the tool's default set.
+
+### Fixed
+
+- **A CodeQL pin comment named a tag its SHA is not.**
+  `github/codeql-action@ed410739...` is the *annotated tag object* that
+  the moving `v4` tag pointed at when the pin was taken; `v4` has since
+  moved on, so `# v4` no longer identified the pinned revision. The SHA
+  dereferences to commit `e46ed2c` = tag `v4.35.3`, and the comment now
+  says so. The pinned SHA is unchanged.
+
 ## [3.1.0] - 2026-07-15
 
 ### Changed
