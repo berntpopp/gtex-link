@@ -6,6 +6,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.2] - 2026-07-30
+
+### Changed
+
+- **CI runs a Python matrix (`3.12`, `3.14`) instead of a single 3.12 job.**
+  The container ships `python:3.14-slim` in both build stages, but the unit
+  and integration suites only ever ran on 3.12 — the image was exercised on
+  3.14 by `container-ci`/`conformance`, yet a 3.14-only stdlib or typing
+  regression inside `gtex_link/` would have reached production untested. This
+  is a matrix, not a swap: 3.12 stays because it is the declared
+  `requires-python` floor, and dropping it would make that floor a false
+  claim. The 90% coverage gate still runs once, on 3.14.
+- **The CI job now exports `UV_PYTHON` from the matrix entry.** Without it the
+  matrix would have been decorative: this repo pins `.python-version` to
+  `3.12`, and uv honours that file over whatever `actions/setup-python` puts
+  on `PATH`, so every `uv sync`/`uv run` rebuilt the environment on 3.12 and
+  both legs would have tested the same interpreter while reporting two.
+  `UV_PYTHON` outranks `.python-version`, so the file still gives local
+  development a deterministic default while CI runs the interpreter each leg
+  is named after.
+- Added the `Programming Language :: Python :: 3.14` classifier, which the
+  matrix now backs with evidence.
+
+### Notes
+
+- `requires-python` deliberately stays `>=3.12`, ruff's `target-version` stays
+  `py312` and mypy's `python_version` stays `3.12`. All three track the
+  supported *floor*, not the shipped interpreter: `>=3.12` is satisfied by the
+  3.14 container, and a `py314` ruff target would let the `UP` rules rewrite
+  code into syntax the declared floor cannot run. Raising the floor would also
+  contradict the `Python 3.12+` badge that README Standard v1 pins by exact
+  string in the vendored `scripts/check_readme.py`.
+- `docker/Dockerfile` and `container-release.json` are unchanged; this release
+  only closes the gap between what CI tests and what the image runs.
+
 ## [3.1.1] - 2026-07-30
 
 ### Changed
