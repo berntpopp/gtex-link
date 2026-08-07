@@ -10,6 +10,7 @@ from fastapi import APIRouter
 
 from gtex_link import __version__
 from gtex_link.config import settings
+from gtex_link.exceptions import GTExAPIError
 from gtex_link.models.responses import HealthResponse
 
 from .dependencies import GTExClientDep, LoggerDep
@@ -36,7 +37,7 @@ async def health_check(
     overall_status = "healthy"
     try:
         await client.get_service_info()
-    except (TimeoutError, httpx.HTTPError) as e:
+    except (GTExAPIError, TimeoutError, httpx.HTTPError) as e:
         logger.warning("GTEx API health check failed", error=str(e))
         gtex_status = "unavailable"
         overall_status = "degraded"
