@@ -2,11 +2,12 @@
 
 from unittest.mock import AsyncMock
 
-import httpx
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
 from gtex_link import __version__
+from gtex_link.exceptions import GTExAPIError, RateLimitError, ServiceUnavailableError
 from gtex_link.models.responses import HealthResponse
 
 
@@ -38,34 +39,6 @@ class TestHealthEndpoints:
             assert data["cache"] in ["enabled", "disabled"]
             assert "uptime_seconds" in data
             assert isinstance(data["uptime_seconds"], (int, float))
-        finally:
-            # Clean up override
-            test_client.app.dependency_overrides.clear()
-
-    def test_health_check_gtex_api_unavailable(self, test_client: TestClient):
-        """Test health check when GTEx API is unavailable."""
-        from gtex_link.api.routes.dependencies import get_gtex_client
-
-        # Mock GTEx API failure
-        mock_client = AsyncMock()
-        mock_client.get_service_info.side_effect = httpx.HTTPError("API unavailable")
-
-        async def mock_client_generator():
-            yield mock_client
-
-        # Override the dependency
-        test_client.app.dependency_overrides[get_gtex_client] = mock_client_generator
-
-        try:
-            response = test_client.get("/api/health")
-
-            assert response.status_code == status.HTTP_200_OK
-            data = response.json()
-            assert data["status"] == "degraded"
-            assert data["version"] == __version__
-            assert data["gtex_api"] == "unavailable"
-            assert data["cache"] in ["enabled", "disabled"]
-            assert "uptime_seconds" in data
         finally:
             # Clean up override
             test_client.app.dependency_overrides.clear()
@@ -103,3 +76,33 @@ class TestHealthEndpoints:
             assert False, "Should have raised validation error"
         except Exception:
             pass  # Expected validation error
+
+
+@pytest.mark.parametrize(
+    "upstream_error",
+    [
+        ServiceUnavailableError("upstream 503"),
+        RateLimitError("upstream 429"),
+        GTExAPIError("retry exhaustion"),
+    ],
+)
+def test_health_check_client_errors_are_degraded(
+    test_client: TestClient, upstream_error: GTExAPIError
+) -> None:
+    """Client-layer upstream failures degrade the Portal diagnostic."""
+    from gtex_link.api.routes.dependencies import get_gtex_client
+
+    mock_client = AsyncMock()
+    mock_client.get_service_info.side_effect = upstream_error
+
+    async def mock_client_generator():
+        yield mock_client
+
+    test_client.app.dependency_overrides[get_gtex_client] = mock_client_generator
+    try:
+        response = test_client.get("/api/health")
+        assert response.status_code == 200
+        assert response.json()["status"] == "degraded"
+        assert response.json()["gtex_api"] == "unavailable"
+    finally:
+        test_client.app.dependency_overrides.clear()

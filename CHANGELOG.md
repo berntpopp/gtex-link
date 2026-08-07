@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.3] - 2026-08-07
+
+### Fixed
+
+- Degrade the Portal diagnostic when the GTEx client reports an upstream error,
+  while Docker liveness uses the transport-level `/health` endpoint.
+
 ## [3.1.2] - 2026-07-30
 
 ### Changed

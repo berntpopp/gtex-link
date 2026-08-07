@@ -10,7 +10,7 @@ that exposes the REST API on `/` and the MCP endpoint on `/mcp` over one port.
 ```bash
 make docker-build
 make docker-up
-curl http://localhost:8765/api/health
+curl http://localhost:8765/health
 make docker-down
 ```
 
@@ -52,7 +52,7 @@ docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml co
 
 ```bash
 docker compose -f docker/docker-compose.dev.yml up --build
-curl http://localhost:8765/api/health
+curl http://localhost:8765/health
 ```
 
 The development compose file mounts `gtex_link/`, tests, and entrypoint scripts
@@ -62,7 +62,7 @@ into the container and starts the CLI server with reload enabled.
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d --build
-curl http://localhost:8765/api/health
+curl http://localhost:8765/health
 curl http://localhost:8765/mcp
 docker compose -f docker/docker-compose.yml logs -f
 ```
@@ -91,8 +91,8 @@ Publish a port for local production testing by using only `docker-compose.yml`,
 or by adding a local override file that publishes the desired host port.
 
 The MCP streamable HTTP endpoint at `/mcp` is session-aware, so simple
-`GET /mcp` probes can return protocol errors. The Compose health check probes
-`/api/health` over HTTP instead; use an MCP client for protocol-level
+`GET /mcp` probes can return protocol errors. The Compose liveness check probes
+`/health` over HTTP instead; use an MCP client for protocol-level
 verification.
 
 ## Nginx Proxy Manager
@@ -154,6 +154,6 @@ docker compose -f docker/docker-compose.yml build --no-cache
 
 **Health checks**
 
-- Unified server: `curl http://localhost:8765/api/health`
+- Unified server: `curl http://localhost:8765/health`
 - MCP endpoint: session-aware at `/mcp`; use an MCP client for protocol-level
   verification.
