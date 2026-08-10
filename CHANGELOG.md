@@ -6,6 +6,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.4] - 2026-08-10
+
+### Changed
+
+- **Consolidated Dependabot sweep.** Runtime dependencies
+  `uvicorn[standard]` 0.51.0 -> 0.52.1, `pydantic-settings` 2.14.2 ->
+  2.15.0, `typer` 0.27.0 -> 0.27.1, `fastmcp` 3.4.4 -> 3.4.6; dev
+  dependency `ruff` floored at 0.16.1 (lock resolves 0.16.2). The
+  `fastmcp` floor stays above 3.4.4, which
+  `tests/unit/test_host_origin_guard.py` requires for the Host/Origin
+  protection guard.
+- **Both reusable-workflow pins into `genefoundry-router` move to
+  `915356ac` (tag `v0.7.4`).** `container-ci.yml` and
+  `container-release.yml` were pinned at `d3e0296`, the revision named
+  "v0.7.4" during the 2026-07-30 sweep; the `v0.7.4` tag actually
+  resolves to `915356ac` (`deploy: re-pin the drift baseline to
+  fleet-2026-07-30`), so the old pin was one commit behind the tag it
+  claimed. Both call sites now point at the tagged revision.
+
+### Notes
+
+- `github/codeql-action/init` and `.../analyze` remain pinned at the
+  same SHA (`ed410739...` = `v4.35.3`). A split version between the two
+  phases makes CodeQL fail hard ("Loaded a configuration file for
+  version X, but running version Y"); the pair is verified consistent
+  and is deliberately not upgraded here, since no Dependabot PR proposed
+  it.
+
 ## [3.1.3] - 2026-08-07
 
 ### Fixed
