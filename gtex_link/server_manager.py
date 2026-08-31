@@ -6,6 +6,7 @@ Streamable HTTP only — there is no stdio transport.
 from __future__ import annotations
 
 from contextlib import AsyncExitStack, asynccontextmanager
+from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 import uvicorn
@@ -19,11 +20,13 @@ if TYPE_CHECKING:
 
 def create_http_app(extra_lifespan: Any = None) -> FastAPI:
     """Create the REST host behind the strict outer request guard."""
-    from fastmcp.server.http import HostOriginGuardMiddleware
-
     from gtex_link.app import create_app
     from gtex_link.config import settings
 
+    # FastMCP 3.4.6 exposes this middleware at runtime, but its distributed
+    # type information omits the symbol. Keep the compatibility boundary
+    # dynamic while the runtime contract remains covered by a smoke test.
+    guard_middleware = vars(import_module("fastmcp.server.http"))["HostOriginGuardMiddleware"]
     application = create_app()
     if extra_lifespan is not None:
         original_lifespan = application.router.lifespan_context
@@ -37,7 +40,7 @@ def create_http_app(extra_lifespan: Any = None) -> FastAPI:
 
         application.router.lifespan_context = combined_lifespan
     application.add_middleware(
-        HostOriginGuardMiddleware,
+        guard_middleware,
         allowed_hosts=settings.allowed_hosts,
         allowed_origins=settings.allowed_origins,
         mode="strict",
@@ -51,7 +54,10 @@ def create_unified_app() -> FastAPI:
     from gtex_link.mcp.facade import create_gtex_mcp
 
     mcp = create_gtex_mcp()
-    mcp_asgi = mcp.http_app(
+    # FastMCP 3.4.6 accepts these guard arguments at runtime even though its
+    # bundled method signature for static analysis predates them.
+    http_app: Any = mcp.http_app
+    mcp_asgi = http_app(
         path=settings.mcp_path,
         stateless_http=True,
         json_response=True,
