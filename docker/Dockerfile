@@ -40,7 +40,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     GTEX_LINK_PORT=8000 \
     TMPDIR=/tmp/gtex-link
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update \
+    && apt-get install -y --only-upgrade --no-install-recommends \
+    openssl \
+    libssl3t64 \
+    openssl-provider-legacy \
+    && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/* \
@@ -61,7 +66,14 @@ COPY --chown=app:app ./docker/gunicorn_conf.py ./
 
 RUN /opt/venv/bin/pip install . --no-deps
 
-RUN rm -rf /root/.cache/pip /usr/local/lib/python*/ensurepip/_bundled/*.whl \
+RUN rm -rf /usr/local/lib/python3.14/ensurepip \
+           /usr/local/lib/python3.14/site-packages/pip \
+           /usr/local/lib/python3.14/site-packages/pip-*.dist-info \
+           /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.14 \
+           /opt/venv/lib/python3.14/site-packages/pip \
+           /opt/venv/lib/python3.14/site-packages/pip-*.dist-info \
+           /opt/venv/bin/pip /opt/venv/bin/pip3 /opt/venv/bin/pip3.14 \
+           /root/.cache/pip \
     && find / -xdev -type d -name __pycache__ -prune -exec rm -rf '{}' + \
     && find / -xdev -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 
