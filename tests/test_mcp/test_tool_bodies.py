@@ -302,7 +302,7 @@ async def test_top_expressed_rejects_valid_tissue_absent_from_dataset() -> None:
     with patch_service(mock_service):
         result = await mcp.call_tool(
             "get_top_expressed_genes_by_tissue",
-            {"tissue_site_detail_id": "Kidney_Cortex", "dataset_id": "gtex_snrnaseq_pilot"},
+            {"tissue_site_detail_id": "Kidney_Cortex", "dataset_id": "gtex_v10"},
         )
     assert result.is_error is True
     payload = json.loads(result.content[0].text)

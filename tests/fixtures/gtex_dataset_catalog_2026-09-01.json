@@ -1,0 +1,22 @@
+{
+  "captured_at": "2026-09-01T00:11:04+02:00",
+  "endpoint": "https://gtexportal.org/api/v2/metadata/dataset",
+  "catalog_ids": [
+    "gtex_v7",
+    "gtex_v8",
+    "kids_first_harmonization",
+    "gtex_v10"
+  ],
+  "supported": {
+    "gtex_v8": "v26",
+    "gtex_v10": "v39"
+  },
+  "excluded": {
+    "gtex_v7": "legacy GTEx release superseded by the supported v8 and v10 surfaces",
+    "kids_first_harmonization": "non-GTEx Kids First dataset outside this server's contract"
+  },
+  "absent_or_empty": {
+    "gtex_snrnaseq_pilot": "absent from metadata/dataset and tissueSiteDetail returns no rows",
+    "gtex_v10_sn_rna_seq": "absent from metadata/dataset"
+  }
+}

@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [3.1.5] - 2026-08-31
 
 - Re-pinned the Python base image and all CI workflow dependencies to reviewed immutable revisions.
+- Removed the absent, empty `gtex_snrnaseq_pilot` identifier from the supported dataset contract;
+  live-supported GTEx expression datasets are exactly `gtex_v8` and `gtex_v10`.
 
 ## [3.1.4] - 2026-08-10
 

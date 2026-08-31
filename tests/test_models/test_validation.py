@@ -33,9 +33,7 @@ class TestEnumValidation:
         """Test valid dataset ID values."""
         from typing import get_args
 
-        valid_datasets = get_args(DatasetId)
-        assert "gtex_v8" in valid_datasets
-        assert "gtex_v10" in valid_datasets
+        assert set(get_args(DatasetId)) == {"gtex_v8", "gtex_v10"}
 
     def test_tissue_site_detail_id_enum_valid(self):
         """Test valid tissue site detail ID values."""

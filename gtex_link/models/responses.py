@@ -39,7 +39,7 @@ Chromosome = Literal[
     "chrM",
 ]
 
-DatasetId = Literal["gtex_v8", "gtex_snrnaseq_pilot", "gtex_v10"]
+DatasetId = Literal["gtex_v8", "gtex_v10"]
 
 GencodeVersion = Literal["v19", "v26", "v39"]
 

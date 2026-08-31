@@ -97,7 +97,7 @@ def _surface() -> dict[str, Any]:
         "gtex_release": GTEX_DATA_RELEASE,
         "default_dataset_id": GTEX_DATA_RELEASE,
         "research_use_only": True,
-        "datasets": ["gtex_v8", "gtex_v10", "gtex_snrnaseq_pilot"],
+        "datasets": list(DATASET_GENCODE_VERSION),
         "dataset_gencode_versions": dict(DATASET_GENCODE_VERSION),
         "tissues": valid_tissues(),
         "tools": list(_ALL_TOOLS),

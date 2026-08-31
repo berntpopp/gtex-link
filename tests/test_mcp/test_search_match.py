@@ -98,12 +98,13 @@ async def test_resolve_gene_ids_resolves_symbol_to_gencode() -> None:
 
 
 def test_gencode_version_for_dataset_maps_known_datasets() -> None:
+    from gtex_link.exceptions import ValidationError
     from gtex_link.mcp.search_match import gencode_version_for_dataset
 
     assert gencode_version_for_dataset("gtex_v8") == "v26"
     assert gencode_version_for_dataset("gtex_v10") == "v39"
-    # gtex_snrnaseq_pilot is an explicit key in DATASET_GENCODE_VERSION → v26.
-    assert gencode_version_for_dataset("gtex_snrnaseq_pilot") == "v26"
+    with pytest.raises(ValidationError):
+        gencode_version_for_dataset("gtex_snrnaseq_pilot")
 
 
 def test_gencode_version_for_dataset_rejects_an_unknown_dataset() -> None:

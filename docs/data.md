@@ -8,7 +8,7 @@ authentication, no API key, and no registration**.
 
 ## Datasets
 
-The upstream API exposes three datasets, and the expression tools
+The upstream API currently exposes two supported GTEx expression datasets, and the expression tools
 (`get_median_expression_levels`, `get_individual_expression_data`,
 `get_top_expressed_genes_by_tissue`) take a **`dataset_id` argument** to choose
 between them. Each is annotated against a different **GENCODE release**, so the
@@ -20,7 +20,12 @@ requested dataset's release for you (`DATASET_GENCODE_VERSION` in
 |---|---|---|
 | `gtex_v8` | `v26` | **Default** for every tool that takes `dataset_id`. |
 | `gtex_v10` | `v39` | Newer release; a gene absent from v39 simply returns no rows. |
-| `gtex_snrnaseq_pilot` | `v26` | Single-nucleus RNA-seq pilot. |
+
+The live catalog also lists legacy `gtex_v7` and non-GTEx
+`kids_first_harmonization`; neither is part of this server's supported GTEx expression surface.
+The previously advertised `gtex_snrnaseq_pilot` is absent from the catalog and returns an empty
+tissue set, so it is rejected rather than represented as supported. The planned
+`gtex_v10_sn_rna_seq` identifier is also absent and is not invented locally.
 
 `get_server_capabilities` serves this same table live (`datasets`,
 `dataset_gencode_versions`), which is the authoritative copy.
