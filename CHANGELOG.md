@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.5] - 2026-08-31
+
+- Re-pinned the Python base image and all CI workflow dependencies to reviewed immutable revisions.
+
 ## [3.1.4] - 2026-08-10
 
 ### Changed
