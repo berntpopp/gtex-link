@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Deployment: `docker/docker-compose.npm.yml` now satisfies the GeneFoundry controller's
+  Compose projection contract. It declares an explicit numeric `user: "10001:10001"` (the
+  image's real uid:gid), the `volumes` key the contract requires -- backed by a RAM-only
+  named volume, so a service with no persistent data does not gain durable storage -- an
+  integer CPU limit, and a protocol-qualified `expose`. No hardening control was relaxed:
+  `read_only`, `cap_drop: [ALL]`, `no-new-privileges`, the tmpfs, `pids_limit` and `init`
+  are unchanged.
+- The numeric user is declared only in the npm overlay: the shared release gate
+  (`container_release.py validate-compose`) forbids `user` on the application service of the
+  Compose files named in `container-release.json`, which is the exact opposite of what the
+  deployment controller requires. A test now keeps `user` out of the release stack.
+- `GTEX_API_CPU_LIMIT` is no longer read. The CPU limit is pinned in the Compose file
+  because Compose renders a fractional `cpus` value as a JSON float, which the controller's
+  projection rejects.
+- New `tests/unit/test_docker_compose_projection_contract.py` guards every field above and
+  checks the declared uid against the Dockerfile, so the value cannot drift or be copied
+  from a sibling repo that runs as a different uid.
+
 ## [3.1.5] - 2026-08-31
 
 - Re-pinned the Python base image and all CI workflow dependencies to reviewed immutable revisions.
