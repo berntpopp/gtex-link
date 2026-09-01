@@ -118,6 +118,11 @@ uids. `user` must **not** appear on the Compose files listed in
 forbids it there. `tests/unit/test_docker_compose_projection_contract.py`
 guards both sides of this split.
 
+As of `strato_v6_docker_npm` PR #41 the controller relaxed this contract
+(`user`/`volumes` are now optional-but-validated; `cpus` accepts a finite
+positive float), so this repo's tmpfs-backed `gtex_link_scratch` named volume
+and integer `cpus: 1` are no longer strictly required — they are kept as-is.
+
 Self-check against the controller's own projection before assuming a change
 here deploys cleanly:
 
