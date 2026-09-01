@@ -309,6 +309,9 @@ async def test_top_expressed_rejects_valid_tissue_absent_from_dataset() -> None:
     assert payload["success"] is False
     assert payload["error_code"] == "invalid_input"
     assert "tissue_site_detail_id" in payload["message"]
+    assert "snRNA-seq pilot" not in payload["message"]
+    assert "gtex_v8" in payload["message"]
+    assert "gtex_v10" in payload["message"]
 
 
 @pytest.mark.asyncio

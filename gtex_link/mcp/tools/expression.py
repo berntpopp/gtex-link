@@ -400,8 +400,7 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                         message=(
                             f"`tissue_site_detail_id`: {tissue_site_detail_id!r} has no "
                             f"expressed genes in dataset {dataset_id!r}. Tissue sets "
-                            "differ by dataset (the snRNA-seq pilot and gtex_v10 cover "
-                            "different tissues than gtex_v8); confirm this tissue is "
+                            "differ between gtex_v8 and gtex_v10); confirm this tissue is "
                             "measured in this dataset (see get_server_capabilities) or "
                             "use dataset 'gtex_v8'."
                         ),
