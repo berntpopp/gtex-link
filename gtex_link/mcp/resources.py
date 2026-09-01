@@ -8,11 +8,11 @@ RESEARCH_USE_NOTICE = (
 )
 
 # The server's own self-description: the first thing every connecting client reads.
-# Keep it TRUE -- it must name the real dataset surface (three datasets, not just v8)
+# Keep it TRUE -- it must name the real dataset surface (two datasets, not just v8)
 # and must not promise a `_meta` frame that `fetch` does not have.
 GTEX_SERVER_INSTRUCTIONS = (
-    "GTEx-Link exposes GTEx Portal expression data across three datasets: "
-    "`gtex_v8` (the default), `gtex_v10`, and `gtex_snrnaseq_pilot`. The "
+    "GTEx-Link exposes GTEx Portal expression data across two datasets: "
+    "`gtex_v8` (the default) and `gtex_v10`. The "
     "expression tools take a `dataset_id`; each dataset is annotated against its "
     "own GENCODE release, and gene IDs are resolved to the one you ask for. "
     "For ChatGPT-compatible workflows use `search` (natural language ok) then "

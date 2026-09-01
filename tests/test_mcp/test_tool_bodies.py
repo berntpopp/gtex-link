@@ -302,13 +302,16 @@ async def test_top_expressed_rejects_valid_tissue_absent_from_dataset() -> None:
     with patch_service(mock_service):
         result = await mcp.call_tool(
             "get_top_expressed_genes_by_tissue",
-            {"tissue_site_detail_id": "Kidney_Cortex", "dataset_id": "gtex_snrnaseq_pilot"},
+            {"tissue_site_detail_id": "Kidney_Cortex", "dataset_id": "gtex_v10"},
         )
     assert result.is_error is True
     payload = json.loads(result.content[0].text)
     assert payload["success"] is False
     assert payload["error_code"] == "invalid_input"
     assert "tissue_site_detail_id" in payload["message"]
+    assert "snRNA-seq pilot" not in payload["message"]
+    assert "gtex_v8" in payload["message"]
+    assert "gtex_v10" in payload["message"]
 
 
 @pytest.mark.asyncio

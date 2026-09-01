@@ -2,7 +2,7 @@
 
 The README used to say the server served one dataset (`gtex_v8`) and stamped it
 "into every response's provenance `_meta`". Both halves were wrong: the expression
-tools take a `dataset_id` argument over three datasets, each annotated against a
+tools take a `dataset_id` argument over two supported datasets, each annotated against a
 different GENCODE release -- the very hazard the README's `## Why` section argues
 this server exists to remove -- so the mapping is load-bearing, not decoration.
 

@@ -502,7 +502,7 @@ async def test_tool_carries_provenance_meta(tool: str) -> None:
         payload = await _call_tool(tool, _MINIMAL_ARGS[tool])
 
     assert "_meta" in payload, f"{tool} must carry a provenance _meta"
-    assert payload["_meta"]["gtex_release"] in {"gtex_v8", "gtex_v10", "gtex_snrnaseq_pilot"}
+    assert payload["_meta"]["gtex_release"] in {"gtex_v8", "gtex_v10"}
     assert payload["_meta"]["unsafe_for_clinical_use"] is True
 
 

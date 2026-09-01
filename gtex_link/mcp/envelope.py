@@ -67,8 +67,8 @@ class McpToolError(Exception):
 def _provenance_meta(context: McpErrorContext | None = None) -> dict[str, Any]:
     """Provenance `_meta`: name the release the returned data ACTUALLY came from.
 
-    The expression tools span three datasets annotated against different GENCODE
-    releases (gtex_v8/gtex_snrnaseq_pilot -> v26, gtex_v10 -> v39), so a fixed
+    The expression tools span two datasets annotated against different GENCODE
+    releases (gtex_v8 -> v26, gtex_v10 -> v39), so a fixed
     `gtex_release` stamp would lie about a `dataset_id="gtex_v10"` call and
     re-introduce the very release/GENCODE-mismatch hazard this server removes.
     A dataset-scoped call therefore reports its own release plus the GENCODE

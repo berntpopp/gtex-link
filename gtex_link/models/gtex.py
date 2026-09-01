@@ -42,7 +42,6 @@ class DatasetId(StrEnum):
     """Dataset ID enumeration."""
 
     GTEX_V8 = "gtex_v8"
-    GTEX_SNRNASEQ_PILOT = "gtex_snrnaseq_pilot"
     GTEX_V10 = "gtex_v10"
 
 
@@ -66,7 +65,6 @@ class GencodeVersion(StrEnum):
 DEFAULT_GENCODE_VERSION = "v26"
 DATASET_GENCODE_VERSION: dict[str, str] = {
     "gtex_v8": "v26",
-    "gtex_snrnaseq_pilot": "v26",
     "gtex_v10": "v39",
 }
 
@@ -256,7 +254,7 @@ class DataType(StrEnum):
 # `TissueSiteDetailId` but excludes the "" (all-tissues) sentinel, which the
 # runtime rejects -- keeping the advertised enum a faithful subset of what the
 # server actually accepts (never wider).
-DatasetLiteral = Literal["gtex_v8", "gtex_snrnaseq_pilot", "gtex_v10"]
+DatasetLiteral = Literal["gtex_v8", "gtex_v10"]
 GencodeVersionLiteral = Literal["v19", "v26", "v39"]
 GenomeBuildLiteral = Literal["GRCh37", "GRCh38", "GRCh38/hg38"]
 
