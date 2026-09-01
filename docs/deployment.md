@@ -103,6 +103,30 @@ process, resource limits, and JSON log rotation. Full details, including the
 Nginx Proxy Manager walkthrough, image build notes, and troubleshooting, are in
 [`docker/README.md`](../docker/README.md).
 
+## Fleet deploy contract
+
+`docker/docker-compose.npm.yml` is the file the GeneFoundry fleet controller
+(`strato_v6_docker_npm`) deploys and validates. It renders the file with
+`docker compose config --format json`, projects it, and refuses to author a
+deployment record unless every application service declares
+`image`/`read_only`/`cap_drop`/`security_opt`/`restart`/`networks`/`volumes`/
+`user`. `user` must be the image's **numeric** `uid:gid` — `10001:10001` here,
+taken from `docker/Dockerfile` (`groupadd --gid 10001` / `useradd --uid
+10001`), never copied from a sibling `-link` repo since the fleet runs mixed
+uids. `user` must **not** appear on the Compose files listed in
+`container-release.json`'s `service.compose_files` — the shared release gate
+forbids it there. `tests/unit/test_docker_compose_projection_contract.py`
+guards both sides of this split.
+
+Self-check against the controller's own projection before assuming a change
+here deploys cleanly:
+
+```bash
+GTEX_LINK_IMAGE="ghcr.io/berntpopp/gtex-link@sha256:<64 hex>" docker compose -f docker/docker-compose.npm.yml config --format json > /tmp/r.json
+# from strato_v6_docker_npm:
+uv run python -c "import sys,json; sys.path.insert(0,'scripts'); from utils.deployment_preflight import canonical_projection; canonical_projection(json.load(open('/tmp/r.json')), project='gtex-link'); print('PROJECTION OK')"
+```
+
 ## Request boundary
 
 Every HTTP route is protected by exact `Host` and browser `Origin` allowlists.

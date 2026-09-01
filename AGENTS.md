@@ -114,6 +114,37 @@ How:
 - `make ci-local` runs formatting, linting, file-size checks, type checking, and tests.
 - Treat failing checks as real issues unless you have clear evidence otherwise.
 
+## Fleet Deploy Contract
+
+`docker/docker-compose.npm.yml` is the file the fleet controller
+(`strato_v6_docker_npm`) renders with `docker compose config --format json`,
+projects, and validates before it will author a deployment record. Every
+application service there MUST declare `user: "<uid>:<gid>"` numerically —
+this image's own real uid:gid from `docker/Dockerfile` (currently
+`10001:10001`; `USER app` alone is not machine-checkable and the fleet is not
+uniform, so never copy this literal into a sibling repo). `user` must **not**
+appear on the application service of any Compose file listed in
+`container-release.json`'s `service.compose_files` — the shared release gate
+(`container_release.py validate-compose`) forbids it there, the exact
+opposite of what the deployment controller requires.
+`tests/unit/test_docker_compose_projection_contract.py` guards this split.
+
+CITATION.cff is generated (`genefoundry-router/fleet-metadata.yaml` + this
+repo's `pyproject.toml`; regenerate with `make citation-write` in
+`genefoundry-router`) — never hand-edit it here. `version:` tracks this
+repo's `pyproject.toml`/CHANGELOG version. `date-released` is **not**
+re-derived on every release; it stays pinned to the value `genefoundry-router`
+last generated (see commit `045405a`, which reverted a hand-edit that moved
+it to match a routine version bump).
+
+Release checklist this repo enforces: bump `pyproject.toml`, `uv lock`, add a
+`CHANGELOG.md` heading `## [x.y.z] - YYYY-MM-DD`, sync CITATION.cff `version:`
+(leave `date-released` alone), tag `vx.y.z`, then approve the `release`
+environment gate via
+`gh api repos/berntpopp/gtex-link/actions/runs/<id>/pending_deployments`
+(may need approving twice; `status: waiting` on a pending deployment is the
+gate to look for).
+
 ## GTEx Domain Notes
 
 - Public API: `https://gtexportal.org/api/v2/` (no auth required).
