@@ -129,6 +129,14 @@ appear on the application service of any Compose file listed in
 opposite of what the deployment controller requires.
 `tests/unit/test_docker_compose_projection_contract.py` guards this split.
 
+As of `strato_v6_docker_npm` PR #41, the controller's projection relaxed:
+`user` and `volumes` are optional-but-validated (the runtime observer proves
+the effective uid from `/proc` independently), and `cpus` limits accept a
+finite positive float. This repo's tmpfs-backed `gtex_link_scratch` named
+volume and integer `cpus: 1` (previously an env-driven fractional default via
+`GTEX_API_CPU_LIMIT`) predate that relaxation and are no longer strictly
+required by the controller — kept as-is; do not change the overlay.
+
 CITATION.cff is generated (`genefoundry-router/fleet-metadata.yaml` + this
 repo's `pyproject.toml`; regenerate with `make citation-write` in
 `genefoundry-router`) — never hand-edit it here. `version:` tracks this
