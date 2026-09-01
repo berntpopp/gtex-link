@@ -10,7 +10,7 @@ services:
     # NO direct ports exposed - NPM handles all routing.
     # Unified server: FastAPI on / and MCP on /mcp via the same port.
     expose:
-      - "8000"
+      - "8000/tcp"
     environment:
       - GTEX_LINK_HOST=0.0.0.0
       - GTEX_LINK_PORT=8000
@@ -37,10 +37,43 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    # --- GeneFoundry deployment contract ------------------------------------
+    # The fleet controller renders THIS file with `docker compose config
+    # --format json`, projects it (scripts/utils/deployment_preflight.py:
+    # canonical_projection) and refuses to author a deployment record unless every
+    # application service declares image/read_only/cap_drop/security_opt/restart/
+    # networks/volumes/user.
+    #
+    # `user` must be NUMERIC. The image's `USER app` inspects as the *name* "app",
+    # and both the projection (`[1-9][0-9]*(:[1-9][0-9]*)?`) and the runtime
+    # observer (`_verify_runtime_settings`: every part must be a positive integer)
+    # reject a name. Declaring it here changes nothing at runtime -- it is the same
+    # account -- it only makes the identity machine-checkable.
+    #
+    # 10001:10001 is THIS image's uid:gid (docker/Dockerfile: `groupadd --gid 10001`
+    # / `useradd --uid 10001`; `docker run --rm --entrypoint id <image>` reports
+    # `uid=10001(app) gid=10001(app)`). The fleet is NOT uniform -- several sibling
+    # -link services run as 999 -- so never copy this literal into another repo
+    # without re-reading that repo's image.
+    user: "10001:10001"
     restart: unless-stopped
     read_only: true
     tmpfs:
       - /tmp/gtex-link:rw,noexec,nosuid,size=64m,mode=1777
+    # The same contract requires a `volumes` key, and `volumes: []` cannot satisfy
+    # it: compose-go tags the field `omitempty`, so `docker compose config` -- the
+    # controller's only input -- drops an empty list and the service renders with no
+    # `volumes` key at all (verified against Compose v2.39.1). gtex-link has no
+    # persistent data (container-release.json declares `data.mode: "none"`), so this
+    # mount is deliberately RAM-backed: a named volume whose local-driver options
+    # make it a tmpfs. It projects as a real `type: volume` mount and inspects as
+    # Type=volume/Mode=rw, satisfying both the static projection and the runtime
+    # mount check, while storing nothing across a restart -- a data-less service
+    # must not grow silent persistent state just to pass a shape check.
+    # Remove this and the top-level definition if the controller stops requiring
+    # `volumes` of services that declare `data.mode: "none"`.
+    volumes:
+      - gtex_link_scratch:/var/cache/gtex-link
     networks:
       - gtex_link_internal_net
       - npm_proxy_network
@@ -49,7 +82,12 @@ services:
       resources:
         limits:
           memory: ${GTEX_API_MEMORY_LIMIT:-512m}
-          cpus: ${GTEX_API_CPU_LIMIT:-0.5}
+          # A whole number, and not an env knob, on purpose: Compose parses
+          # deploy.resources.limits.cpus into a number, so a fractional value
+          # renders as a JSON float and the projection rejects it (limits must be
+          # str or int). `memory` keeps its knob because Compose always normalises
+          # it to a byte-count *string*, which the projection accepts.
+          cpus: 1
           pids: 256
         reservations:
           memory: 128m
@@ -68,6 +106,19 @@ services:
       - ALL
     pids_limit: 256
     init: true
+
+volumes:
+  # RAM-backed, not disk (see the service's `volumes` note above): the local driver
+  # mounts a tmpfs at container start and tears it down with the container, so this
+  # volume is always empty and costs no disk. Left unnamed so Compose prefixes it
+  # with the project name (gtex-link-npm_gtex_link_scratch), matching the naming of
+  # the fleet's existing volumes.
+  gtex_link_scratch:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=16m,mode=1777,noexec,nosuid"
 
 networks:
   gtex_link_internal_net:
