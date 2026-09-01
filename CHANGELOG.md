@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.6] - 2026-09-01
+
 - Deployment: `docker/docker-compose.npm.yml` now satisfies the GeneFoundry controller's
   Compose projection contract. It declares an explicit numeric `user: "10001:10001"` (the
   image's real uid:gid), the `volumes` key the contract requires -- backed by a RAM-only
