@@ -123,6 +123,15 @@ As of `strato_v6_docker_npm` PR #41 the controller relaxed this contract
 positive float), so this repo's tmpfs-backed `gtex_link_scratch` named volume
 and integer `cpus: 1` are no longer strictly required — they are kept as-is.
 
+`container-release.json` also declares `service.deployed_compose_files:
+["docker/docker-compose.npm.yml"]` — the exact file the fleet controller
+deploys, standalone. The shared reusable release workflow
+(`_container-release.yml`, pinned in `.github/workflows/container-release.yml`
+and `container-ci.yml`) runs `container_release.py validate-deployed-overlay`
+against that declared file before every release (numeric `user`, restart
+policy, healthcheck `start_period`, `expose`, no top-level `x-*` keys, and
+more — see genefoundry-router's `docs/deployment.md`).
+
 Self-check against the controller's own projection before assuming a change
 here deploys cleanly:
 
