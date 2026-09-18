@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.7] - 2026-09-18
+
+- Consolidated Dependabot and security updates across dependencies and GitHub Actions.
+- Upgraded Debian security packages in base container image to remediate CVEs.
+- Pinned genefoundry-router reusable workflows to v0.9.1.
+
 ## [3.1.6] - 2026-09-01
 
 - Deployment: `docker/docker-compose.npm.yml` now satisfies the GeneFoundry controller's
