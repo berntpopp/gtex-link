@@ -10,10 +10,7 @@ def test_release_dependencies_use_reviewed_immutable_pins() -> None:
         "python:3.14-slim@sha256:cae66f2ef0ec51a9891263eeee7f987dacf0a9879e8aa9353d5606e0530619a5"
         in (ROOT / "docker/Dockerfile").read_text()
     )
-    assert (
-        "apt-get install -y --only-upgrade --no-install-recommends"
-        in (ROOT / "docker/Dockerfile").read_text()
-    )
+    assert "apt-get upgrade -y --no-install-recommends" in (ROOT / "docker/Dockerfile").read_text()
     assert "/opt/venv/lib/python3.14/site-packages/pip" in (ROOT / "docker/Dockerfile").read_text()
     assert (
         "astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4"
