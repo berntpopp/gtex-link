@@ -41,10 +41,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     TMPDIR=/tmp/gtex-link
 
 RUN apt-get update \
-    && apt-get install -y --only-upgrade --no-install-recommends \
-    openssl \
-    libssl3t64 \
-    openssl-provider-legacy \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
