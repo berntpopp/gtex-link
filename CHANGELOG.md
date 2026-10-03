@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.8] - 2026-10-03
+
+- Update PyJWT to 2.15.0, AnyIO to 4.14.2, and virtualenv to 21.7.13; preserve the open Ruff target.
+- Refresh the pinned Python 3.14 base image, GitHub Actions, and router v0.9.3 reusable container workflows.
+
+
 ## [3.1.7] - 2026-09-18
 
 - Consolidated Dependabot and security updates across dependencies and GitHub Actions.
