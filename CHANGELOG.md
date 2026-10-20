@@ -6,6 +6,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `gtex_v11` (GTEx Analysis v11, GENCODE `v47`, 54 tissues) is a supported `dataset_id`
+  on every expression tool, and `v47` is an accepted `gencode_version` on the reference
+  tools. Both are advertised in the tool-schema enums and in `get_server_capabilities`
+  (`datasets`, `dataset_gencode_versions`). Gene IDs are re-resolved to v47 before
+  querying (BRCA1 is `ENSG00000012048.23` under v39 but `.26` under v47; the v39 id
+  returns zero v11 rows). The default dataset stays `gtex_v8`.
+
+### Fixed
+
+- `TissueSiteDetail.expressedGeneCount` is now nullable: `gtex_v11` returns `null` for
+  it on every tissue, which made every v11 median/individual expression call fail with
+  `invalid_input` during the sample-count lookup.
+
+### Changed
+
+- Refreshed the captured live catalog fixture (`gtex_dataset_catalog_2026-10-20.json`);
+  the live test now also asserts each supported dataset's GENCODE release matches the
+  upstream catalog.
+
 ## [3.1.8] - 2026-10-03
 
 - Update PyJWT to 2.15.0, AnyIO to 4.14.2, and virtualenv to 21.7.13; preserve the open Ruff target.

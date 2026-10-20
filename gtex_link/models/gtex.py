@@ -43,6 +43,7 @@ class DatasetId(StrEnum):
 
     GTEX_V8 = "gtex_v8"
     GTEX_V10 = "gtex_v10"
+    GTEX_V11 = "gtex_v11"
 
 
 class GencodeVersion(StrEnum):
@@ -50,22 +51,25 @@ class GencodeVersion(StrEnum):
 
     These are the only releases the GTEx Portal API accepts (it rejects anything
     else with HTTP 422). Each dataset is annotated against one of them:
-    gtex_v8 -> v26, gtex_v10 -> v39. See DATASET_GENCODE_VERSION.
+    gtex_v8 -> v26, gtex_v10 -> v39, gtex_v11 -> v47. See DATASET_GENCODE_VERSION.
     """
 
     V19 = "v19"
     V26 = "v26"
     V39 = "v39"
+    V47 = "v47"
 
 
 # Each GTEx dataset is annotated against one GENCODE release; expression rows key
 # on the dataset's versioned GENCODE id. PKD1 is ENSG00000008710.19 under v26
-# (gtex_v8) but .20 under v39 (gtex_v10), so a gene must be resolved against the
+# (gtex_v8) but .20 under v39 (gtex_v10); BRCA1 is .23 under v39 but .26 under v47
+# (gtex_v11), so a gene must be resolved against the
 # dataset's release or median/individual expression returns zero rows.
 DEFAULT_GENCODE_VERSION = "v26"
 DATASET_GENCODE_VERSION: dict[str, str] = {
     "gtex_v8": "v26",
     "gtex_v10": "v39",
+    "gtex_v11": "v47",
 }
 
 
@@ -254,8 +258,8 @@ class DataType(StrEnum):
 # `TissueSiteDetailId` but excludes the "" (all-tissues) sentinel, which the
 # runtime rejects -- keeping the advertised enum a faithful subset of what the
 # server actually accepts (never wider).
-DatasetLiteral = Literal["gtex_v8", "gtex_v10"]
-GencodeVersionLiteral = Literal["v19", "v26", "v39"]
+DatasetLiteral = Literal["gtex_v8", "gtex_v10", "gtex_v11"]
+GencodeVersionLiteral = Literal["v19", "v26", "v39", "v47"]
 GenomeBuildLiteral = Literal["GRCh37", "GRCh38", "GRCh38/hg38"]
 
 _TISSUE_VALUES: tuple[str, ...] = tuple(t.value for t in TissueSiteDetailId if t.value)

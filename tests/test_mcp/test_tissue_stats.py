@@ -83,3 +83,11 @@ def test_sample_summary_tolerates_null_age_stats() -> None:
     assert summary.total_count == 4
     assert summary.female["ageMax"] is None
     assert summary.male["count"] == 4
+
+
+def test_tissue_site_detail_tolerates_null_expressed_gene_count() -> None:
+    # gtex_v11 (live 2026-10-20) returns expressedGeneCount: null on all 54 tissues;
+    # a required int made every v11 median/individual call fail with invalid_input.
+    row = _tissue("Whole_Blood", 803).model_dump(by_alias=True)
+    row.update(datasetId="gtex_v11", expressedGeneCount=None)
+    assert TissueSiteDetail.model_validate(row).expressed_gene_count is None

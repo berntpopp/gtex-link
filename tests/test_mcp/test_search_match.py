@@ -6,7 +6,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from gtex_link.mcp.search_match import classify_match, recall_terms, resolve_gene_ids
+from gtex_link.mcp.search_match import (
+    classify_match,
+    gencode_version_for_dataset,
+    recall_terms,
+    resolve_gene_ids,
+)
 from gtex_link.models.responses import Gene, PaginatedGeneResponse, PaginationInfo
 
 
@@ -103,6 +108,7 @@ def test_gencode_version_for_dataset_maps_known_datasets() -> None:
 
     assert gencode_version_for_dataset("gtex_v8") == "v26"
     assert gencode_version_for_dataset("gtex_v10") == "v39"
+    assert gencode_version_for_dataset("gtex_v11") == "v47"
     with pytest.raises(ValidationError):
         gencode_version_for_dataset("gtex_snrnaseq_pilot")
 
@@ -190,3 +196,27 @@ def test_gtex_v10_uses_gencode_v39_regression() -> None:
     assert gencode_version_for_dataset("gtex_v10") == "v39", (
         "gtex_v10 must resolve genes against GENCODE v39 (not the v8/v26 default)"
     )
+
+
+@pytest.mark.asyncio
+async def test_resolve_gene_ids_re_resolves_v39_id_for_gtex_v11() -> None:
+    # Live 2026-10-20: BRCA1 is .23 under v39 (gtex_v10) but .26 under v47 (gtex_v11),
+    # and gtex_v11 median expression returns zero rows for the .23 id.
+    captured: dict[str, object] = {}
+
+    async def fake_get_genes(request: object) -> PaginatedGeneResponse:
+        captured["request"] = request
+        return PaginatedGeneResponse(
+            data=[_gene("BRCA1", "ENSG00000012048.26")],
+            pagingInfo=PaginationInfo(
+                numberOfPages=1, page=0, maxItemsPerPage=50, totalNumberOfItems=1
+            ),
+        )
+
+    service = AsyncMock()
+    service.get_genes = AsyncMock(side_effect=fake_get_genes)
+    resolved = await resolve_gene_ids(
+        service, ["ENSG00000012048.23"], gencode_version=gencode_version_for_dataset("gtex_v11")
+    )
+    assert resolved == ["ENSG00000012048.26"]
+    assert captured["request"].gencode_version == "v47"

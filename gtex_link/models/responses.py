@@ -39,9 +39,9 @@ Chromosome = Literal[
     "chrM",
 ]
 
-DatasetId = Literal["gtex_v8", "gtex_v10"]
+DatasetId = Literal["gtex_v8", "gtex_v10", "gtex_v11"]
 
-GencodeVersion = Literal["v19", "v26", "v39"]
+GencodeVersion = Literal["v19", "v26", "v39", "v47"]
 
 GenomeBuild = Literal["GRCh37", "GRCh38", "GRCh38/hg38"]
 
@@ -299,7 +299,7 @@ class TissueSiteDetail(BaseResponse):
     color_rgb: str = Field(alias="colorRgb")
     dataset_id: str = Field(alias="datasetId")
     e_gene_count: int | None = Field(alias="eGeneCount")
-    expressed_gene_count: int = Field(alias="expressedGeneCount")
+    expressed_gene_count: int | None = Field(alias="expressedGeneCount")
     has_e_genes: bool = Field(alias="hasEGenes")
     has_s_genes: bool = Field(alias="hasSGenes")
     mapped_in_hubmap: bool = Field(alias="mappedInHubmap")

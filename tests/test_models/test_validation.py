@@ -33,7 +33,15 @@ class TestEnumValidation:
         """Test valid dataset ID values."""
         from typing import get_args
 
-        assert set(get_args(DatasetId)) == {"gtex_v8", "gtex_v10"}
+        assert set(get_args(DatasetId)) == {"gtex_v8", "gtex_v10", "gtex_v11"}
+
+    def test_gencode_version_accepts_v47(self):
+        """gtex_v11 genes come back with gencodeVersion v47; the model must parse them."""
+        from typing import get_args
+
+        from gtex_link.models.responses import GencodeVersion
+
+        assert "v47" in get_args(GencodeVersion)
 
     def test_tissue_site_detail_id_enum_valid(self):
         """Test valid tissue site detail ID values."""

@@ -155,8 +155,8 @@ def _surface() -> dict[str, Any]:
             ),
             (
                 "Each dataset uses a different GENCODE release (see "
-                "dataset_gencode_versions: gtex_v8->v26, gtex_v10->v39). Gene IDs are "
-                "resolved to the requested dataset's release automatically; a gene "
+                "dataset_gencode_versions: gtex_v8->v26, gtex_v10->v39, gtex_v11->v47). "
+                "Gene IDs are resolved to the requested dataset's release automatically; a gene "
                 "absent from a release still returns no rows."
             ),
             "Research use only; not for clinical decision support.",

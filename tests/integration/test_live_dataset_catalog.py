@@ -10,7 +10,7 @@ import pytest
 
 from gtex_link.models.gtex import DATASET_GENCODE_VERSION
 
-FIXTURE = Path(__file__).parents[1] / "fixtures" / "gtex_dataset_catalog_2026-09-01.json"
+FIXTURE = Path(__file__).parents[1] / "fixtures" / "gtex_dataset_catalog_2026-10-20.json"
 BASE_URL = "https://gtexportal.org/api/v2"
 
 
@@ -26,6 +26,9 @@ def test_live_catalog_and_representative_datasets_match_captured_truth() -> None
         payload = catalog.json()
         assert isinstance(payload, list)
         assert {row["datasetId"] for row in payload} == set(captured["catalog_ids"])
+        # Each supported dataset's GENCODE release must match what upstream says it is.
+        upstream_gencode = {row["datasetId"]: row["gencodeVersion"] for row in payload}
+        assert {d: upstream_gencode[d] for d in DATASET_GENCODE_VERSION} == DATASET_GENCODE_VERSION
 
         for dataset_id in DATASET_GENCODE_VERSION:
             response = client.get(
