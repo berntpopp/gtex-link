@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.10] - 2026-10-20
+
+### Security
+
+- certifi 2026.10.19: drops emSign root CAs whose intermediate CA keys were compromised (critical).
+
 ### Changed
 
 - Unify on Python 3.14 (`requires-python`, ruff/mypy targets, CI single-version matrix,
