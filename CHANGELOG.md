@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.9] - 2026-10-20
+
+### Security
+
+- Upgraded `mcp` to 1.30.0, resolving the open Dependabot alert for `mcp`.
+
 ### Added
 
 - `gtex_v11` (GTEx Analysis v11, GENCODE `v47`, 54 tissues) is a supported `dataset_id`
@@ -23,6 +29,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Dependency bumps consolidated from Dependabot: FastAPI, Pydantic (and pydantic-core/-settings), mypy, pre-commit, Ruff, orjson, librt, ast-serialize, async-lru, typer, typing-extensions, typing-inspection.
+- Refreshed GitHub Actions pins: `astral-sh/setup-uv` v10.3.0, `actions/upload-artifact` v7.0.2, `github/codeql-action` v4.38.3.
+- Pinned genefoundry-router reusable container workflows to v0.10.4.
 - Refreshed the captured live catalog fixture (`gtex_dataset_catalog_2026-10-20.json`);
   the live test now also asserts each supported dataset's GENCODE release matches the
   upstream catalog.
