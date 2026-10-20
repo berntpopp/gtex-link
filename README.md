@@ -1,6 +1,6 @@
 # gtex-link
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![CI](https://github.com/berntpopp/gtex-link/actions/workflows/ci.yml/badge.svg)](https://github.com/berntpopp/gtex-link/actions/workflows/ci.yml)
 [![Conformance](https://github.com/berntpopp/gtex-link/actions/workflows/conformance.yml/badge.svg)](https://github.com/berntpopp/gtex-link/actions/workflows/conformance.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -44,7 +44,7 @@ Hosted — nothing to install, no data to build:
 claude mcp add --transport http gtex-link https://gtex-link.genefoundry.org/mcp
 ```
 
-Run it yourself (Python 3.12+, [uv](https://github.com/astral-sh/uv)). There is no data
+Run it yourself (Python 3.14+, [uv](https://github.com/astral-sh/uv)). There is no data
 bundle and no ingest step — the server proxies the live GTEx Portal API:
 
 ```bash

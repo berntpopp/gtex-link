@@ -22,17 +22,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.12 is the `requires-python` floor; 3.14 is the interpreter the
-        # container actually ships (docker/Dockerfile). Both ends are tested so a
-        # base-image bump can never ship an interpreter CI has not exercised.
-        python-version: ["3.12", "3.14"]
+        # Single interpreter: the one `requires-python` and the container ship
+        # (docker/Dockerfile). Python minor upgrades are a fleet-wide migration.
+        python-version: ["3.14"]
 
-    # Without this the matrix would be a no-op: this repo pins `.python-version`
-    # to 3.12, which uv honours over whatever `setup-python` put on PATH, so every
-    # `uv sync`/`uv run` would rebuild the environment on 3.12 and both matrix legs
-    # would test the same interpreter. `UV_PYTHON` outranks `.python-version`, so
-    # the file keeps giving local development a deterministic default while CI
-    # actually runs the interpreter the leg is named after.
+    # Pins uv to the matrix interpreter (`UV_PYTHON` outranks `.python-version`).
     env:
       UV_PYTHON: ${{ matrix.python-version }}
 
@@ -61,5 +55,5 @@ jobs:
       # Coverage gate runs only on push to main to avoid a second full test run on
       # every PR iteration (concurrency-cancel + this split are the compute savers).
       - name: Coverage gate
-        if: github.event_name == 'push' && matrix.python-version == '3.14'
+        if: github.event_name == 'push'
         run: make test-cov

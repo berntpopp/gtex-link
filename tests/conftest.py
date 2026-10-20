@@ -40,14 +40,14 @@ GTEX_BASE = "https://test.gtexportal.org/api/v2"  # matches test_api_config.base
 
 
 @pytest.fixture
-def respx_mock() -> Generator[respx.MockRouter, None, None]:
+def respx_mock() -> Generator[respx.MockRouter]:
     """Yield a respx router intercepting all httpx calls in the test."""
     with respx.mock(assert_all_called=False) as router:
         yield router
 
 
 @pytest.fixture(scope="session")
-def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
+def event_loop() -> Generator[asyncio.AbstractEventLoop]:
     """Create event loop for the test session."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
@@ -103,7 +103,7 @@ def app():
 
 
 @pytest.fixture
-def test_client(app) -> Generator[TestClient, None, None]:
+def test_client(app) -> Generator[TestClient]:
     """Create test client."""
     client = TestClient(app)
     yield client
@@ -111,7 +111,7 @@ def test_client(app) -> Generator[TestClient, None, None]:
 
 
 @pytest_asyncio.fixture
-async def async_client(app) -> AsyncGenerator[AsyncClient, None]:
+async def async_client(app) -> AsyncGenerator[AsyncClient]:
     """Create async test client."""
     from httpx._transports.asgi import ASGITransport
 
@@ -121,7 +121,7 @@ async def async_client(app) -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest_asyncio.fixture
-async def gtex_client(test_api_config: GTExAPIConfigModel) -> AsyncGenerator[GTExClient, None]:
+async def gtex_client(test_api_config: GTExAPIConfigModel) -> AsyncGenerator[GTExClient]:
     """Create GTEx client for testing."""
     logger = MagicMock()
     client = GTExClient(config=test_api_config, logger=logger)

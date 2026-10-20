@@ -84,7 +84,7 @@ uv run pre-commit install
 - Use `uv` for dependency management; do not use direct `pip` installs.
 - Use modern Python typing: `list[str]`, `dict[str, int]`, `str | None`.
 - Format and lint Python with Ruff.
-- Type check with mypy targeting Python 3.12 (strict mode).
+- Type check with mypy targeting Python 3.14 (strict mode).
 - Keep FastAPI route behavior covered by route tests and service behavior
   covered by unit tests.
 - Use `respx` to mock outbound httpx calls in tests.

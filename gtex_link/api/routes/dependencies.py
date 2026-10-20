@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from structlog.typing import FilteringBoundLogger
 
 
-async def get_gtex_client() -> AsyncGenerator[GTExClient, None]:
+async def get_gtex_client() -> AsyncGenerator[GTExClient]:
     """Dependency to get GTEx client instance.
 
     Yields:
