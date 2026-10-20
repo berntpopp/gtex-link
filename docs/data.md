@@ -20,6 +20,7 @@ requested dataset's release for you (`DATASET_GENCODE_VERSION` in
 |---|---|---|
 | `gtex_v8` | `v26` | **Default** for every tool that takes `dataset_id`. |
 | `gtex_v10` | `v39` | Newer release; a gene absent from v39 simply returns no rows. |
+| `gtex_v11` | `v47` | Newest release (same 54 tissues); gene IDs are re-resolved to v47 (e.g. BRCA1 `.23` under v39 is `.26` under v47). |
 
 The live catalog also lists legacy `gtex_v7` and non-GTEx
 `kids_first_harmonization`; neither is part of this server's supported GTEx expression surface.
