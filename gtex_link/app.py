@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     """Application lifespan manager."""
     logger = configure_logging()
     log_server_startup(logger, "startup", settings.host, settings.port)
