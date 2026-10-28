@@ -40,7 +40,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     GTEX_LINK_PORT=8000 \
     TMPDIR=/tmp/gtex-link
 
-RUN apt-get update \
+RUN mkdir -p "$TMPDIR" && apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends \
     ca-certificates \
