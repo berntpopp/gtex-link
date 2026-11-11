@@ -155,7 +155,7 @@ class BaseResponse(BaseModel):
     @classmethod
     def model_json_schema(
         cls,
-        by_alias: bool = True,
+        by_alias: bool | None = True,
         ref_template: str = "#/$defs/{model}",
         schema_generator: type[GenerateJsonSchema] = MCPCompatibleJsonSchema,
         mode: Literal["validation", "serialization"] = "validation",
