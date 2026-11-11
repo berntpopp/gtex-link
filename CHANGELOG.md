@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.13] - 2026-11-11
+
+### Security
+
+- Fleet dependency sweep: joserfc 1.8.0 (GHSA fixes, patched >=1.7.6), fastmcp 3.4.11 (floor raised to
+  >=3.4.10; fastmcp and fastmcp-slim advisories), opentelemetry-api 1.45.2, filelock 4.2.10, virtualenv
+  21.15.6 (patched >=21.14.9). Closes Dependabot alerts #50-#78.
+- GitHub Actions: setup-python v7.1.0, setup-uv v10.3.3, codeql-action v4.39.1.
+
 ## [3.1.12] - 2026-10-28
 
 ### Fixed
