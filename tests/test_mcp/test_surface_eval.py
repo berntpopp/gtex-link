@@ -191,4 +191,4 @@ async def test_tool_surface_stays_within_budget() -> None:
     )
     # outputSchema is suppressed fleet-wide (0% of surface); assert it stays gone.
     for tool in tools:
-        assert tool.outputSchema is None, f"{tool.name} re-introduced an outputSchema"
+        assert tool.output_schema is None, f"{tool.name} re-introduced an outputSchema"
