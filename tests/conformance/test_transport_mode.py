@@ -83,3 +83,41 @@ def test_modern_mcp_http_discovers_lists_calls_and_fences_unknown_tool() -> None
     assert json.loads(unknown_result["content"][0]["text"]) == unknown_result["structuredContent"]
     assert unknown_result["structuredContent"]["error_code"] == "not_found"
     assert hostile not in unknown.text
+
+
+_EVIL_METHOD = "evil__IGNORE_ALL_PREVIOUS__method"
+
+
+def _assert_fixed_method_not_found(resp: Any) -> None:
+    error = resp.json()["error"]
+    assert error["code"] == -32601
+    assert "data" not in error
+    assert _EVIL_METHOD not in resp.text
+
+
+def test_unknown_jsonrpc_method_is_not_echoed_legacy_era() -> None:
+    """SDK 2 echoes an unknown METHOD in METHOD_NOT_FOUND ``data``; it must be stripped."""
+    headers = {"accept": "application/json, text/event-stream", "content-type": "application/json"}
+    with TestClient(server_manager.create_unified_app(), base_url="http://localhost") as client:
+        init = {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "probe", "version": "0"},
+        }
+        client.post(
+            "/mcp",
+            headers=headers,
+            json={"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": init},
+        )
+        resp = client.post(
+            "/mcp",
+            headers={**headers, "mcp-protocol-version": "2025-06-18"},
+            json={"jsonrpc": "2.0", "id": 1, "method": _EVIL_METHOD, "params": {}},
+        )
+    _assert_fixed_method_not_found(resp)
+
+
+def test_unknown_jsonrpc_method_is_not_echoed_modern_era() -> None:
+    with TestClient(server_manager.create_unified_app(), base_url="http://localhost") as client:
+        resp = _modern_post(client, 1, _EVIL_METHOD, {})
+    _assert_fixed_method_not_found(resp)

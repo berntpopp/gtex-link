@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-11-18
+
+### Security
+
+- MCP SDK 2 echoed an unknown JSON-RPC method name verbatim in the METHOD_NOT_FOUND error `data` (both protocol eras). A low-level middleware now re-raises a fixed `-32601 Method not found` without `data`; the log scrub also covers the SDK 2 `mcp.server.runner` logger (`dropped …` / `no handler for notification` records).
+
 ## [3.2.0] - 2026-11-18
 
 ### Changed
