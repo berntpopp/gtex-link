@@ -65,7 +65,7 @@ from fastmcp.exceptions import ValidationError as FastMCPValidationError
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools import ToolResult
 from mcp.shared.exceptions import MCPError
-from mcp_types import INVALID_PARAMS
+from mcp_types import INVALID_PARAMS, METHOD_NOT_FOUND
 from pydantic import ValidationError as PydanticValidationError
 
 from gtex_link.mcp.envelope import build_arg_error_envelope, build_unknown_tool_envelope
@@ -99,6 +99,11 @@ _SCRUB_MARKERS: tuple[str, ...] = (
     "Failed to validate request",
     "Failed to validate notification",
     "Message that failed validation",
+    # SDK 2 runner (``mcp.server.runner``) -- may carry a raw method / frame.
+    "dropped %r",
+    "dropped %s",
+    "dropped a frame",
+    "no handler for notification",
 )
 
 # The SOURCE loggers on which those records are CREATED (a filter runs only on the
@@ -114,6 +119,7 @@ _SCRUB_LOGGERS: tuple[str, ...] = (
     "fastmcp.server.mixins.mcp_operations",
     "mcp",
     "mcp.server.lowlevel.server",
+    "mcp.server.runner",
     "mcp.shared.session",
 )
 
@@ -363,6 +369,17 @@ def install_protocol_error_handler(mcp_server: FastMCP) -> None:
     the outermost wrapper on the request handlers.
     """
     lowlevel = mcp_server._mcp_server
+
+    async def _strip_method_not_found_data(ctx: Any, call_next: Any) -> Any:
+        # SDK 2 echoes an unknown JSON-RPC METHOD verbatim in the error ``data``.
+        try:
+            return await call_next(ctx)
+        except MCPError as exc:
+            if exc.error.code == METHOD_NOT_FOUND and exc.error.data is not None:
+                raise MCPError(code=METHOD_NOT_FOUND, message="Method not found") from None
+            raise
+
+    lowlevel.middleware.insert(0, _strip_method_not_found_data)
 
     call_tool = lowlevel.get_request_handler("tools/call")
     if call_tool is not None:
