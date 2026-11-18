@@ -38,5 +38,5 @@ async def test_tools_are_annotated_read_only() -> None:
     tools = {t.name: t for t in await mcp.list_tools()}
     median = tools["get_median_expression_levels"]
     assert median.annotations is not None
-    assert median.annotations.readOnlyHint is True
-    assert median.annotations.openWorldHint is True
+    assert median.annotations.read_only_hint is True
+    assert median.annotations.open_world_hint is True

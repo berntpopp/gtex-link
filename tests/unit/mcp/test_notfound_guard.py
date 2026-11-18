@@ -39,10 +39,10 @@ import anyio
 import pytest
 from fastmcp import Client
 from fastmcp.exceptions import ResourceError
-from mcp.shared.exceptions import McpError
+from mcp.shared.exceptions import MCPError
 from mcp.shared.memory import create_client_server_memory_streams
 from mcp.shared.message import SessionMessage
-from mcp.types import JSONRPCMessage, JSONRPCRequest
+from mcp.types import JSONRPCRequest
 
 from gtex_link.mcp.facade import create_gtex_mcp
 from gtex_link.mcp.profiles import MCPToolProfile
@@ -188,14 +188,26 @@ async def _drive_raw_request(mcp: Any, method: str, params: dict[str, Any]) -> N
 
             async def _run_server() -> None:
                 opts = low.create_initialization_options()
-                await low.run(
-                    server_read, server_write, opts, raise_exceptions=False, stateless=True
-                )
+                await low.run(server_read, server_write, opts, raise_exceptions=False)
 
             tg.start_soon(_run_server)
             await anyio.sleep(0.05)
+            # SDK v2 dropped ``stateless=``; initialize first, then send the raw request.
+            init = JSONRPCRequest(
+                jsonrpc="2.0",
+                id=0,
+                method="initialize",
+                params={
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "probe", "version": "0"},
+                },
+            )
+            await client_write.send(SessionMessage(message=init))
+            with anyio.move_on_after(1.0):
+                await client_read.receive()
             request = JSONRPCRequest(jsonrpc="2.0", id=1, method=method, params=params)
-            await client_write.send(SessionMessage(message=JSONRPCMessage(request)))
+            await client_write.send(SessionMessage(message=request))
             with anyio.move_on_after(1.0):
                 await client_read.receive()  # the fixed -32602 "Invalid request parameters"
             await anyio.sleep(0.05)
@@ -257,7 +269,7 @@ async def test_valid_unknown_resource_uri_via_client_no_reflection() -> None:
     """A valid-but-unknown resource URI via the real Client is never reflected."""
     with _capture_server_logs() as logs:
         mcp = _mcp()
-        with pytest.raises(McpError) as excinfo:
+        with pytest.raises(MCPError) as excinfo:
             async with Client(mcp) as client:
                 await client.read_resource(VALID_UNKNOWN_URI)
 
