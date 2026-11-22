@@ -136,7 +136,7 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 "or more GENCODE IDs or gene symbols. Returns chromosome, "
                 "coordinates, gene type, Entrez ID, and description. Use when "
                 "you already know the gene identifier. Inputs that match no gene "
-                "are listed in `not_found`."
+                "are listed in `not_found` (`not_returned` when `truncated`)."
             ),
         )
         async def get_gene_information(
@@ -197,9 +197,16 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     result, max_objects=_GET_GENE_INFORMATION_MAX_OBJECTS
                 )
                 # Per-input outcome: an agent must tell "not found" from "not asked".
-                response["not_found"] = _unmatched(gene_id, result.data)
+                # A symbol shared by many genes (Y_RNA: 757 rows) can fill the page, so
+                # an unmatched input on a truncated page was not returned, not absent.
+                total = result.paging_info.total_number_of_items
+                truncated = total > len(result.data)
+                unmatched = _unmatched(gene_id, result.data)
+                response["not_returned" if truncated else "not_found"] = unmatched
                 response["requested"] = len(gene_id)
                 response["returned"] = len(result.data)
+                response["total"] = total
+                response["truncated"] = truncated
                 return response
 
             success = False

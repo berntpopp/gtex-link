@@ -1377,3 +1377,23 @@ async def test_grch37_empty_result_is_invalid_input_not_absent_gene(
     assert payload["error_code"] == "invalid_input"
     assert "genome_build" in payload["message"]
     assert "GRCh37" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_get_gene_information_truncated_page_does_not_claim_absence() -> None:
+    # A shared symbol (Y_RNA) fills the page; BRCA1 is cut off, not absent.
+    y_rna = _brca1_gene().model_copy(
+        update={"gene_symbol": "Y_RNA", "gencode_id": "ENSG00000201098.1"}
+    )
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[y_rna, y_rna], pagingInfo=_paging(757))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool("get_gene_information", {"gene_id": ["Y_RNA", "BRCA1"]})
+
+    assert "not_found" not in payload
+    assert payload["not_returned"] == ["BRCA1"]
+    assert payload["truncated"] is True
+    assert payload["total"] == 757
