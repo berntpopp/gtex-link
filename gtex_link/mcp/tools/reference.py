@@ -16,7 +16,7 @@ from gtex_link.mcp.shaping import (
     SEARCH_GENES_MAX_OBJECTS,
     fence_gene_response,
 )
-from gtex_link.mcp.untrusted_content import DEFAULT_MAX_OBJECTS
+from gtex_link.mcp.untrusted_content import DEFAULT_MAX_OBJECTS, sanitize_message
 from gtex_link.models import GeneRequest, TranscriptRequest
 from gtex_link.models.gtex import GencodeVersionLiteral, GenomeBuildLiteral
 from gtex_link.observability.metrics import record_mcp_tool_call
@@ -24,10 +24,37 @@ from gtex_link.observability.metrics import record_mcp_tool_call
 if TYPE_CHECKING:
     from fastmcp import FastMCP
 
+    from gtex_link.models.responses import Gene
+
 # `GeneRequest.gene_id` caps `get_gene_information` at max_length=50
 # (models/requests.py) -- comfortably inside the module default; named here
 # only so the ceiling used by each tool is explicit at the call site.
 _GET_GENE_INFORMATION_MAX_OBJECTS = DEFAULT_MAX_OBJECTS
+
+
+# GTEx reference annotations are GRCh38-only: GRCh37/hg19 answers 200 with no rows
+# (live probe, issue #167), so an empty GRCh37 result says nothing about the gene.
+def _grch37_empty() -> McpToolError:
+    return McpToolError(
+        error_code="invalid_input",
+        message=(
+            "genome_build=GRCh37 returns no rows: GTEx reference annotations are "
+            "GRCh38-only. Omit genome_build or use GRCh38."
+        ),
+    )
+
+
+def _unmatched(inputs: list[str], genes: list[Gene]) -> list[str]:
+    """Inputs no returned gene answers to (symbol or GENCODE id, any version/case)."""
+    keys = {gene.gene_symbol.upper() for gene in genes}
+    keys |= {gene.gencode_id.upper().split(".")[0] for gene in genes}
+
+    def key(raw: str) -> str:
+        # Only GENCODE ids drop the version; symbols such as AC000061.1 keep their dot.
+        upper = raw.upper()
+        return upper.split(".")[0] if upper.startswith("ENSG") else upper
+
+    return [sanitize_message(raw) for raw in inputs if key(raw) not in keys]
 
 
 def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
@@ -108,7 +135,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 "Retrieve detailed gene information from GTEx Portal for one "
                 "or more GENCODE IDs or gene symbols. Returns chromosome, "
                 "coordinates, gene type, Entrez ID, and description. Use when "
-                "you already know the gene identifier."
+                "you already know the gene identifier. Inputs that match no gene "
+                "are listed in `not_found` (`not_returned` when `truncated`)."
             ),
         )
         async def get_gene_information(
@@ -154,6 +182,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     payload["genomeBuild"] = genome_build
                 request = GeneRequest.model_validate(payload)
                 result = await service.get_genes(request)
+                if not result.data and genome_build == "GRCh37":
+                    raise _grch37_empty()
                 if not result.data:
                     raise McpToolError(
                         error_code="not_found",
@@ -163,7 +193,21 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                             "ENSG00000169344.15)."
                         ),
                     )
-                return fence_gene_response(result, max_objects=_GET_GENE_INFORMATION_MAX_OBJECTS)
+                response = fence_gene_response(
+                    result, max_objects=_GET_GENE_INFORMATION_MAX_OBJECTS
+                )
+                # Per-input outcome: an agent must tell "not found" from "not asked".
+                # A symbol shared by many genes (Y_RNA: 757 rows) can fill the page, so
+                # an unmatched input on a truncated page was not returned, not absent.
+                total = result.paging_info.total_number_of_items
+                truncated = total > len(result.data)
+                unmatched = _unmatched(gene_id, result.data)
+                response["not_returned" if truncated else "not_found"] = unmatched
+                response["requested"] = len(gene_id)
+                response["returned"] = len(result.data)
+                response["total"] = total
+                response["truncated"] = truncated
+                return response
 
             success = False
             try:
@@ -235,6 +279,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     payload["genomeBuild"] = genome_build
                 request = TranscriptRequest.model_validate(payload)
                 result = await service.get_transcripts(request)
+                if not result.data and genome_build == "GRCh37":
+                    raise _grch37_empty()
                 if not result.data:
                     raise McpToolError(
                         error_code="not_found",

@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.2.3] - 2026-11-22
+
+### Fixed
+
+- `get_gene_information` with several gene ids no longer drops an unknown gene silently: the result lists inputs that matched no gene in `not_found`, with `requested` / `returned` / `total` counts; when a shared symbol fills the page (`truncated: true`) the unmatched inputs are listed as `not_returned` instead, since they were cut off, not absent (#167).
+- An empty `get_gene_information` / `get_transcript_information` result with `genome_build=GRCh37` is now `invalid_input` naming `genome_build` (GTEx reference data is GRCh38-only), not a `not_found` claiming the gene is absent (#167). `GRCh37` stays in the enum.
+
 ## [3.2.2] - 2026-11-22
 
 ### Fixed
