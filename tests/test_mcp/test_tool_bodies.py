@@ -1401,3 +1401,32 @@ async def test_get_gene_information_truncated_page_does_not_claim_absence() -> N
     assert payload["not_returned"] == ["BRCA1"]
     assert payload["truncated"] is True
     assert payload["total"] == 757
+
+
+def test_invalid_tissue_message_does_not_echo_caller_input() -> None:
+    # Response-Envelope v1 §2a (#171): the message stays fixed and server-authored.
+    # The schema enum rejects most bad tissues first; this guard is the shared backstop.
+    from gtex_link.mcp.envelope import McpToolError
+    from gtex_link.mcp.metadata import ensure_valid_tissue
+
+    with pytest.raises(McpToolError) as excinfo:
+        ensure_valid_tissue("NOT_A_TISSUE_XYZ")
+
+    assert excinfo.value.error_code == "invalid_input"
+    assert "tissue_site_detail_id" in excinfo.value.message
+    assert "NOT_A_TISSUE_XYZ" not in excinfo.value.message
+
+
+@pytest.mark.asyncio
+async def test_fetch_error_text_does_not_echo_caller_id() -> None:
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[], pagingInfo=_paging(0))
+    )
+
+    with patch_service(mock_service):
+        missing = await _call_tool("fetch", {"id": "gene:ENSG99999999.1"})
+        unsupported = await _call_tool("fetch", {"id": "gene:"})
+
+    assert "ENSG99999999.1" not in missing["text"]
+    assert "gene:" not in unsupported["text"]

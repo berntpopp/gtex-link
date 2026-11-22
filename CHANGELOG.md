@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.2.5] - 2026-11-22
+
+### Fixed
+
+- The last caller-input echoes are gone (Response-Envelope v1 §2a): the `ensure_valid_tissue` `invalid_input` message no longer repeats the unknown `tissue_site_detail_id`, and the ChatGPT `fetch` error documents use fixed text instead of the requested id; the error document's `id` field is sanitized (#171).
+
 ## [3.2.4] - 2026-11-22
 
 ### Fixed

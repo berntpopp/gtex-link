@@ -55,7 +55,7 @@ def ensure_valid_tissue(tissue: str | None) -> None:
         raise McpToolError(
             error_code="invalid_input",
             message=(
-                f"Unknown tissue_site_detail_id {tissue!r}. "
+                "Unknown tissue_site_detail_id. "
                 f"Valid values include: {sample}, ... ({len(allowed)} total; "
                 "see get_server_capabilities.tissues)."
             ),
