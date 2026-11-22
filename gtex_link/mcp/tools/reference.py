@@ -188,10 +188,11 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     raise McpToolError(
                         error_code="not_found",
                         message=(
-                            f"No gene found for: {', '.join(gene_id)}. Provide a valid "
-                            "gene symbol (e.g. UMOD) or GENCODE ID (e.g. "
+                            "No gene found for the gene_id inputs listed in `not_found`. Provide "
+                            "a valid gene symbol (e.g. UMOD) or GENCODE ID (e.g. "
                             "ENSG00000169344.15)."
                         ),
+                        not_found=gene_id,
                     )
                 response = fence_gene_response(
                     result, max_objects=_GET_GENE_INFORMATION_MAX_OBJECTS
@@ -285,10 +286,11 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                     raise McpToolError(
                         error_code="not_found",
                         message=(
-                            f"No transcripts found for {gencode_id}. Provide a versioned "
+                            "No transcripts found for the gencode_id. Provide a versioned "
                             "GENCODE ID (e.g. ENSG00000169344.15); resolve a symbol via "
                             "get_gene_information or search_genes first."
                         ),
+                        not_found=[gencode_id],
                     )
                 return result.model_dump(by_alias=True)
 

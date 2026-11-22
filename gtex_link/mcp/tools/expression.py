@@ -41,11 +41,10 @@ def _no_median_rows(dataset_id: str) -> str:
     )
 
 
-def _no_individual_rows(dataset_id: str, genes: list[str]) -> str:
+def _no_individual_rows(dataset_id: str) -> str:
     """Loud, actionable message for an empty individual-sample result."""
-    joined = ", ".join(genes)
     return (
-        f"No individual-sample expression rows for {joined} in dataset "
+        f"No individual-sample expression rows for the genes in `not_found` in dataset "
         f"{dataset_id!r}. Gene IDs were resolved to this dataset's GENCODE release, "
         "so confirm the gene is measured here and (if filtered) that the tissue has "
         "samples for it."
@@ -310,7 +309,8 @@ def register_expression_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 if not result.data:
                     raise McpToolError(
                         error_code="not_found",
-                        message=_no_individual_rows(dataset_id, resolved),
+                        message=_no_individual_rows(dataset_id),
+                        not_found=resolved,
                     )
                 dumped = result.model_dump(by_alias=True)
                 # Surface the per-row sample count and tame float noise; the raw

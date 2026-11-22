@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.2.4] - 2026-11-22
+
+### Fixed
+
+- Error messages no longer echo the caller's gene ids (Response-Envelope v1 §2a: the message stays fixed and server-authored). The `not_found` errors of `get_gene_information`, `get_transcript_information` and `get_individual_expression_data`, and the unresolved-gene `invalid_input` of the expression tools, now list those inputs in a typed, sanitized `not_found` field instead (#169).
+
 ## [3.2.3] - 2026-11-22
 
 ### Fixed
