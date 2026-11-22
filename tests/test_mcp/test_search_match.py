@@ -180,7 +180,8 @@ async def test_resolve_gene_ids_raises_invalid_input_for_unknown() -> None:
     with pytest.raises(McpToolError) as excinfo:
         await resolve_gene_ids(service, ["NOTAGENE123"])
     assert excinfo.value.error_code == "invalid_input"
-    assert "NOTAGENE123" in excinfo.value.message
+    assert "NOTAGENE123" not in excinfo.value.message
+    assert excinfo.value.not_found == ["NOTAGENE123"]
 
 
 def test_gtex_v10_uses_gencode_v39_regression() -> None:

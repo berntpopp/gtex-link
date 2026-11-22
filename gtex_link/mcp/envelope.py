@@ -59,10 +59,15 @@ class McpErrorContext:
 class McpToolError(Exception):
     """Raised inside a tool body to emit a specific error code/message."""
 
-    def __init__(self, *, error_code: str, message: str) -> None:
+    def __init__(
+        self, *, error_code: str, message: str, not_found: list[str] | None = None
+    ) -> None:
         super().__init__(message)
         self.error_code = error_code
         self.message = message
+        # Caller inputs that matched nothing go in a typed field, never the message
+        # (Response-Envelope v1 §2a: the message stays fixed and server-authored).
+        self.not_found = not_found
 
 
 def _provenance_meta(context: McpErrorContext | None = None) -> dict[str, Any]:
@@ -220,6 +225,8 @@ def _error_envelope(exc: BaseException, context: McpErrorContext) -> dict[str, A
     field_errors = _field_errors(exc)
     if field_errors is not None:
         envelope["field_errors"] = field_errors
+    if isinstance(exc, McpToolError) and exc.not_found is not None:
+        envelope["not_found"] = [sanitize_message(value) for value in exc.not_found]
     return envelope
 
 

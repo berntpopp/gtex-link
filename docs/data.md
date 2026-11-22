@@ -141,7 +141,8 @@ not paraphrase it.
   six that `get_server_capabilities` advertises, pinned to the set the error
   envelope can actually emit. Errors carry `retryable` and a `recovery_action`
   (`retry_backoff` | `reformulate_input` | `switch_tool`), and validation
-  failures add `field_errors`.
+  failures add `field_errors`. Gene inputs that matched nothing are listed in a
+  `not_found` field; the `message` never echoes them.
 
 ## MCP resources
 

@@ -359,7 +359,8 @@ async def test_median_unknown_symbol_returns_invalid_input_not_silent_empty() ->
 
     assert payload["success"] is False
     assert payload["error_code"] == "invalid_input"
-    assert "NOTAGENE" in payload["message"]
+    assert "NOTAGENE" not in payload["message"]
+    assert payload["not_found"] == ["NOTAGENE"]
 
 
 @pytest.mark.asyncio
@@ -989,7 +990,8 @@ async def test_get_gene_information_not_found_when_empty() -> None:
     assert payload["success"] is False
     assert payload["error_code"] == "not_found"
     assert payload["recovery_action"] == "reformulate_input"
-    assert "NOTAREALGENE_XYZ" in payload["message"]
+    assert "NOTAREALGENE_XYZ" not in payload["message"]
+    assert payload["not_found"] == ["NOTAREALGENE_XYZ"]
 
 
 @pytest.mark.asyncio
@@ -1289,7 +1291,8 @@ async def test_get_transcript_information_not_found_when_empty() -> None:
     assert payload["success"] is False
     assert payload["error_code"] == "not_found"
     assert payload["recovery_action"] == "reformulate_input"
-    assert "ENSG99999999999.9" in payload["message"]
+    assert "ENSG99999999999.9" not in payload["message"]
+    assert payload["not_found"] == ["ENSG99999999999.9"]
 
 
 @pytest.mark.asyncio
@@ -1310,7 +1313,8 @@ async def test_individual_not_found_when_empty() -> None:
     assert payload["success"] is False
     assert payload["error_code"] == "not_found"
     assert payload["recovery_action"] == "reformulate_input"
-    assert "ENSG99999999999.9" in payload["message"]
+    assert "ENSG99999999999.9" not in payload["message"]
+    assert payload["not_found"] == ["ENSG99999999999.9"]
 
 
 @pytest.mark.asyncio

@@ -54,7 +54,8 @@ GTEX_REFERENCE_NOTES = (
     "Error codes: not_found, invalid_input, rate_limited, upstream_unavailable, "
     "internal. Errors carry retryable + "
     "recovery_action (retry_backoff | reformulate_input | switch_tool) and, for "
-    "validation failures, field_errors. numSamples is the per-tissue RNA-seq "
+    "validation failures, field_errors; gene inputs that matched nothing are "
+    "listed in not_found, never echoed in the message. numSamples is the per-tissue RNA-seq "
     "sample denominator (gene-independent). Spread (min/max/quartiles/IQR) is "
     "opt-in via include_spread. Rate limit: 5 req/s (token bucket)."
 )

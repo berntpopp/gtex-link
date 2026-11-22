@@ -191,9 +191,10 @@ async def resolve_gene_ids(
         raise McpToolError(
             error_code="invalid_input",
             message=(
-                f"Could not resolve to GENCODE IDs: {', '.join(unresolved)}. "
+                "Could not resolve the gencode_id inputs listed in `not_found` to GENCODE IDs. "
                 "Provide a gene symbol (e.g. UMOD) or a versioned GENCODE ID "
                 "(e.g. ENSG00000169344.15)."
             ),
+            not_found=unresolved,
         )
     return resolved
