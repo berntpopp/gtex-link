@@ -25,6 +25,7 @@ from gtex_link.mcp.search_match import (
     recall_terms,
 )
 from gtex_link.mcp.service_adapters import get_gtex_service
+from gtex_link.mcp.untrusted_content import sanitize_message
 from gtex_link.models import GeneRequest, MedianGeneExpressionRequest
 from gtex_link.observability.metrics import record_mcp_tool_call
 
@@ -159,7 +160,9 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
                 gencode_id = id[len("gene:") :] if id.startswith("gene:") else id
                 if not gencode_id:
                     return _error_doc(
-                        id, "Unsupported resource type", f"Unsupported resource id: {id!r}"
+                        id,
+                        "Unsupported resource type",
+                        "Unsupported resource id; pass a GENCODE ID such as ENSG00000169344.15.",
                     )
 
                 gene_request = GeneRequest.model_validate(
@@ -167,7 +170,9 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
                 )
                 gene_result = await service.get_genes(gene_request)
                 if not gene_result.data:
-                    return _error_doc(id, "Resource not found", f"No gene found for {gencode_id!r}")
+                    return _error_doc(
+                        id, "Resource not found", "No gene found for the requested id."
+                    )
                 gene = gene_result.data[0]
 
                 expression_text = await _expression_lines(service, gene.gencode_id)
@@ -212,7 +217,7 @@ def register_search_fetch_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> Non
 
 def _error_doc(resource_id: str, title: str, text: str) -> dict[str, Any]:
     return {
-        "id": resource_id,
+        "id": sanitize_message(resource_id),
         "title": title,
         "text": text,
         "url": GTEX_PORTAL_URL,
