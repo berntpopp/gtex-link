@@ -159,11 +159,19 @@ def _classify(exc: BaseException) -> tuple[str, str, bool]:
         # A 4xx is GTEx rejecting the caller's input: deterministic, never retryable.
         if status == HTTPStatus.NOT_FOUND:
             return "not_found", "GTEx Portal found no resource for the request.", False
-        if HTTPStatus.BAD_REQUEST <= status < HTTPStatus.INTERNAL_SERVER_ERROR:
+        if status in (HTTPStatus.BAD_REQUEST, HTTPStatus.UNPROCESSABLE_ENTITY):
             return (
                 "invalid_input",
                 f"GTEx Portal rejected the request inputs (HTTP {status}). "
                 "Check the arguments against the tool schema.",
+                False,
+            )
+        # Other 4xx (401/403 bot wall, 405...) are not the caller's input and won't
+        # clear on retry: use another tool.
+        if HTTPStatus.BAD_REQUEST < status < HTTPStatus.INTERNAL_SERVER_ERROR:
+            return (
+                "upstream_unavailable",
+                f"GTEx Portal refused the request (HTTP {status}).",
                 False,
             )
         return (
