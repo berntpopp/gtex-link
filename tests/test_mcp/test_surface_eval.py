@@ -44,7 +44,7 @@ def _umod_gene() -> Gene:
             "geneSymbol": "UMOD",
             "geneSymbolUpper": "UMOD",
             "geneType": "protein_coding",
-            "genomeBuild": "GRCh38",
+            "genomeBuild": "GRCh38/hg38",
             "start": 20333052,
             "strand": "-",
             "tss": 20356301,

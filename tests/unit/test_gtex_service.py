@@ -346,7 +346,7 @@ class TestGTExServiceMissingCoverage:
                     "end": 43071238,
                     "exonNumber": 1,
                     "gencodeVersion": "v26",
-                    "genomeBuild": "GRCh38",
+                    "genomeBuild": "GRCh38/hg38",
                     "strand": "-",
                     "transcriptId": "ENST00000357654.9",
                 }

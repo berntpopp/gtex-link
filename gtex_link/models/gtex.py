@@ -102,6 +102,11 @@ class GenomeBuild(StrEnum):
     GRCH38_HG38 = "GRCh38/hg38"  # GTEx API format
 
 
+# GTEx's `genomeBuild` enum is only "GRCh38/hg38" / "GRCh37/hg19"; a bare assembly
+# name gets HTTP 422 (issue #165), so the client maps it before sending.
+GTEX_GENOME_BUILD = {"GRCh38": "GRCh38/hg38", "GRCh37": "GRCh37/hg19"}
+
+
 class Strand(StrEnum):
     """Strand enumeration."""
 

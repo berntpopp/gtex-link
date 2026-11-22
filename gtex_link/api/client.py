@@ -25,6 +25,7 @@ from gtex_link.exceptions import (
     UpstreamPolicyError,
 )
 from gtex_link.logging_config import log_api_request, log_error_with_context
+from gtex_link.models.gtex import GTEX_GENOME_BUILD
 from gtex_link.observability.metrics import (
     record_rate_limit_wait,
     record_upstream_call,
@@ -292,6 +293,8 @@ class GTExClient:
                 self.logger.debug("Rate limit applied", wait_time=wait_time)
             await asyncio.sleep(wait_time)
 
+        if params and params.get("genomeBuild") in GTEX_GENOME_BUILD:
+            params = {**params, "genomeBuild": GTEX_GENOME_BUILD[params["genomeBuild"]]}
         # Construct full URL
         url = urljoin(self.config.base_url, endpoint)
 

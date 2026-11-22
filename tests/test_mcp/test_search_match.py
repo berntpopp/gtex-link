@@ -71,7 +71,7 @@ def _gene(symbol: str, gencode: str) -> Gene:
             "geneSymbol": symbol,
             "geneSymbolUpper": symbol.upper(),
             "geneType": "protein_coding",
-            "genomeBuild": "GRCh38",
+            "genomeBuild": "GRCh38/hg38",
             "start": 1,
             "strand": "-",
             "tss": 2,

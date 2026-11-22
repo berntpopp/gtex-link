@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Any
 
 from pydantic import ValidationError as PydanticValidationError
@@ -154,9 +155,28 @@ def _classify(exc: BaseException) -> tuple[str, str, bool]:
             False,
         )
     if isinstance(exc, GTExAPIError):
+        status = exc.status_code or 0
+        # A 4xx is GTEx rejecting the caller's input: deterministic, never retryable.
+        if status == HTTPStatus.NOT_FOUND:
+            return "not_found", "GTEx Portal found no resource for the request.", False
+        if status in (HTTPStatus.BAD_REQUEST, HTTPStatus.UNPROCESSABLE_ENTITY):
+            return (
+                "invalid_input",
+                f"GTEx Portal rejected the request inputs (HTTP {status}). "
+                "Check the arguments against the tool schema.",
+                False,
+            )
+        # Other 4xx (401/403 bot wall, 405...) are not the caller's input and won't
+        # clear on retry: use another tool.
+        if HTTPStatus.BAD_REQUEST < status < HTTPStatus.INTERNAL_SERVER_ERROR:
+            return (
+                "upstream_unavailable",
+                f"GTEx Portal refused the request (HTTP {status}).",
+                False,
+            )
         return (
             "upstream_unavailable",
-            "GTEx Portal returned an error. Verify the request inputs.",
+            "GTEx Portal returned an unexpected response. Try again later.",
             True,
         )
     return "internal", "An internal error occurred. The request was not completed.", False

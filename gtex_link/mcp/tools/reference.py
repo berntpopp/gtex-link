@@ -133,7 +133,12 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             ] = None,
             genome_build: Annotated[
                 GenomeBuildLiteral | None,
-                Field(description="Genome assembly build; omit for the server default."),
+                Field(
+                    description=(
+                        "Genome assembly build; omit for the server default. GTEx "
+                        "reference annotations are GRCh38-only, so GRCh37 returns no rows."
+                    )
+                ),
             ] = None,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
@@ -203,7 +208,12 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             ] = None,
             genome_build: Annotated[
                 GenomeBuildLiteral | None,
-                Field(description="Genome assembly build; omit for the server default."),
+                Field(
+                    description=(
+                        "Genome assembly build; omit for the server default. GTEx "
+                        "reference annotations are GRCh38-only, so GRCh37 returns no rows."
+                    )
+                ),
             ] = None,
             offset: Annotated[
                 int, Field(ge=0, description="Zero-based row offset for pagination.")

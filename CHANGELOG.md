@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.2.2] - 2026-11-22
+
+### Fixed
+
+- `genome_build` `GRCh38` / `GRCh37` were sent to GTEx unchanged and always got HTTP 422; the client now maps them to GTEx's `GRCh38/hg38` / `GRCh37/hg19` (#165). The `genome_build` description notes that GTEx reference data is GRCh38-only.
+- A GTEx 4xx is no longer reported as a retryable `upstream_unavailable`: 400/422 → `invalid_input`, 404 → `not_found`, other 4xx → non-retryable `upstream_unavailable`; 5xx, transport failures and bad JSON stay `upstream_unavailable` (#165). The legacy `map_to_mcp_error_message` now delegates to the same classifier.
+
 ## [3.2.1] - 2026-11-18
 
 ### Security
