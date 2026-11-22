@@ -42,7 +42,7 @@ def _hostile_gene(gencode_id: str = "ENSG00000012048.20") -> Gene:
             "geneSymbol": "BRCA1",
             "geneSymbolUpper": "BRCA1",
             "geneType": "protein_coding",
-            "genomeBuild": "GRCh38",
+            "genomeBuild": "GRCh38/hg38",
             "start": 43044295,
             "strand": "-",
             "tss": 43125364,

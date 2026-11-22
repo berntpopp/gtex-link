@@ -346,7 +346,11 @@ class TestGTExClientAPIOperations:
             mock_request.return_value = gene_search_response
 
             result = await client.search_genes(
-                query="BRCA1", gencode_version="v26", genome_build="GRCh38", page=0, page_size=250
+                query="BRCA1",
+                gencode_version="v26",
+                genome_build="GRCh38/hg38",
+                page=0,
+                page_size=250,
             )
 
             assert result == gene_search_response
@@ -356,7 +360,7 @@ class TestGTExClientAPIOperations:
                 params={
                     "geneId": "BRCA1",
                     "gencodeVersion": "v26",
-                    "genomeBuild": "GRCh38",
+                    "genomeBuild": "GRCh38/hg38",
                     "page": 0,
                     "itemsPerPage": 250,
                 },
