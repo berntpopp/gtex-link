@@ -1311,3 +1311,69 @@ async def test_individual_not_found_when_empty() -> None:
     assert payload["error_code"] == "not_found"
     assert payload["recovery_action"] == "reformulate_input"
     assert "ENSG99999999999.9" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_get_gene_information_batch_reports_unmatched_inputs() -> None:
+    # Issue #167: a mixed batch must name the input that matched nothing.
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[_brca1_gene()], pagingInfo=_paging(1))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool(
+            "get_gene_information", {"gene_id": ["brca1", "ENSG00000012048.23", "NOTAGENE1"]}
+        )
+
+    assert payload["success"] is True
+    assert payload["not_found"] == ["NOTAGENE1"]
+    assert payload["requested"] == 3
+    assert payload["returned"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_gene_information_full_batch_has_empty_not_found() -> None:
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[_brca1_gene()], pagingInfo=_paging(1))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool("get_gene_information", {"gene_id": ["ENSG00000012048"]})
+
+    assert payload["not_found"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("tool", "args", "method", "empty"),
+    [
+        (
+            "get_gene_information",
+            {"gene_id": ["BRCA1"]},
+            "get_genes",
+            PaginatedGeneResponse(data=[], pagingInfo=_paging(0)),
+        ),
+        (
+            "get_transcript_information",
+            {"gencode_id": "ENSG00000012048.22"},
+            "get_transcripts",
+            PaginatedTranscriptResponse(data=[], pagingInfo=_paging(0)),
+        ),
+    ],
+)
+async def test_grch37_empty_result_is_invalid_input_not_absent_gene(
+    tool: str, args: dict[str, Any], method: str, empty: Any
+) -> None:
+    # GTEx has no GRCh37/hg19 reference rows: say so, do not claim the gene is absent.
+    mock_service = AsyncMock()
+    setattr(mock_service, method, AsyncMock(return_value=empty))
+
+    with patch_service(mock_service):
+        payload = await _call_tool(tool, {**args, "genome_build": "GRCh37"})
+
+    assert payload["success"] is False
+    assert payload["error_code"] == "invalid_input"
+    assert "genome_build" in payload["message"]
+    assert "GRCh37" in payload["message"]
