@@ -10,6 +10,7 @@ from gtex_link.mcp.annotations import READ_ONLY_OPEN_WORLD
 from gtex_link.mcp.envelope import McpErrorContext, McpToolError, run_mcp_tool
 from gtex_link.mcp.next_commands import after_gene_search
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
+from gtex_link.mcp.search_match import reject_foreign_gene_ids, split_foreign_gene_ids
 from gtex_link.mcp.service_adapters import get_gtex_service
 from gtex_link.mcp.shaping import (
     SEARCH_GENES_LIMIT_MAX,
@@ -81,7 +82,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 Field(
                     description=(
                         "Gene symbol or partial symbol to match against the GTEx "
-                        "catalog (e.g. 'BRCA' matches BRCA1, BRCA2)."
+                        "catalog (e.g. 'BRCA' matches BRCA1, BRCA2), or an Ensembl gene id. "
+                        "HGNC / NCBI Gene ids are rejected: hgnc_resolve_symbol converts them."
                     ),
                     examples=["BRCA1", "TP53"],
                 ),
@@ -99,6 +101,7 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             ] = 20,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
+                reject_foreign_gene_ids([query], field="query")
                 service = get_gtex_service()
                 result = await service.search_genes(
                     query=query,
@@ -136,7 +139,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 "or more GENCODE IDs or gene symbols. Returns chromosome, "
                 "coordinates, gene type, Entrez ID, and description. Use when "
                 "you already know the gene identifier. Inputs that match no gene "
-                "are listed in `not_found` (`not_returned` when `truncated`)."
+                "are listed in `not_found` (`not_returned` when `truncated`); HGNC / NCBI "
+                "Gene ids are not accepted (`unsupported_identifiers`)."
             ),
         )
         async def get_gene_information(
@@ -145,7 +149,8 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 Field(
                     description=(
                         "One or more gene symbols or GENCODE IDs; symbols are "
-                        "auto-resolved (e.g. UMOD or ENSG00000169344.15)."
+                        "auto-resolved (e.g. UMOD or ENSG00000169344.15). For an HGNC or "
+                        "NCBI Gene id, call hgnc_resolve_symbol first."
                     ),
                     examples=[["BRCA1", "TP53"]],
                 ),
@@ -170,11 +175,16 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
             ] = None,
         ) -> dict[str, Any]:
             async def call() -> dict[str, Any]:
+                # One bad item must not fail the batch: HGNC / NCBI Gene ids are set aside
+                # and reported; only a call made of nothing else is rejected.
+                lookup, unsupported = split_foreign_gene_ids(gene_id)
+                if not lookup:
+                    reject_foreign_gene_ids(unsupported, field="gene_id")
                 service = get_gtex_service()
                 payload: dict[str, object] = {
-                    "geneId": gene_id,
+                    "geneId": lookup,
                     "page": 0,
-                    "itemsPerPage": len(gene_id),
+                    "itemsPerPage": len(lookup),
                 }
                 if gencode_version is not None:
                     payload["gencodeVersion"] = gencode_version
@@ -192,7 +202,7 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                             "a valid gene symbol (e.g. UMOD) or GENCODE ID (e.g. "
                             "ENSG00000169344.15)."
                         ),
-                        not_found=gene_id,
+                        not_found=lookup,
                     )
                 response = fence_gene_response(
                     result, max_objects=_GET_GENE_INFORMATION_MAX_OBJECTS
@@ -202,12 +212,16 @@ def register_reference_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
                 # an unmatched input on a truncated page was not returned, not absent.
                 total = result.paging_info.total_number_of_items
                 truncated = total > len(result.data)
-                unmatched = _unmatched(gene_id, result.data)
+                unmatched = _unmatched(lookup, result.data)
                 response["not_returned" if truncated else "not_found"] = unmatched
                 response["requested"] = len(gene_id)
                 response["returned"] = len(result.data)
                 response["total"] = total
                 response["truncated"] = truncated
+                if unsupported:
+                    response["unsupported_identifiers"] = [
+                        sanitize_message(value) for value in unsupported
+                    ]
                 return response
 
             success = False

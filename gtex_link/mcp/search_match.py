@@ -12,6 +12,7 @@ import re
 from typing import TYPE_CHECKING
 
 from gtex_link.mcp.envelope import McpToolError
+from gtex_link.mcp.next_commands import cmd
 from gtex_link.models import GeneRequest
 from gtex_link.models.gtex import (
     DEFAULT_GENCODE_VERSION,
@@ -23,7 +24,9 @@ __all__ = [
     "classify_match",
     "gencode_version_for_dataset",
     "recall_terms",
+    "reject_foreign_gene_ids",
     "resolve_gene_ids",
+    "split_foreign_gene_ids",
 ]
 
 if TYPE_CHECKING:
@@ -31,6 +34,49 @@ if TYPE_CHECKING:
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9.]+")
 _VERSIONED_GENCODE_RE = re.compile(r"^ENSG\d+\.\d+$", re.IGNORECASE)
+
+# Gene id namespaces GTEx is not keyed by (it takes a symbol or a GENCODE/Ensembl gene id).
+# re.ASCII: the matched digits are echoed into next_commands arguments.
+_HGNC_ID_RE = re.compile(r"HGNC:(\d+)", re.IGNORECASE | re.ASCII)
+_NCBI_GENE_ID_RE = re.compile(r"(?:NCBIGene|GeneID|Entrez):(\d+)", re.IGNORECASE | re.ASCII)
+ACCEPTED_GENE_FORMS = ["gene symbol, e.g. UMOD", "GENCODE/Ensembl gene id, e.g. ENSG00000169344"]
+
+
+def _converter(value: str) -> dict[str, object] | None:
+    """The HGNC call that turns a foreign gene id into a symbol, or None if it is not foreign."""
+    value = value.strip()
+    if match := _HGNC_ID_RE.fullmatch(value):
+        return cmd("hgnc_resolve_symbol", query=f"HGNC:{match.group(1)}")
+    if match := _NCBI_GENE_ID_RE.fullmatch(value):
+        return cmd("hgnc_resolve_gene_by_xref", source="entrez_id", value=match.group(1))
+    return None
+
+
+def split_foreign_gene_ids(values: list[str]) -> tuple[list[str], list[str]]:
+    """Split *values* into (ids GTEx can look up, HGNC/NCBI Gene ids it cannot)."""
+    foreign = [value for value in values if _converter(value)]
+    return [value for value in values if value not in foreign], foreign
+
+
+def reject_foreign_gene_ids(values: list[str], *, field: str) -> None:
+    """Raise `invalid_input` naming the converter if any value is an HGNC or NCBI Gene id.
+
+    GTEx would answer such an id with zero rows, which reads as "gene absent".
+    """
+    converters = [step for value in values if (step := _converter(value))]
+    if converters:
+        raise McpToolError(
+            error_code="invalid_input",
+            message=(
+                f"{field} takes a gene symbol or a GENCODE/Ensembl gene id, not an HGNC or "
+                "NCBI Gene id. GTEx was not queried. Convert the id to a symbol with the "
+                "call in _meta.next_commands, then retry."
+            ),
+            field=field,
+            allowed_values=ACCEPTED_GENE_FORMS,
+            next_commands=converters,
+        )
+
 
 _STOP_WORDS: frozenset[str] = frozenset(
     {
@@ -159,6 +205,7 @@ async def resolve_gene_ids(
     silently returning zero expression rows. Raises McpToolError (invalid_input)
     listing any token that cannot be resolved -- never returns a shorter list.
     """
+    reject_foreign_gene_ids(raw_ids, field="gencode_id")
     target = gencode_version or DEFAULT_GENCODE_VERSION
     if target == DEFAULT_GENCODE_VERSION and all(is_versioned_gencode(rid) for rid in raw_ids):
         return raw_ids

@@ -1430,3 +1430,52 @@ async def test_fetch_error_text_does_not_echo_caller_id() -> None:
 
     assert "ENSG99999999.1" not in missing["text"]
     assert "gene:" not in unsupported["text"]
+
+
+# --- Identifier forms GTEx is not keyed by (Response-Envelope v1 §2b) ---
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("tool", "arguments", "field", "converter"),
+    [
+        ("search_genes", {"query": "HGNC:6407"}, "query", "hgnc_resolve_symbol"),
+        ("search_genes", {"query": "NCBIGene:3845"}, "query", "hgnc_resolve_gene_by_xref"),
+        ("get_gene_information", {"gene_id": ["hgnc:6407"]}, "gene_id", "hgnc_resolve_symbol"),
+        (
+            "get_median_expression_levels",
+            {"gencode_id": ["NCBIGene:3845"]},
+            "gencode_id",
+            "hgnc_resolve_gene_by_xref",
+        ),
+    ],
+)
+async def test_foreign_gene_id_is_invalid_input_naming_the_converter(
+    tool: str, arguments: dict[str, Any], field: str, converter: str
+) -> None:
+    mock_service = AsyncMock()
+
+    with patch_service(mock_service):
+        payload = await _call_tool(tool, arguments)
+
+    assert payload["error_code"] == "invalid_input"
+    assert payload["field"] == field
+    assert payload["allowed_values"]
+    assert [step["tool"] for step in payload["_meta"]["next_commands"]] == [converter]
+    assert not mock_service.mock_calls  # GTEx was never queried
+
+
+@pytest.mark.asyncio
+async def test_get_gene_information_reports_a_foreign_id_without_failing_the_batch() -> None:
+    mock_service = AsyncMock()
+    mock_service.get_genes = AsyncMock(
+        return_value=PaginatedGeneResponse(data=[_brca1_gene()], pagingInfo=_paging(1))
+    )
+
+    with patch_service(mock_service):
+        payload = await _call_tool("get_gene_information", {"gene_id": ["BRCA1", "HGNC:6407"]})
+
+    assert payload["success"] is True
+    assert payload["result"]["unsupported_identifiers"] == ["HGNC:6407"]
+    assert payload["result"]["requested"] == 2
+    assert mock_service.get_genes.await_args.args[0].gene_id == ["BRCA1"]
