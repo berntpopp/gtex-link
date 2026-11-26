@@ -337,7 +337,7 @@ def _pagination_meta(paging: Any) -> dict[str, Any] | None:
 
     `total_count` is `totalNumberOfItems` (the size of the whole result set,
     invariant under `limit`); `has_more` is true when the current page is not the
-    last. Absent for tools that return no `pagingInfo` (fetch, capabilities, search).
+    last; `next_cursor` is null. Absent for tools that return no `pagingInfo` (fetch, capabilities, search).
     """
     if not isinstance(paging, dict):
         return None
@@ -347,7 +347,8 @@ def _pagination_meta(paging: Any) -> dict[str, Any] | None:
     page = paging.get("page")
     n_pages = paging.get("numberOfPages")
     has_more = isinstance(page, int) and isinstance(n_pages, int) and (page + 1) < n_pages
-    return {"total_count": total, "has_more": has_more}
+    # GTEx pages by offset/limit and issues no cursor: next_cursor is always null
+    return {"total_count": total, "has_more": has_more, "next_cursor": None}
 
 
 async def run_mcp_tool(
