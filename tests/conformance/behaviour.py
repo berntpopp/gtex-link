@@ -21,6 +21,12 @@ Nothing enforced them. This does.
   3. THE ERROR AN LLM CANNOT ACT ON. A missing argument answered with `not_found` /
      "The requested tool is not available" — telling the model the tool does not exist.
 
+It also gates the provenance core rule of Response-Envelope v1.2: every successful control call
+must carry non-empty `_meta.source`, `_meta.data_version` and `_meta.retrieved_at`. The OpenAI
+deep-research compatibility tools `search` and `fetch` are exempt: their shape is OpenAI's.
+
+The payload is read where the envelope puts it: at the top level, or inside `result`/`results`.
+
 Advisory (WARN, never affects the verdict): a `resolve_*` miss should be a `not_found` carrying
 `_meta.next_commands` (Response-Envelope Standard v1 §2a).
 
@@ -71,8 +77,16 @@ BOGUS_ARG = "__gf_conformance_no_such_arg__"
 # these is skipped, never passed — an unreachable upstream must not silently buy a green tick.
 INCONCLUSIVE = {"upstream_unavailable", "rate_limited", "internal"}
 
+# Required in `_meta` of every successful result (Response-Envelope Standard v1.2, core rule).
+PROVENANCE = ("source", "data_version", "retrieved_at")
+
 # Tools that orient a client rather than query data (Tool-Naming Standard ops/meta carve-out).
 META_TOOLS = ("capabilit", "health", "diagnost", "warmup", "help", "quickstart")
+
+# OpenAI deep-research compatibility tools. Their result is OpenAI's fixed document shape
+# (`{results: [{id, title, url}]}`, `{id, title, text, url, metadata}`), so they are exempt from
+# the envelope frame and the provenance rule (Response-Envelope Standard v1.2, "Exemptions").
+COMPAT_TOOLS = ("search", "fetch")
 
 # Free-text inputs, where a nonsense value returning zero rows is HONEST, not a defect. The
 # silent-empty probe below cannot distinguish "a filter over a closed vocabulary" from "a search
@@ -226,7 +240,7 @@ def envelope(result: dict[str, Any]) -> dict[str, Any]:
         if block.get("type") == "text":
             try:
                 parsed = json.loads(block.get("text") or "")
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 continue
             if isinstance(parsed, dict):
                 return parsed
@@ -261,6 +275,15 @@ def rows(env: dict[str, Any]) -> list[Any] | None:
     #    the largest actual collection, not let an empty sidecar mask non-empty rows.
     best = _grouped_collection(env)
 
+    # Response-Envelope v1 §1 names the payload `results` (a list) or `result` (an object). A
+    # backend that moved its flat payload under `result` (`result.variants`, `result.mappings`)
+    # still returns a collection: read it there exactly as at the top level.
+    frames = _frames(env)
+    for inner in frames[1:]:
+        nested = _grouped_collection(inner)
+        if nested is not None and (best is None or len(nested) > len(best)):
+            best = nested
+
     # 2. Otherwise, a top-level list of objects — but a bare list is ambiguous. A COLLECTION
     #    declares how many things it holds (Response-Envelope v1: "Always populate
     #    _meta.pagination: total_count, has_more"); a RECORD does not. Without this count guard the
@@ -271,14 +294,26 @@ def rows(env: dict[str, Any]) -> list[Any] | None:
     if count_of(env) is None:
         return best
 
-    for key, value in env.items():
-        if key.startswith("_") or not isinstance(value, list):
-            continue
-        if not all(isinstance(item, dict) for item in value):
-            continue
-        if best is None or len(value) > len(best):
-            best = value
+    for frame in frames:
+        for key, value in frame.items():
+            if key.startswith("_") or not isinstance(value, list):
+                continue
+            if not all(isinstance(item, dict) for item in value):
+                continue
+            if best is None or len(value) > len(best):
+                best = value
     return best
+
+
+def _frames(env: dict[str, Any]) -> list[dict[str, Any]]:
+    """The envelope and, when the payload is an object under `result`, that object too."""
+    inner = env.get("result")
+    return [env, inner] if isinstance(inner, dict) else [env]
+
+
+def _count_sources(env: dict[str, Any]) -> list[dict[str, Any]]:
+    """Where a count may sit, most authoritative first: `_meta.pagination`, envelope, `result`."""
+    return [(env.get("_meta") or {}).get("pagination") or {}, *_frames(env)]
 
 
 def _grouped_collection(env: dict[str, Any]) -> list[Any] | None:
@@ -304,8 +339,7 @@ def _grouped_collection(env: dict[str, Any]) -> list[Any] | None:
 
 def count_of(env: dict[str, Any]) -> int | None:
     """How many records this response says it is carrying. Absent on a single-record tool."""
-    pagination = (env.get("_meta") or {}).get("pagination") or {}
-    for source in (pagination, env):
+    for source in _count_sources(env):
         for key in ("total_count", "total", "count", "returned", "found_count"):
             value = source.get(key)
             if isinstance(value, int):
@@ -314,8 +348,7 @@ def count_of(env: dict[str, Any]) -> int | None:
 
 
 def total_of(env: dict[str, Any]) -> int | None:
-    pagination = (env.get("_meta") or {}).get("pagination") or {}
-    for source in (pagination, env):
+    for source in _count_sources(env):
         for key in ("total_count", "total"):
             value = source.get(key)
             if isinstance(value, int):
@@ -324,8 +357,7 @@ def total_of(env: dict[str, Any]) -> int | None:
 
 
 def more_flag(env: dict[str, Any]) -> bool | None:
-    pagination = (env.get("_meta") or {}).get("pagination") or {}
-    for source in (pagination, env):
+    for source in _count_sources(env):
         for key in ("has_more", "truncated"):
             value = source.get(key)
             if isinstance(value, bool):
@@ -663,6 +695,19 @@ def check_total_is_not_the_page_size(
     )
 
 
+def check_provenance(rep: Report, tool: str, env: dict[str, Any]) -> None:
+    """Response-Envelope Standard v1.2 (core rule): a successful result names where its data
+    came from, which release, and when it was fetched upstream."""
+    meta = env.get("_meta")
+    meta = meta if isinstance(meta, dict) else {}
+    missing = [k for k in PROVENANCE if not (isinstance(meta.get(k), str) and meta[k].strip())]
+    rep.check(
+        f"{tool}: success carries _meta.{{{', '.join(PROVENANCE)}}}",
+        not missing,
+        f"missing or empty: {', '.join(missing)} (Response-Envelope Standard v1.2)",
+    )
+
+
 def check_resolver_miss(
     rep: Report, probe: Probe, tool: dict[str, Any], base: dict[str, Any]
 ) -> None:
@@ -686,7 +731,7 @@ def check_resolver_miss(
     label = f"{name}: a resolver miss is an honest not_found with next_commands"
     try:
         result = probe.call(name, {**base, key: SENTINEL})
-    except (ProtocolError, httpx.HTTPError):
+    except ProtocolError, httpx.HTTPError:
         return  # a rejected value or a flaky upstream says nothing about a miss; advisory only
     env = envelope(result)
     if not is_error_result(result, env):
@@ -854,6 +899,8 @@ def run_probe(base_url: str, *, expected_name: str, timeout: float = 60.0) -> Re
                 )
             continue
 
+        if name not in COMPAT_TOOLS:
+            check_provenance(rep, name, control_env)
         check_declared_enums(rep, probe, tool, base)
         check_resolver_miss(rep, probe, tool, base)
 
