@@ -15,7 +15,7 @@ async def test_success_injects_success_and_meta() -> None:
 
     result = await run_mcp_tool("demo", call)
 
-    assert result["data"] == [1, 2, 3]
+    assert result["result"]["data"] == [1, 2, 3]
     assert result["success"] is True
     assert result["_meta"]["unsafe_for_clinical_use"] is True
     assert result["_meta"]["gtex_release"] == "gtex_v8"

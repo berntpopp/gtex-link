@@ -11,8 +11,11 @@ adds _meta.next_commands.
 from __future__ import annotations
 
 import logging
+import time
+import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import Any
 
@@ -28,6 +31,7 @@ from gtex_link.exceptions import (
 from gtex_link.mcp.resources import GTEX_DATA_RELEASE, RECOMMENDED_CITATION
 from gtex_link.mcp.untrusted_content import UntrustedTextLimitError, sanitize_message
 from gtex_link.models.gtex import DATASET_GENCODE_VERSION
+from gtex_link.utils.caching import with_fetch_times
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +93,9 @@ def _provenance_meta(context: McpErrorContext | None = None) -> dict[str, Any]:
     that mapping, not from the caller. An unknown dataset_id keeps the server
     default and gets no `gencode_version`.
     """
-    meta = dict(_BASE_META)
+    # Response-Envelope v1 section 4 requires both on every envelope; run_mcp_tool sets the
+    # measured elapsed_ms (a rejection before dispatch costs about 0 ms).
+    meta = {**_BASE_META, "request_id": uuid.uuid4().hex, "elapsed_ms": 0}
     if context is not None and context.dataset_id:
         # dataset_id is a caller-supplied argument copied verbatim into the
         # caller-visible _meta; strip forbidden control/zero-width/bidi/NUL code
@@ -336,12 +342,20 @@ async def run_mcp_tool(
 ) -> dict[str, Any]:
     """Execute a tool body, returning the result dict or a structured error dict."""
     ctx = context or McpErrorContext(tool_name=tool_name)
+    started = time.time()
     try:
-        result = await call()
+        result, fetch_times = await with_fetch_times(call)
         if isinstance(result, dict):
-            result.setdefault("success", True)
             existing_meta: dict[str, Any] = result.get("_meta") or {}
             merged_meta = {**existing_meta, **_provenance_meta(ctx)}
+            merged_meta["elapsed_ms"] = round((time.time() - started) * 1000)
+            if result.setdefault("success", True):
+                # Response-Envelope v1.2: the release queried and the oldest upstream
+                # fetch behind the result (a cache hit keeps its entry's fetch time).
+                fetched_at = datetime.fromtimestamp(min(fetch_times, default=started), UTC)
+                merged_meta["source"] = "gtex"
+                merged_meta["data_version"] = merged_meta["gtex_release"]
+                merged_meta["retrieved_at"] = fetched_at.strftime("%Y-%m-%dT%H:%M:%SZ")
             # Response-Envelope v1 pagination frame, derived from the upstream GTEx
             # `pagingInfo` block so the fleet gate (and any client) can read
             # total_count/has_more without knowing GTEx's own camelCase shape. The
@@ -349,10 +363,15 @@ async def run_mcp_tool(
             pagination = _pagination_meta(result.get("pagingInfo"))
             if pagination is not None:
                 merged_meta["pagination"] = pagination
-            result["_meta"] = merged_meta
+            success = result.pop("success")
+            result.pop("_meta", None)
+            if success and not {"result", "results"} & result.keys():
+                result = {"result": result}  # v1 frame: the payload sits under `result`
+            result = {"success": success, **result, "_meta": merged_meta}
         return result
     except Exception as exc:  # broad catch is the error-boundary contract
         envelope = _error_envelope(exc, ctx)
+        envelope["_meta"]["elapsed_ms"] = round((time.time() - started) * 1000)
         logger.warning(
             "mcp_tool_error tool=%s code=%s exc=%s",
             tool_name,

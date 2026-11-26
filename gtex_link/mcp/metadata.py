@@ -163,7 +163,12 @@ def _surface() -> dict[str, Any]:
         ],
         "concurrency": {"rate_limit_per_second": 5},
         "response_fields": {
-            "headline": "one-line plain-English answer at the top of median results",
+            "result": "the payload of a success (search: results); fields below are in it",
+            "headline": "result.headline: one-line plain-English answer of median results",
+            "provenance": (
+                "_meta.source, _meta.data_version (= gtex_release) and _meta.retrieved_at "
+                "(UTC time of the upstream fetch) on every success that has a _meta frame"
+            ),
             "next_commands": (
                 "_meta.next_commands: ready-to-call {tool, arguments} next steps, on the "
                 "tools with an obvious next step (search_genes, "
