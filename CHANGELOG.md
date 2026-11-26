@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [4.1.1] - 2026-11-26
+
+### Fixed
+
+- `_meta.pagination` also carries `next_cursor` (always `null`; GTEx pages by offset and
+  issues no cursor), as Response-Envelope Standard v1 §5 asks.
+
 ## [4.1.0] - 2026-11-26
 
 ### Fixed

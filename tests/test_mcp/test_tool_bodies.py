@@ -533,6 +533,7 @@ async def test_paginated_tool_emits_meta_pagination_frame() -> None:
     pagination = payload["_meta"]["pagination"]
     assert pagination["total_count"] == 5
     assert pagination["has_more"] is True  # page 0 of 5
+    assert pagination["next_cursor"] is None
 
 
 @pytest.mark.asyncio
