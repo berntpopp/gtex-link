@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-11-26
+
+### Fixed
+
+- An HGNC id (`HGNC:6407`) or NCBI Gene id (`NCBIGene:3845`) is no longer answered as an absent gene. `search_genes` returned a successful empty page and `get_gene_information` returned `not_found`, although GTEx is keyed by symbol and GENCODE/Ensembl gene id and had not looked the gene up. These tools, and every tool that resolves `gencode_id`, now answer `invalid_input` with `field`, `allowed_values` and the converter (`hgnc_resolve_symbol` or `hgnc_resolve_gene_by_xref`) in `_meta.next_commands` (Response-Envelope Standard v1 §2b). GTEx is not queried for such an id.
+
+### Added
+
+- `get_gene_information` with a mixed list answers the ids it can look up and lists the HGNC / NCBI Gene ids under `result.unsupported_identifiers`; one such id no longer changes the outcome of the others.
+
 ## [4.0.0] - 2026-11-26
 
 Adopts the Response-Envelope Standard v1.2 (#175).
