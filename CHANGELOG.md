@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-11-26
+
+Adopts the Response-Envelope Standard v1.2 (#175).
+
+### Changed (BREAKING)
+
+- Every successful result of a tool that has a `_meta` frame (all but `fetch` and `get_server_capabilities`) is the standard frame `{success, result | results, _meta}`. The tools that returned their fields at the top level (`data`, `pagingInfo`, `headline`, `genes`, ...) now return them unchanged under `result`: read `result.data` instead of `data`. `search` already used `results` and is unchanged. Error envelopes keep their shape.
+
+### Added
+
+- Provenance on every successful result of those tools: `_meta.source` (`gtex`), `_meta.data_version` (the release queried; `_meta.gtex_release` stays next to it) and `_meta.retrieved_at` (RFC 3339 UTC time of the upstream fetch). A cached answer keeps the time of the fetch that filled the cache entry; a result built from several fetches reports the oldest.
+- `_meta.request_id` and `_meta.elapsed_ms` on every result that has a `_meta` frame, success and error.
+- Tests call every such tool through the facade and validate each result against the envelope JSON Schema (berntpopp/genefoundry-envelope v1.2.0, vendored with its sha256).
+
 ## [3.2.5] - 2026-11-22
 
 ### Fixed

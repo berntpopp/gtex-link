@@ -95,8 +95,8 @@ async def test_search_genes_happy_path() -> None:
     with patch_service(mock_service):
         payload = await _call_tool("search_genes", {"query": "BRCA1"})
 
-    assert payload["data"][0]["geneSymbol"] == "BRCA1"
-    assert payload["data"][0]["gencodeId"] == "ENSG00000012048.22"
+    assert payload["result"]["data"][0]["geneSymbol"] == "BRCA1"
+    assert payload["result"]["data"][0]["gencodeId"] == "ENSG00000012048.22"
     mock_service.search_genes.assert_awaited_once()
 
 
@@ -127,7 +127,7 @@ async def test_search_genes_returns_structured_not_double_encoded() -> None:
     # structured_content is a real object, not a JSON string in a string
     assert result.structured_content is not None
     assert result.structured_content["success"] is True
-    assert result.structured_content["data"][0]["geneSymbol"] == "BRCA1"
+    assert result.structured_content["result"]["data"][0]["geneSymbol"] == "BRCA1"
     assert result.structured_content["_meta"]["gtex_release"] == "gtex_v8"
 
 
@@ -141,7 +141,7 @@ async def test_get_gene_information_happy_path() -> None:
     with patch_service(mock_service):
         payload = await _call_tool("get_gene_information", {"gene_id": ["BRCA1"]})
 
-    assert payload["data"][0]["entrezGeneId"] == 672
+    assert payload["result"]["data"][0]["entrezGeneId"] == 672
     mock_service.get_genes.assert_awaited_once()
 
 
@@ -173,7 +173,7 @@ async def test_get_transcript_information_happy_path() -> None:
             {"gencode_id": "ENSG00000012048.22"},
         )
 
-    assert payload["data"][0]["transcriptId"] == "ENST00000357654.7"
+    assert payload["result"]["data"][0]["transcriptId"] == "ENST00000357654.7"
     mock_service.get_transcripts.assert_awaited_once()
 
 
@@ -205,7 +205,7 @@ async def test_get_median_expression_levels_omits_tissue_when_none() -> None:
             {"gencode_id": ["ENSG00000012048.22"]},
         )
 
-    assert payload["genes"][0]["tissues"][0]["median"] == 12.5436
+    assert payload["result"]["genes"][0]["tissues"][0]["median"] == 12.5436
     request = mock_service.get_median_gene_expression.call_args.args[0]
     assert request.tissue_site_detail_id == ""
 
@@ -435,7 +435,7 @@ async def test_get_individual_expression_data_happy_path() -> None:
             },
         )
 
-    assert payload["data"][0]["geneSymbol"] == "BRCA1"
+    assert payload["result"]["data"][0]["geneSymbol"] == "BRCA1"
     mock_service.get_gene_expression.assert_awaited_once()
 
 
@@ -491,7 +491,7 @@ async def test_get_top_expressed_genes_by_tissue_happy_path() -> None:
             {"tissue_site_detail_id": "Whole_Blood"},
         )
 
-    assert payload["data"][0]["geneSymbol"] == "BRCA1"
+    assert payload["result"]["data"][0]["geneSymbol"] == "BRCA1"
     request = mock_service.get_top_expressed_genes.call_args.args[0]
     assert request.tissue_site_detail_id == "Whole_Blood"
     assert request.filter_mt_gene is True
@@ -797,7 +797,7 @@ async def test_median_populates_num_samples_from_tissue_map() -> None:
             "get_median_expression_levels", {"gencode_id": ["ENSG00000169344.15"]}
         )
 
-    assert payload["genes"][0]["tissues"][0]["n"] == 4
+    assert payload["result"]["genes"][0]["tissues"][0]["n"] == 4
 
 
 @pytest.mark.asyncio
@@ -843,7 +843,7 @@ async def test_median_include_spread_attaches_distribution() -> None:
             {"gencode_id": ["ENSG00000169344.15"], "include_spread": True},
         )
 
-    spread = payload["genes"][0]["tissues"][0]["spread"]
+    spread = payload["result"]["genes"][0]["tissues"][0]["spread"]
     assert spread["min"] == 1224.0 and spread["max"] == 3766.0
     assert spread["iqr"] >= 0
 
@@ -910,10 +910,10 @@ async def test_median_returns_gene_grouped_shape_with_next_commands() -> None:
         )
 
     assert payload["success"] is True
-    assert payload["genes"][0]["geneSymbol"] == "UMOD"
-    assert payload["genes"][0]["tissues"][0]["tissue"] == "Kidney_Medulla"
-    assert payload["genes"][0]["tissues"][0]["n"] == 4
-    assert payload["headline"].startswith("UMOD: highest median in Kidney_Medulla")
+    assert payload["result"]["genes"][0]["geneSymbol"] == "UMOD"
+    assert payload["result"]["genes"][0]["tissues"][0]["tissue"] == "Kidney_Medulla"
+    assert payload["result"]["genes"][0]["tissues"][0]["n"] == 4
+    assert payload["result"]["headline"].startswith("UMOD: highest median in Kidney_Medulla")
     nc = payload["_meta"]["next_commands"]
     assert nc[0]["tool"] == "get_top_expressed_genes_by_tissue"
     assert nc[0]["arguments"]["tissue_site_detail_id"] == "Kidney_Medulla"
@@ -1070,8 +1070,8 @@ async def test_median_gtex_v10_resolves_gene_to_v39_id() -> None:
     assert captured["genes_req"].gencode_version == "v39"
     assert captured["median_req"].gencode_id == ["ENSG00000008710.20"]
     # Acceptance: gtex_v10 median must return non-empty rows for a known gene.
-    assert payload["genes"], "gtex_v10 median returned no gene groups"
-    tissues = payload["genes"][0]["tissues"]
+    assert payload["result"]["genes"], "gtex_v10 median returned no gene groups"
+    tissues = payload["result"]["genes"][0]["tissues"]
     assert tissues, "gtex_v10 median returned empty tissue rows"
     assert tissues[0]["median"] == 510.7
 
@@ -1150,7 +1150,7 @@ async def test_median_multi_tissue_filter_returns_only_requested() -> None:
             },
         )
 
-    gene = payload["genes"][0]
+    gene = payload["result"]["genes"][0]
     tissues = {t["tissue"] for t in gene["tissues"]}
     assert tissues == {"Kidney_Cortex", "Kidney_Medulla"}
     assert gene["tissuesTotal"] == 2
@@ -1176,7 +1176,7 @@ async def test_median_compact_omits_null_keys_and_rounds() -> None:
             "get_median_expression_levels", {"gencode_id": ["ENSG00000169344.15"]}
         )
 
-    tissue = payload["genes"][0]["tissues"][0]
+    tissue = payload["result"]["genes"][0]["tissues"][0]
     assert "ontologyId" not in tissue
     assert "spread" not in tissue
     assert tissue["median"] == 484.383
@@ -1227,7 +1227,7 @@ async def test_individual_adds_n_and_rounds_values() -> None:
             {"gencode_id": ["ENSG00000012048.22"], "tissue_site_detail_id": "Whole_Blood"},
         )
 
-    row = payload["data"][0]
+    row = payload["result"]["data"][0]
     assert row["n"] == 3
     assert row["data"][0] == 1.2346
 
@@ -1270,7 +1270,7 @@ async def test_top_expressed_emits_next_commands_and_rounds_median() -> None:
             "get_top_expressed_genes_by_tissue", {"tissue_site_detail_id": "Kidney_Cortex"}
         )
 
-    assert payload["data"][0]["median"] == 7704.7
+    assert payload["result"]["data"][0]["median"] == 7704.7
     nc = payload["_meta"]["next_commands"]
     assert nc[0]["tool"] == "get_median_expression_levels"
     assert nc[0]["arguments"]["gencode_id"] == ["ENSG00000248527.1"]
@@ -1331,9 +1331,9 @@ async def test_get_gene_information_batch_reports_unmatched_inputs() -> None:
         )
 
     assert payload["success"] is True
-    assert payload["not_found"] == ["NOTAGENE1"]
-    assert payload["requested"] == 3
-    assert payload["returned"] == 1
+    assert payload["result"]["not_found"] == ["NOTAGENE1"]
+    assert payload["result"]["requested"] == 3
+    assert payload["result"]["returned"] == 1
 
 
 @pytest.mark.asyncio
@@ -1346,7 +1346,7 @@ async def test_get_gene_information_full_batch_has_empty_not_found() -> None:
     with patch_service(mock_service):
         payload = await _call_tool("get_gene_information", {"gene_id": ["ENSG00000012048"]})
 
-    assert payload["not_found"] == []
+    assert payload["result"]["not_found"] == []
 
 
 @pytest.mark.asyncio
@@ -1397,10 +1397,10 @@ async def test_get_gene_information_truncated_page_does_not_claim_absence() -> N
     with patch_service(mock_service):
         payload = await _call_tool("get_gene_information", {"gene_id": ["Y_RNA", "BRCA1"]})
 
-    assert "not_found" not in payload
-    assert payload["not_returned"] == ["BRCA1"]
-    assert payload["truncated"] is True
-    assert payload["total"] == 757
+    assert "not_found" not in payload["result"]
+    assert payload["result"]["not_returned"] == ["BRCA1"]
+    assert payload["result"]["truncated"] is True
+    assert payload["result"]["total"] == 757
 
 
 def test_invalid_tissue_message_does_not_echo_caller_input() -> None:

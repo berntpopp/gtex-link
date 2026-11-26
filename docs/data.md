@@ -41,6 +41,9 @@ Provenance names the release the data in front of you **actually came from**:
   against. It is the load-bearing fact: `PKD1` is `ENSG00000008710.19` under `v26`
   but `.20` under `v39`.
 - **`_meta.dataset_id`** echoes the dataset argument back.
+- **`_meta.source`** is `gtex`, **`_meta.data_version`** repeats `gtex_release` under
+  the fleet-wide name, and **`_meta.retrieved_at`** is the UTC time the server fetched
+  the data from the GTEx Portal. A cached answer keeps the time of its original fetch.
 
 So a call with `dataset_id="gtex_v10"` returns `_meta = {..., "gtex_release":
 "gtex_v10", "gencode_version": "v39", "dataset_id": "gtex_v10"}`.

@@ -7,6 +7,7 @@ import hashlib
 import json
 import time
 from collections.abc import Callable
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel
@@ -22,6 +23,26 @@ if TYPE_CHECKING:
 # Type variables for generic function signatures
 P = TypeVar("P")
 R = TypeVar("R")
+
+# Unix times of the upstream fetches behind the current tool call; None outside one. The
+# oldest is the envelope's `_meta.retrieved_at` (Response-Envelope Standard v1.2).
+_FETCH_TIMES: ContextVar[list[float] | None] = ContextVar("gtex_fetch_times", default=None)
+
+
+def _note_fetch(at: float) -> None:
+    times = _FETCH_TIMES.get()
+    if times is not None:
+        times.append(at)
+
+
+async def with_fetch_times[T](call: Callable[[], Awaitable[T]]) -> tuple[T, list[float]]:
+    """Run ``call``; return its result with the fetch times of the data it used."""
+    times: list[float] = []
+    token = _FETCH_TIMES.set(times)
+    try:
+        return await call(), times
+    finally:
+        _FETCH_TIMES.reset(token)
 
 
 def _make_hashable_key(*args: Any, **kwargs: Any) -> str:
@@ -159,6 +180,9 @@ class CacheManager:
                     misses += 1
                     result = await func(*args, **kwargs)
                     cache_dict[hash_key] = (result, time.time())
+
+                # A hit reports the fetch that filled the entry, a miss the one just made.
+                _note_fetch(cache_dict[hash_key][1])
 
                 # Implement LRU eviction if cache is too large
                 if len(cache_dict) > maxsize:

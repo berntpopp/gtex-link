@@ -127,7 +127,7 @@ async def test_get_gene_information_description_is_fenced_typed_object() -> None
         structured, mirror = await _call_tool_both("get_gene_information", {"gene_id": ["BRCA1"]})
 
     for payload in (structured, mirror):
-        gene = payload["data"][0]
+        gene = payload["result"]["data"][0]
         _assert_fenced_hostile(gene["description"], record_id="ENSG00000012048.20")
         _assert_no_synthesized_sibling(gene)
 
@@ -143,7 +143,7 @@ async def test_search_genes_description_is_fenced_typed_object() -> None:
         structured, mirror = await _call_tool_both("search_genes", {"query": "BRCA1"})
 
     for payload in (structured, mirror):
-        gene = payload["data"][0]
+        gene = payload["result"]["data"][0]
         _assert_fenced_hostile(gene["description"], record_id="ENSG00000012048.20")
         _assert_no_synthesized_sibling(gene)
 
@@ -163,7 +163,7 @@ async def test_get_gene_information_null_description_stays_null() -> None:
     with patch_service(mock_service):
         payload = await _call_tool("get_gene_information", {"gene_id": ["BRCA1"]})
 
-    assert payload["data"][0]["description"] is None
+    assert payload["result"]["data"][0]["description"] is None
 
 
 @pytest.mark.asyncio
@@ -178,8 +178,8 @@ async def test_search_genes_large_result_does_not_raise_object_ceiling() -> None
     with patch_service(mock_service):
         payload = await _call_tool("search_genes", {"query": "BRCA1", "limit": 200})
 
-    assert len(payload["data"]) == 200
-    assert payload["data"][0]["description"]["kind"] == "untrusted_text"
+    assert len(payload["result"]["data"]) == 200
+    assert payload["result"]["data"][0]["description"]["kind"] == "untrusted_text"
 
 
 @pytest.mark.asyncio

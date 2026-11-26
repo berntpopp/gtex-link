@@ -139,7 +139,7 @@ async def test_eval_median_top_tissue_is_kidney_medulla_and_compact() -> None:
             {"gencode_id": ["ENSG00000169344.15"], "top_n": 1},
         )
     payload = json.loads(raw.content[0].text)
-    top = payload["genes"][0]["tissues"][0]
+    top = payload["result"]["genes"][0]["tissues"][0]
     assert top["tissue"] == "Kidney_Medulla"
     assert top["n"] == 4
     # Token budget: the compact top_n=1 payload stays small.
