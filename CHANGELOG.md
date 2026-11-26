@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [4.1.2] - 2026-11-26
+
+### Fixed
+
+- `get_server_capabilities` declares `annotations.readOnlyHint` (read-only, closed world), as every other tool does (GTS-CORE-RO-01).
+
 ## [4.1.1] - 2026-11-26
 
 ### Fixed
