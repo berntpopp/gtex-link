@@ -66,3 +66,15 @@ async def test_capabilities_tool_and_resources_registered() -> None:
     uris = {str(r.uri) for r in resources}
     assert "gtex://capabilities" in uris
     assert "gtex://reference" in uris
+
+
+@pytest.mark.asyncio
+async def test_every_tool_declares_read_only_hint() -> None:
+    """GTS-CORE-RO-01: every tool, the capabilities tool included, declares readOnlyHint."""
+    mcp = create_gtex_mcp(profile=MCPToolProfile.FULL)
+    missing = [
+        t.name
+        for t in await mcp.list_tools()
+        if t.annotations is None or t.annotations.readOnlyHint is not True
+    ]
+    assert missing == []

@@ -7,6 +7,7 @@ import hashlib
 import json
 from typing import TYPE_CHECKING, Any
 
+from gtex_link.mcp.annotations import READ_ONLY_LOCAL
 from gtex_link.mcp.envelope import McpToolError
 from gtex_link.mcp.profiles import MCPToolProfile, is_tool_in_profile
 from gtex_link.mcp.resources import GTEX_DATA_RELEASE, RECOMMENDED_CITATION
@@ -222,6 +223,7 @@ def register_metadata_tools(mcp: FastMCP, *, profile: MCPToolProfile) -> None:
         name="get_server_capabilities",
         title="Get Server Capabilities",
         tags={"meta", "discovery"},
+        annotations=READ_ONLY_LOCAL,
         output_schema=None,
         description=(
             "Return supported tools, datasets, the tissue vocabulary, recommended "
